@@ -1,0 +1,46 @@
+#!/bin/sh
+#
+# @name Generic Hexarotor coaxial geometry
+#
+# @type Hexarotor Coaxial
+# @class Copter
+#
+# @output Motor1 front right top, CW; angle:60; direction:CW
+# @output Motor2 front right bottom, CCW; angle:60; direction:CCW
+# @output Motor3 back top, CW; angle:180; direction:CW
+# @output Motor4 back bottom, CCW; angle:180; direction:CCW
+# @output Motor5 front left top, CW; angle:-60; direction:CW
+# @output Motor6 front left bottom, CCW;angle:-60; direction:CCW
+#
+# @maintainer Lorenz Meier <lorenz@px4.io>
+#
+# @board bitcraze_crazyflie exclude
+# @board px4_fmu-v2 exclude
+#
+
+. ${R}etc/init.d/rc.mc_defaults
+
+param set-default MAV_TYPE 13
+
+param set-default CA_ROTOR_COUNT 6
+param set-default CA_ROTOR0_PX 0.25
+param set-default CA_ROTOR0_PY 0.433
+param set-default CA_ROTOR0_PZ -0.05
+param set-default CA_ROTOR0_KM -0.05
+param set-default CA_ROTOR1_PX 0.25
+param set-default CA_ROTOR1_PY 0.433
+param set-default CA_ROTOR1_PZ 0.05
+param set-default CA_ROTOR2_PX -0.5
+param set-default CA_ROTOR2_PY 0
+param set-default CA_ROTOR2_PZ -0.05
+param set-default CA_ROTOR2_KM -0.05
+param set-default CA_ROTOR3_PX -0.5
+param set-default CA_ROTOR3_PY 0
+param set-default CA_ROTOR3_PZ 0.05
+param set-default CA_ROTOR4_PX 0.25
+param set-default CA_ROTOR4_PY -0.433
+param set-default CA_ROTOR4_PZ -0.05
+param set-default CA_ROTOR4_KM -0.05
+param set-default CA_ROTOR5_PX 0.25
+param set-default CA_ROTOR5_PY -0.433
+param set-default CA_ROTOR5_PZ 0.05

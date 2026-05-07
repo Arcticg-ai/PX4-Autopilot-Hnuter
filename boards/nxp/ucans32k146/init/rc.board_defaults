@@ -1,0 +1,16 @@
+#!/bin/sh
+#
+# board specific defaults
+#------------------------------------------------------------------------------
+
+pwm_out start
+
+ifup can0
+
+# Start Cyphal when enabled
+if param compare -s CYPHAL_ENABLE 1
+then
+    cyphal start
+fi
+
+rgbled_ncp5623c start -X -a 56

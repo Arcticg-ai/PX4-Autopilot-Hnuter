@@ -1,0 +1,15 @@
+#!/bin/sh
+#
+# Holybro KakuteH7v2 specific board sensors init
+#------------------------------------------------------------------------------
+board_adc start
+
+if ! bmi270 -s -q start
+then
+	icm42688p -R 0 -s start
+fi
+
+if ! bmp280 -X start
+then
+	spa06 -X start
+fi

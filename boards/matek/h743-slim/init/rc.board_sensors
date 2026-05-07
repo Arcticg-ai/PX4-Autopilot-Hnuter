@@ -1,0 +1,32 @@
+#!/bin/sh
+#
+# board specific sensors init
+#------------------------------------------------------------------------------
+
+board_adc start
+
+# Different board versions have different IMUs, so we try all known options
+
+# Internal SPI bus ICM-42688P (SPI1) on V3 board, PITCH180 orientation
+if ! icm42688p -s -b 1 -R 12 start
+then
+	# Internal SPI bus MPU-6000 on V1.0 and V1.5 boards
+	mpu6000 -s -b 1 -R 12 start
+fi
+
+# Internal SPI bus ICM-42688P (SPI4) on V3 board, PITCH180_YAW90 orientation
+if ! icm42688p -s -b 4 -R 26 start
+then
+	# Internal SPI bus ICM-42605 on V1.5 board, ROTATION_ROLL_180_YAW_270 orientation
+	if ! icm42605 -s -b 4 -R 14 start
+	then
+		# Internal SPI bus ICM-20602 on V1.0 board, PITCH180 orientation
+		icm20602 -s -b 4 -R 12 start
+	fi
+fi
+
+# Internal baro
+dps310 -I start -a 118
+
+# External mag
+qmc5883l -X start -a 13

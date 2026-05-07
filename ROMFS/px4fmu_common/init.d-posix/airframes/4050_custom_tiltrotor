@@ -1,0 +1,117 @@
+#!/bin/sh
+#
+# @name Custom 3-axis Dual-tilt Tiltrotor
+#
+# @type VTOL Tiltrotor
+#
+
+. ${R}etc/init.d/rc.vtol_defaults
+
+PX4_SIMULATOR=${PX4_SIMULATOR:=gz}
+PX4_GZ_WORLD=${PX4_GZ_WORLD:=default}
+PX4_SIM_MODEL=${PX4_SIM_MODEL:=custom_tiltrotor}
+
+param set-default SIM_GZ_EN 1 # Gazebo bridge
+
+param set-default MAV_TYPE 21
+
+param set-default CA_AIRFRAME 3
+
+# 5 motors configuration (3-axis dual-tilt)
+param set-default CA_ROTOR_COUNT 5
+
+# Motor positions based on MuJoCo model
+# Right upper motor
+param set-default CA_ROTOR0_PX 0.0
+param set-default CA_ROTOR0_PY 0.3
+param set-default CA_ROTOR0_PZ 0.05
+param set-default CA_ROTOR0_KM 0.05
+
+# Right lower motor
+param set-default CA_ROTOR1_PX 0.0
+param set-default CA_ROTOR1_PY 0.3
+param set-default CA_ROTOR1_PZ -0.05
+param set-default CA_ROTOR1_KM -0.05
+
+# Left upper motor
+param set-default CA_ROTOR2_PX 0.0
+param set-default CA_ROTOR2_PY -0.3
+param set-default CA_ROTOR2_PZ 0.05
+param set-default CA_ROTOR2_KM 0.05
+
+# Left lower motor
+param set-default CA_ROTOR3_PX 0.0
+param set-default CA_ROTOR3_PY -0.3
+param set-default CA_ROTOR3_PZ -0.05
+param set-default CA_ROTOR3_KM -0.05
+
+# Rear motor
+param set-default CA_ROTOR4_PX -0.5
+param set-default CA_ROTOR4_PY 0.0
+param set-default CA_ROTOR4_PZ 0.0
+param set-default CA_ROTOR4_KM 0.05
+
+# Tilt configurations
+param set-default CA_ROTOR0_TILT 1
+param set-default CA_ROTOR1_TILT 1
+param set-default CA_ROTOR2_TILT 2
+param set-default CA_ROTOR3_TILT 2
+param set-default CA_ROTOR4_TILT 0
+
+# Tilt servo parameters
+param set-default CA_SV_TL_COUNT 4
+
+# Right arm pitch tilt (yaw axis)
+param set-default CA_SV_TL0_MAXA 180
+param set-default CA_SV_TL0_MINA -180
+param set-default CA_SV_TL0_TD 0
+param set-default CA_SV_TL0_CT 1
+
+# Left arm pitch tilt (yaw axis)
+param set-default CA_SV_TL1_MAXA 180
+param set-default CA_SV_TL1_MINA -180
+param set-default CA_SV_TL1_TD 0
+param set-default CA_SV_TL1_CT 1
+
+# Right prop tilt (roll axis)
+param set-default CA_SV_TL2_MAXA 180
+param set-default CA_SV_TL2_MINA -180
+param set-default CA_SV_TL2_TD 1
+param set-default CA_SV_TL2_CT 1
+
+# Left prop tilt (roll axis)
+param set-default CA_SV_TL3_MAXA 180
+param set-default CA_SV_TL3_MINA -180
+param set-default CA_SV_TL3_TD 1
+param set-default CA_SV_TL3_CT 1
+
+# No control surfaces for this configuration
+param set-default CA_SV_CS_COUNT 0
+
+# VTOL parameters
+param set-default VT_TYPE 1
+param set-default VT_FWD_THRUST_EN 4
+param set-default VT_FWD_THRUST_SC 0.6
+param set-default VT_TILT_TRANS 0.6
+
+# Multicopter parameters
+param set-default MC_AIRMODE 1
+param set-default MC_YAWRATE_P 0.4
+param set-default MC_YAWRATE_I 0.1
+
+# Fixed wing parameters
+param set-default NPFG_PERIOD 12
+param set-default FW_PR_FF 0.2
+param set-default FW_PR_P 0.9
+param set-default FW_RR_FF 0.1
+param set-default FW_RR_P 0.3
+param set-default FW_THR_TRIM 0.38
+param set-default FW_THR_MAX 0.6
+param set-default FW_THR_MIN 0.05
+
+# Mission parameters
+param set-default MIS_TAKEOFF_ALT 10
+
+# Control allocation parameters for overactuated system
+param set-default CA_METHOD 1 # Pseudo-inverse with sequential desaturation
+param set-default CA_R_REV 0

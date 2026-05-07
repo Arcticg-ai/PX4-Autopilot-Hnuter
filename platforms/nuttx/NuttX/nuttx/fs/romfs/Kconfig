@@ -1,0 +1,23 @@
+#
+# For a description of the syntax of this configuration file,
+# see the file kconfig-language.txt in the NuttX tools repository.
+#
+
+config FS_ROMFS
+	bool "ROMFS file system"
+	default n
+	depends on !DISABLE_MOUNTPOINT
+	---help---
+		Enable ROMFS filesystem support
+
+if FS_ROMFS
+
+config FS_ROMFS_CACHE_NODE
+	bool "Enable cache node of ROMFS file system"
+	default !DEFAULT_SMALL
+	---help---
+		All node will be cached to ram when file system
+		is mounted so that we can quick access entry of ROMFS
+		filesystem on emmc/sdcard.
+
+endif

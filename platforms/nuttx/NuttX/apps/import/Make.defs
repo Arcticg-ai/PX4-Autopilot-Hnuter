@@ -1,0 +1,94 @@
+############################################################################
+# apps/import/Make.defs
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.  The
+# ASF licenses this file to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance with the
+# License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
+# License for the specific language governing permissions and limitations
+# under the License.
+#
+############################################################################
+
+include $(TOPDIR)/.config
+include $(TOPDIR)/tools/Config.mk
+-include $(TOPDIR)/scripts/Config.mk
+include $(TOPDIR)/scripts/Make.defs
+
+# Tool related definitions
+# Compiler
+
+ARCHCRT0OBJ = $(call CONVERT_PATH,$(TOPDIR)$(DELIM)startup$(DELIM)crt0$(OBJEXT))
+ARCHINCLUDES += ${shell $(INCDIR) -s "$(CC)" $(TOPDIR)$(DELIM)include}
+
+ARCHXXINCLUDES += ${shell $(INCDIR) -s "$(CC)" $(TOPDIR)$(DELIM)include}
+ARCHXXINCLUDES += ${shell $(INCDIR) -s "$(CC)" $(TOPDIR)$(DELIM)include$(DELIM)cxx}
+
+ARCHCFLAGS += -fno-common -pipe
+ARCHCXXFLAGS += -fno-common -nostdinc++ -pipe
+
+CFLAGS = $(ARCHCFLAGS) $(ARCHWARNINGS) $(ARCHOPTIMIZATION) $(ARCHCPUFLAGS) $(ARCHINCLUDES) $(ARCHDEFINES) $(EXTRADEFINES)
+CPICFLAGS = $(ARCHPICFLAGS) $(CFLAGS)
+
+CXXFLAGS = $(ARCHCXXFLAGS) $(ARCHWARNINGSXX) $(ARCHOPTIMIZATION) $(ARCHCPUFLAGS) $(ARCHXXINCLUDES) $(ARCHDEFINES) $(EXTRADEFINES)
+CXXPICFLAGS = $(ARCHPICFLAGS) $(CXXFLAGS)
+
+ifeq ($(LDSTARTGROUP),)
+LDSTARTGROUP = --start-group
+endif
+
+ifeq ($(LDENDGROUP),)
+LDENDGROUP   = --end-group
+endif
+
+# ELF module definitions
+
+CELFFLAGS = $(CFLAGS)
+CXXELFFLAGS = $(CXXFLAGS)
+
+# C Pre-processor
+
+CPPFLAGS = $(ARCHINCLUDES) $(ARCHDEFINES) $(EXTRADEFINES)
+AFLAGS = $(CFLAGS) -D__ASSEMBLY__
+
+# Linker
+
+LDLIBPATH = $(addprefix -L,$(call CONVERT_PATH,$(TOPDIR)$(DELIM)libs))
+
+# Link with user libraries
+
+ifeq ($(CONFIG_BUILD_KERNEL),y)
+  LDLIBS = -lapps -lmm -lc -lproxies
+  ifeq ($(CONFIG_HAVE_CXX),y)
+    LDLIBS += -lxx
+  endif
+ifneq ($(CONFIG_LIBM),y)
+  LIBM = ${shell "$(CC)" $(ARCHCPUFLAGS) --print-file-name=libm.a}
+ifneq ($(LIBM),".")
+  LDLIBPATH += -L "${shell dirname $(LIBM)}"
+  LDLIBS += -lm
+endif
+endif
+endif
+
+# Try to get the path to libgcc.a.  Of course, this only works for GCC
+# toolchains.
+
+LIBGCC = ${shell "$(CC)" $(ARCHCPUFLAGS) --print-file-name=libgcc.a}
+ifneq ($(LIBGCC),".")
+  LDLIBPATH += -L "${shell dirname $(LIBGCC)}"
+  LDLIBS += -lgcc
+endif
+
+# ELF module definitions
+
+LDELFFLAGS = -r -e _start -Bstatic
+LDELFFLAGS += $(addprefix -T,$(call CONVERT_PATH,$(TOPDIR)/scripts/gnu-elf.ld))

@@ -1,0 +1,569 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- This URDF was automatically created by SolidWorks to URDF Exporter! Originally created by Stephen Brawner (brawner@gmail.com) 
+     Commit Version: 1.6.0-4-g7f85cfe  Build Version: 1.6.7995.38578
+     For more information, please see http://wiki.ros.org/sw_urdf_exporter -->
+<robot
+  name="HDJQR-0102-0055.SLDASM">
+  <link
+    name="base_link">
+    <inertial>
+      <origin
+        xyz="0.0359209078495765 -0.000473046542141413 -0.0390188140995077"
+        rpy="0 0 0" />
+      <mass
+        value="5.95599417730644" />
+      <inertia
+        ixx="0.00533272269270679"
+        ixy="2.89212568524455E-06"
+        ixz="8.78234888917817E-06"
+        iyy="0.0172139094269325"
+        iyz="-1.16537498103387E-07"
+        izz="0.0202509310236266" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://HDJQR-0102-0055.SLDASM/meshes/base_link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://HDJQR-0102-0055.SLDASM/meshes/base_link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <link
+    name="xy5">
+    <inertial>
+      <origin
+        xyz="1.10057046868778E-06 1.87880393909268E-07 0.000708802641875526"
+        rpy="0 0 0" />
+      <mass
+        value="0.0289694368154207" />
+      <inertia
+        ixx="2.46211877538045E-05"
+        ixy="7.99436536745056E-05"
+        ixz="-5.30787855086926E-10"
+        iyy="0.000301588660504413"
+        iyz="-4.95301464177069E-09"
+        izz="0.000325993711929158" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://HDJQR-0102-0055.SLDASM/meshes/xy5.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.501960784313725 0 0 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://HDJQR-0102-0055.SLDASM/meshes/xy5.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="xyj5"
+    type="continuous">
+    <origin
+      xyz="-0.767999999999999 0 0.014875"
+      rpy="0 0 -1.5707963267949" />
+    <parent
+      link="base_link" />
+    <child
+      link="xy5" />
+    <axis
+      xyz="0 0 -1" />
+    <limit
+      lower="-10"
+      upper="10"
+      effort="0"
+      velocity="0" />
+  </joint>
+  <link
+    name="r2">
+    <inertial>
+      <origin
+        xyz="7.145044812484E-05 -0.0392313627048175 0.160772984085926"
+        rpy="0 0 0" />
+      <mass
+        value="0.83968612942946" />
+      <inertia
+        ixx="0.00673719731912822"
+        ixy="4.96408511596157E-07"
+        ixz="-2.07903920871089E-07"
+        iyy="0.00159925504363006"
+        iyz="9.0048362865675E-05"
+        izz="0.00527979400014687" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://HDJQR-0102-0055.SLDASM/meshes/r2.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://HDJQR-0102-0055.SLDASM/meshes/r2.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="rj2"
+    type="revolute">
+    <origin
+      xyz="0 -0.085500008330717 -0.0128750149542008"
+      rpy="1.5707963267949 1.5707963267949 0" />
+    <parent
+      link="base_link" />
+    <child
+      link="r2" />
+    <axis
+      xyz="0 0 -1" />
+    <limit
+      lower="-1.57"
+      upper="1.57"
+      effort="0"
+      velocity="0" />
+  </joint>
+  <link
+    name="r1">
+    <inertial>
+      <origin
+        xyz="9.30466671190677E-05 2.2349813872391E-05 -0.223443844620229"
+        rpy="0 0 0" />
+      <mass
+        value="0.484385739464898" />
+      <inertia
+        ixx="0.00096555050899191"
+        ixy="6.08818609812896E-12"
+        ixz="-1.05724087454146E-08"
+        iyy="0.00099854740112098"
+        iyz="-2.08713841902879E-11"
+        izz="8.66172797694243E-05" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://HDJQR-0102-0055.SLDASM/meshes/r1.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.780392156862745 0.972549019607843 0.956862745098039 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://HDJQR-0102-0055.SLDASM/meshes/r1.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="rj1"
+    type="revolute">
+    <origin
+      xyz="0 -0.244700003721606 0.324499997917315"
+      rpy="1.5707963267949 -1.5707963267949 0" />
+    <parent
+      link="r2" />
+    <child
+      link="r1" />
+    <axis
+      xyz="0 0 -1" />
+    <limit
+      lower="-1.57"
+      upper="1.57"
+      effort="0"
+      velocity="0" />
+  </joint>
+  <link
+    name="xy1">
+    <inertial>
+      <origin
+        xyz="4.01606228161988E-07 -1.03676963247319E-06 0.000693207458100073"
+        rpy="0 0 0" />
+      <mass
+        value="0.0289694368059278" />
+      <inertia
+        ixx="0.000321597463119797"
+        ixy="-2.11860431161984E-05"
+        ixz="-4.96185450871973E-09"
+        iyy="4.61238620509702E-06"
+        iyz="-4.40689538559192E-10"
+        izz="0.000325993712991362" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://HDJQR-0102-0055.SLDASM/meshes/xy1.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.501960784313725 0 0 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://HDJQR-0102-0055.SLDASM/meshes/xy1.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="xyj1"
+    type="continuous">
+    <origin
+      xyz="0 0.0450000117002133 -0.244699989620948"
+      rpy="-1.5707963267949 0 0" />
+    <parent
+      link="r1" />
+    <child
+      link="xy1" />
+    <axis
+      xyz="0 0 -1" />
+    <limit
+      lower="-10"
+      upper="10"
+      effort="0"
+      velocity="0" />
+  </joint>
+  <link
+    name="xy2">
+    <inertial>
+      <origin
+        xyz="-8.47437764350811E-07 7.11773426216617E-07 0.000693223402547287"
+        rpy="0 0 0" />
+      <mass
+        value="0.0289694369330827" />
+      <inertia
+        ixx="0.000265508792989947"
+        ixy="0.000122809515593011"
+        ixz="4.13130942589234E-09"
+        iyy="6.07010418128929E-05"
+        iyz="2.78311667320247E-09"
+        izz="0.00032599369851842" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://HDJQR-0102-0055.SLDASM/meshes/xy2.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.501960784313725 0 0 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://HDJQR-0102-0055.SLDASM/meshes/xy2.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="xyj2"
+    type="continuous">
+    <origin
+      xyz="0 -0.0449999882998028 -0.244699989620977"
+      rpy="1.5707963267949 0 0" />
+    <parent
+      link="r1" />
+    <child
+      link="xy2" />
+    <axis
+      xyz="0 0 -1" />
+    <limit
+      lower="-10"
+      upper="10"
+      effort="0"
+      velocity="0" />
+  </joint>
+  <link
+    name="l2">
+    <inertial>
+      <origin
+        xyz="6.75249363630628E-05 0.0326712514232789 -0.165320554733758"
+        rpy="0 0 0" />
+      <mass
+        value="0.863668298517312" />
+      <inertia
+        ixx="0.00673902873710257"
+        ixy="-4.92568061426216E-07"
+        ixz="2.17778645272729E-07"
+        iyy="0.00160098462316541"
+        iyz="9.00526875971764E-05"
+        izz="0.00528161503003662" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://HDJQR-0102-0055.SLDASM/meshes/l2.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://HDJQR-0102-0055.SLDASM/meshes/l2.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="lj2"
+    type="revolute">
+    <origin
+      xyz="0 0.0855000000000096 -0.0128750000030618"
+      rpy="1.5707963267949 1.5707963267949 0" />
+    <parent
+      link="base_link" />
+    <child
+      link="l2" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="-1.57"
+      upper="1.57"
+      effort="0"
+      velocity="0" />
+  </joint>
+  <link
+    name="l1">
+    <inertial>
+      <origin
+        xyz="-9.34016457480591E-05 1.41486477625574E-06 0.223434306719957"
+        rpy="0 0 0" />
+      <mass
+        value="0.483858324842276" />
+      <inertia
+        ixx="0.000965663792506058"
+        ixy="-1.95651602215628E-06"
+        ixz="-1.05551677508614E-08"
+        iyy="0.000998429929110158"
+        iyz="-6.07227059769482E-10"
+        izz="8.66141539644699E-05" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://HDJQR-0102-0055.SLDASM/meshes/l1.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.780392156862745 0.972549019607843 0.956862745098039 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://HDJQR-0102-0055.SLDASM/meshes/l1.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="lj1"
+    type="revolute">
+    <origin
+      xyz="0 0.244699999614929 -0.3245"
+      rpy="1.5707963267949 -1.5707963267949 0" />
+    <parent
+      link="l2" />
+    <child
+      link="l1" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="-1.57"
+      upper="1.57"
+      effort="0"
+      velocity="0" />
+  </joint>
+  <link
+    name="xy3">
+    <inertial>
+      <origin
+        xyz="-2.95163165686674E-07 -6.82056824052742E-08 0.000693233658107077"
+        rpy="0 0 0" />
+      <mass
+        value="0.028968805386666" />
+      <inertia
+        ixx="0.000159669455210579"
+        ixy="-0.000159862473220251"
+        ixz="-3.61041142619143E-09"
+        iyy="0.000166533190134299"
+        iyz="3.44534353469012E-09"
+        izz="0.000325986536730944" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://HDJQR-0102-0055.SLDASM/meshes/xy3.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.501960784313725 0 0 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://HDJQR-0102-0055.SLDASM/meshes/xy3.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="xyj3"
+    type="continuous">
+    <origin
+      xyz="0.00267276914357811 -0.0449205556636787 0.244699998785246"
+      rpy="1.5707963267949 0 0.059429866219687" />
+    <parent
+      link="l1" />
+    <child
+      link="xy3" />
+    <axis
+      xyz="0 0 -1" />
+    <limit
+      lower="-10"
+      upper="10"
+      effort="0"
+      velocity="0" />
+  </joint>
+  <link
+    name="xy4">
+    <inertial>
+      <origin
+        xyz="-3.35068185752796E-07 -1.09872108884365E-07 0.000693235043219081"
+        rpy="0 0 0" />
+      <mass
+        value="0.0289687904125558" />
+      <inertia
+        ixx="0.000147650497863949"
+        ixy="-0.000159151017812699"
+        ixz="-3.47969396847373E-09"
+        iyy="0.000178552056154144"
+        iyz="3.57807804044448E-09"
+        izz="0.000325986445578563" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://HDJQR-0102-0055.SLDASM/meshes/xy4.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.501960784313725 0 0 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://HDJQR-0102-0055.SLDASM/meshes/xy4.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="xyj4"
+    type="continuous">
+    <origin
+      xyz="-0.00267277084968975 0.0449205552057727 0.244699998787766"
+      rpy="-1.5707963267949 0 0.0594298662196879" />
+    <parent
+      link="l1" />
+    <child
+      link="xy4" />
+    <axis
+      xyz="0 0 -1" />
+    <limit
+      lower="-10"
+      upper="10"
+      effort="0"
+      velocity="0" />
+  </joint>
+</robot>

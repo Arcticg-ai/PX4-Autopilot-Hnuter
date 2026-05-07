@@ -1,0 +1,46 @@
+############################################################################
+# arch/arm/src/lpc31xx/Make.defs
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.  The
+# ASF licenses this file to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance with the
+# License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
+# License for the specific language governing permissions and limitations
+# under the License.
+#
+############################################################################
+
+include arm/Make.defs
+
+CGU_CSRCS  = lpc31_bcrndx.c lpc31_clkdomain.c lpc31_clkexten.c
+CGU_CSRCS += lpc31_clkfreq.c lpc31_clkinit.c lpc31_defclk.c
+CGU_CSRCS += lpc31_esrndx.c lpc31_fdcndx.c lpc31_fdivinit.c
+CGU_CSRCS += lpc31_freqin.c lpc31_pllconfig.c lpc31_resetclks.c
+CGU_CSRCS += lpc31_setfreqin.c lpc31_setfdiv.c lpc31_softreset.c
+
+CHIP_ASRCS  = $(CGU_ASRCS)
+
+CHIP_CSRCS  = lpc31_allocateheap.c lpc31_boot.c lpc31_decodeirq.c
+CHIP_CSRCS += lpc31_irq.c lpc31_lowputc.c lpc31_serial.c lpc31_i2c.c
+CHIP_CSRCS += lpc31_spi.c $(CGU_CSRCS)
+
+ifneq ($(CONFIG_SCHED_TICKLESS),y)
+CHIP_CSRCS += lpc31_timerisr.c
+endif
+
+ifeq ($(CONFIG_LPC31_USBOTG),y)
+ifeq ($(CONFIG_USBHOST),y)
+CHIP_CSRCS += lpc31_ehci.c
+endif
+ifeq ($(CONFIG_USBDEV),y)
+CHIP_CSRCS += lpc31_usbdev.c
+endif
+endif

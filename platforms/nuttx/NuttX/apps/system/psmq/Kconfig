@@ -1,0 +1,98 @@
+#
+# For a description of the syntax of this configuration file,
+# see the file kconfig-language.txt in the NuttX tools repository.
+#
+
+comment "psmq requires SYSTEM_EMBEDLOG and !DISABLE_MQUEUE"
+	depends on DISABLE_MQUEUE || !SYSTEM_EMBEDLOG
+
+menuconfig SYSTEM_PSMQ
+	bool "psmq"
+	default n
+	depends on !DISABLE_MQUEUE && SYSTEM_EMBEDLOG
+	---help---
+		psmq is tool set which allows IPC communication in publish/subscribe way
+		created on top of posix messege queue. Full documentation is available
+		at: https://psmq.bofc.pl (despite the domain, it is in english).
+
+		Library is licensed under BSD 2-clause license. See LICENSE file in
+		the downloaded code for license details.
+
+if SYSTEM_PSMQ
+
+config PSMQ_MAX_CLIENTS
+	int "Max number of clients"
+	default 8
+	---help---
+		This  defines  how  many  clients  single  broker process will
+		support.  Broker will return error for clients that want to
+		register to it and there are already max clients connected.  psmqd
+		will  allocate client array with static storage duration that is
+		about 12 bytes (may vary depending on architecture) for each
+		client.
+
+config PSMQ_MSG_MAX
+	int "Max size of payload"
+	range 6 2147483647
+	default 24
+	---help---
+		Defines maximum size of message that can be sent via psmq.
+		Message consists of topic and payload. Topic is always
+		null-terminated after which payload follows. This allows
+		for some flexibility, ie if PSMQ_MSG_MAX was be 10, then
+		topic could be 3 bytes long and payload 7, but also
+		topic could take 9 bytes and payload only 1.
+
+		This value has direct impact on runtime memory usage by
+		psmq as this increases size of struct that is used when
+		allocating memory for client. This has no impact on
+		number of bytes that are sent because only actual data
+		is sent over mqueue.
+
+config PSMQD_PRIORITY
+	int "psmqd broker task priority"
+	default 100
+
+config PSMQD_STACKSIZE
+	int "psmqd broker stack size"
+	default DEFAULT_TASK_STACKSIZE
+
+config PSMQ_TOOLS_PUB
+	bool "Enable psmq_pub tool"
+	default n
+	---help---
+		Enables program which allows to publish message over psmq directly
+		from command line.
+
+if PSMQ_TOOLS_PUB
+
+config PSMQ_PUB_PRIORITY
+	int "psmq_pub broker task priority"
+	default 100
+
+config PSMQ_PUB_STACKSIZE
+	int "psmq_pub broker stack size"
+	default DEFAULT_TASK_STACKSIZE
+
+endif # PSMQ_TOOLS_PUB
+
+config PSMQ_TOOLS_SUB
+	bool "Enable psmq_sub tool"
+	default n
+	---help---
+		Enables program which allows to listen to published messages on
+		chosen topics. It also has capabilities to log these messages to
+		a chosen file.
+
+if PSMQ_TOOLS_SUB
+
+config PSMQ_SUB_PRIORITY
+	int "psmq_sub broker task priority"
+	default 100
+
+config PSMQ_SUB_STACKSIZE
+	int "psmq_sub broker stack size"
+	default DEFAULT_TASK_STACKSIZE
+
+endif # PSMQ_TOOLS_SUB
+endif # SYSTEM_PSMQ

@@ -1,0 +1,66 @@
+############################################################################
+# apps/examples/thttpd/content/Makefile.binfs
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.  The
+# ASF licenses this file to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance with the
+# License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
+# License for the specific language governing permissions and limitations
+# under the License.
+#
+############################################################################
+
+include $(APPDIR)/Make.defs
+
+PROGNAME = hello tasks
+PRIORITY = $(CONFIG_THTTPD_CGI_PRIORITY)
+STACKSIZE = $(CONFIG_THTTPD_CGI_STACKSIZE)
+
+CSRCS = hello.c tasks.c
+
+DEPPATH += --dep-path hello --dep-path tasks
+VPATH += :hello:tasks
+
+include $(APPDIR)/Application.mk
+
+THTTPD_DIR = $(APPDIR)/examples/thttpd
+CONTENT_DIR = $(THTTPD_DIR)/content
+ROMFS_DIR = $(CONTENT_DIR)/romfs
+ROMFS_IMG = $(CONTENT_DIR)/romfs.img
+ROMFS_SRC = $(CONTENT_DIR)/romfs.c
+
+# Populate the romfs directory
+
+$(ROMFS_DIR)/index.html : $(CONTENT_DIR)/index.html
+	$(Q) mkdir -p $(ROMFS_DIR)
+	$(Q) cp -a $< $@ || { echo "cp of index.html failed"; exit 1; }
+
+$(ROMFS_DIR)/style.css : $(CONTENT_DIR)/style.css
+	$(Q) mkdir -p $(ROMFS_DIR)
+	$(Q) cp -a $< $@ || { echo "cp of $< failed"; exit 1; }
+
+# Create the romfs.img file from the populated romfs directory
+
+$(ROMFS_IMG): $(ROMFS_DIR)/index.html $(ROMFS_DIR)/style.css
+	$(Q) genromfs -f $@ -d $(ROMFS_DIR) -V "THTTPDTEST"
+
+# Create the romfs.c file from the romfs.img file
+
+$(ROMFS_SRC): $(ROMFS_IMG)
+	$(Q) (cd $(CONTENT_DIR) && echo "#include <nuttx/compiler.h>" >$@ && \
+	      xxd -i romfs.img | sed -e "s/^unsigned char/const unsigned char aligned_data(4)/g" >>$@)
+
+all:: $(ROMFS_SRC)
+
+clean::
+	$(call DELFILE, $(ROMFS_SRC))
+	$(call DELFILE, $(ROMFS_IMG))
+	$(Q) rm -rf $(ROMFS_DIR)

@@ -1,0 +1,64 @@
+/****************************************************************************/
+/* boards/z80/z8encore000zco/ostest/ostest.linkcmd                          */
+/*                                                                          */
+/* Licensed to the Apache Software Foundation (ASF) under one or more       */
+/* contributor license agreements.  See the NOTICE file distributed with    */
+/* this work for additional information regarding copyright ownership.  The */
+/* ASF licenses this file to you under the Apache License, Version 2.0 (the */
+/* "License"); you may not use this file except in compliance with the      */
+/* License.  You may obtain a copy of the License at                        */
+/*                                                                          */
+/*   http://www.apache.org/licenses/LICENSE-2.0                             */
+/*                                                                          */
+/* Unless required by applicable law or agreed to in writing, software      */
+/* distributed under the License is distributed on an "AS IS" BASIS, WITHOUT*/
+/* WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the*/
+/* License for the specific language governing permissions and limitations  */
+/* under the License.                                                       */
+/*                                                                          */
+/****************************************************************************/
+
+-FORMAT=OMF695,INTEL32
+-map -maxhexlen=64 -quiet -sort NAME=ascending -unresolved=fatal
+-NOwarnoverlap -NOxref -warn -debug -NOigcase -quiet
+
+RANGE ROM $0 : $FFFF
+RANGE RDATA $20 : $FF
+RANGE EDATA $100 : $EFF
+RANGE PRAM FORBIDDEN
+
+CHANGE TEXT=EDATA
+CHANGE TEXT=FAR_DATA
+change NEAR_TXT=NEAR_DATA
+change FAR_TXT=FAR_DATA
+ORDER FAR_BSS, FAR_DATA
+ORDER NEAR_BSS,NEAR_DATA
+COPY NEAR_DATA ROM
+COPY FAR_DATA ROM
+
+define _low_near_romdata = copy base of NEAR_DATA
+define _low_neardata = base of NEAR_DATA
+define _len_neardata = length of NEAR_DATA
+define _low_far_romdata = copy base of FAR_DATA
+define _low_fardata = base of FAR_DATA
+define _len_fardata = length of FAR_DATA
+define _low_nearbss = base of NEAR_BSS
+define _len_nearbss = length of NEAR_BSS
+define _low_farbss = base of FAR_BSS
+define _len_farbss = length of FAR_BSS
+define _far_stacktop = highaddr of EDATA
+define _near_stack = highaddr of RDATA
+define _far_heapbot = top of EDATA
+define _near_heaptop = highaddr of RDATA
+define _near_heapbot = top of RDATA
+define _low_pramseg = base of PRAMSEG
+define _len_pramseg = length of PRAMSEG
+define _low_pram_romdata = copy base of PRAMSEG
+define _READ_NVDS=$1000
+define _WRITE_NVDS=$10B3
+define _READ_NVDS_GET_STATUS=$1000
+define _WRITE_NVDS_GET_STATUS=$10B3
+/* Set frequency to 18432000 Hz */
+define __user_frequency = 18432000
+
+/* arch/z80/src/Makefile.zdsii will append target, object and library paths below */

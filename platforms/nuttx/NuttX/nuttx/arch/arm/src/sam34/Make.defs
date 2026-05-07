@@ -1,0 +1,143 @@
+############################################################################
+# arch/arm/src/sam34/Make.defs
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.  The
+# ASF licenses this file to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance with the
+# License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
+# License for the specific language governing permissions and limitations
+# under the License.
+#
+############################################################################
+
+# The start-up, "head", file
+
+# Common ARM and Cortex-M3 files
+
+include armv7-m/Make.defs
+
+# Required SAM3/4 files
+
+CHIP_CSRCS  = sam_allocateheap.c sam_irq.c sam_lowputc.c sam_serial.c
+CHIP_CSRCS += sam_start.c
+
+# Configuration-dependent SAM3/4 files
+
+ifneq ($(CONFIG_SCHED_TICKLESS),y)
+CHIP_CSRCS += sam_timerisr.c
+endif
+
+ifeq ($(CONFIG_CRYPTO_AES),y)
+CHIP_CSRCS += sam_aes.c
+endif
+
+ifeq ($(CONFIG_ARCH_CHIP_SAM4CM),y)
+CHIP_CSRCS += sam4cm_supc.c
+endif
+
+ifeq ($(CONFIG_ARCH_CHIP_SAM4L),y)
+CHIP_CSRCS += sam4l_clockconfig.c sam4l_periphclks.c sam4l_gpio.c
+else
+CHIP_CSRCS += sam_clockconfig.c sam_gpio.c sam_gpioirq.c
+endif
+
+ifeq ($(CONFIG_BUILD_PROTECTED),y)
+CHIP_CSRCS += sam_userspace.c sam_mpuinit.c
+endif
+
+ifeq ($(CONFIG_SAM34_CMCC),y)
+CHIP_CSRCS += sam_cmcc.c
+endif
+
+ifeq ($(CONFIG_SAM34_DMAC0),y)
+CHIP_CSRCS += sam_dmac.c
+endif
+
+ifeq ($(CONFIG_ARCH_CHIP_SAM4L),y)
+ifeq ($(CONFIG_SAM34_PDCA),y)
+CHIP_CSRCS += sam4l_pdca.c
+endif
+endif
+
+ifeq ($(CONFIG_SAM34_EMAC),y)
+CHIP_CSRCS += sam_emac.c
+endif
+
+ifeq ($(CONFIG_SAM34_UDP),y)
+CHIP_CSRCS += sam_udp.c
+endif
+
+ifeq ($(CONFIG_SAM34_HSMCI),y)
+CHIP_CSRCS += sam_hsmci.c
+endif
+
+ifeq ($(CONFIG_SAM34_EXTNAND),y)
+CHIP_CSRCS += sam4s_nand.c
+endif
+
+ifeq ($(CONFIG_SAM34_SPI0),y)
+CHIP_CSRCS += sam_spi.c
+else
+ifeq ($(CONFIG_SAM34_SPI1),y)
+CHIP_CSRCS += sam_spi.c
+endif
+endif
+
+ifeq ($(CONFIG_SAM34_TWIM),y)
+CHIP_CSRCS += sam_twi.c
+endif
+
+ifeq ($(CONFIG_SAM34_AES),y)
+CHIP_CSRCS += sam_aes.c
+endif
+
+ifeq ($(CONFIG_SAM34_RTC),y)
+CHIP_CSRCS += sam_rtc.c
+endif
+
+ifeq ($(CONFIG_SAM34_RTT),y)
+CHIP_CSRCS += sam_rtt.c
+endif
+
+ifeq ($(CONFIG_SAM34_WDT),y)
+CHIP_CSRCS += sam_wdt.c
+endif
+
+ifeq ($(CONFIG_TIMER),y)
+CHIP_CSRCS += sam_tc.c
+endif
+
+ifeq ($(CONFIG_ARCH_CHIP_SAM4CM),y)
+ifeq ($(CONFIG_SAM34_TC),y)
+CHIP_CSRCS += sam4cm_tc.c
+
+ifeq ($(CONFIG_SAM34_ONESHOT),y)
+CHIP_CSRCS += sam4cm_oneshot.c sam4cm_oneshot_lowerhalf.c
+endif # CONFIG_SAM34_ONESHOT
+
+ifeq ($(CONFIG_SAM34_FREERUN),y)
+CHIP_CSRCS += sam4cm_freerun.c
+endif # CONFIG_SAM34_FREERUN
+
+ifeq ($(CONFIG_SCHED_TICKLESS),y)
+CHIP_CSRCS += sam4cm_tickless.c
+endif # CONFIG_SCHED_TICKLESS
+endif # CONFIG_SAM34_TC
+
+ifeq ($(CONFIG_SMP),y)
+CHIP_CSRCS += sam4cm_cpuindex.c sam4cm_cpuidlestack.c
+CHIP_CSRCS += sam4cm_cpupause.c sam4cm_cpustart.c
+ifneq ($(CONFIG_ARCH_IDLE_CUSTOM),y)
+CHIP_CSRCS += sam4cm_idle.c
+endif
+endif # CONFIG_SMP
+
+endif # CONFIG_ARCH_CHIP_SAM4CM

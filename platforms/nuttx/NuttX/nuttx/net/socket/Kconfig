@@ -1,0 +1,61 @@
+#
+# For a description of the syntax of this configuration file,
+# see the file kconfig-language.txt in the NuttX tools repository.
+#
+
+menu "Socket Support"
+
+config NET_NACTIVESOCKETS
+	int "Max socket operations"
+	default 16 if !DEFAULT_SMALL
+	default 4 if DEFAULT_SMALL
+	---help---
+		Maximum number of concurrent socket operations (recv, send,
+		connection monitoring, etc.). Default: 16
+
+config NET_SOCKOPTS
+	bool "Socket options"
+	default n
+	---help---
+		Enable or disable support for socket options
+
+config NET_TCPPROTO_OPTIONS
+	bool
+	default n
+	---help---
+		Enable or disable support for TCP protocol level socket options.
+
+config NET_UDPPROTO_OPTIONS
+	bool
+	default n
+	---help---
+		Enable or disable support for UDP protocol level socket options.
+
+config NET_CANPROTO_OPTIONS
+	bool
+	default n
+	---help---
+		Enable or disable support for CAN protocol level socket option
+
+if NET_SOCKOPTS
+
+config NET_SOLINGER
+	bool "SO_LINGER socket option"
+	default n
+	depends on NET_TCP_WRITE_BUFFERS || NET_UDP_WRITE_BUFFERS
+	select NET_TCP_NOTIFIER if NET_TCP
+	select NET_UDP_NOTIFIER if NET_UDP
+	---help---
+		Enable or disable support for the SO_LINGER socket option.  Requires
+		write buffer support.
+
+config NET_TIMESTAMP
+	bool "SO_TIMESTAMP socket option"
+	default n
+	depends on NET_CAN
+	---help---
+		Enable or disable support for the SO_TIMESTAMP socket option. Currently only tested & implemented in SocketCAN but should work on all sockets
+
+endif # NET_SOCKOPTS
+
+endmenu # Socket Support

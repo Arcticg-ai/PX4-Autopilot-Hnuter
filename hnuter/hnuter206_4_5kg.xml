@@ -1,0 +1,196 @@
+<mujoco>
+  <compiler angle="radian" inertiafromgeom="false" meshdir="meshes" />
+  <option timestep="0.001" iterations="100" tolerance="1e-10" integrator="RK4" />
+  <statistic center="0 -0.2 0.1" extent="10.0"/>
+  <default>
+    <geom contype="1" conaffinity="1" solimp="0.9 0.95 0.001" solref="0.02 1" />
+    <joint limited="true" damping="0.01" armature="0.01" />
+  </default>
+
+  <default>
+    <default class="body">
+      <geom contype="2" conaffinity="1" />
+    </default>
+
+    <default class="propeller">
+      <geom contype="4" conaffinity="1" />
+    </default>
+
+    <default class="skybox">
+      <geom contype="0" conaffinity="0" />
+    </default>
+  </default>
+
+  <asset>
+    <material name="drone_silver" rgba="0.75 0.75 0.78 1" />
+    <material name="sky_blue" rgba="0.53 0.81 0.98 1" />
+    <material name="orange" rgba="1.0 0.5 0.0 1" />
+    <material name="blue" rgba="0.0 0.5 1.0 1" />
+    <material name="dark_gray" rgba="0.3 0.3 0.3 1" />
+    <material name="cyan" rgba="0.0 1.0 1.0 1" />
+    <material name="black" rgba="0.1 0.1 0.1 1" />
+    <material name="propeller_red" rgba="0.9 0.1 0.1 1" />
+
+
+    <mesh name="base_link" file="base_link.STL" />
+    <mesh name="r2" file="r2.STL" />
+    <mesh name="r1" file="r1.STL" />
+    <mesh name="l2" file="l2.STL" />
+    <mesh name="l1" file="l1.STL" />
+    <mesh name="xy1" file="xy1.STL" />
+    <mesh name="xy2" file="xy2.STL" />
+    <mesh name="xy3" file="xy3.STL" />
+    <mesh name="xy4" file="xy4.STL" />
+    <mesh name="xy5" file="xy5.STL" />
+  </asset>
+
+  <worldbody>
+    <geom name="ground" type="plane" size="10 10 0.1" pos="0 0 0" rgba="0.7 0.85 0.95 1" />
+
+    <geom name="sky_top" type="box" size="50 50 0.1" pos="0 0 50" material="sky_blue" class="skybox" />
+    <geom name="sky_front" type="box" size="50 0.1 50" pos="0 50 25" material="sky_blue" class="skybox" />
+    <geom name="sky_back" type="box" size="50 0.1 50" pos="0 -50 25" material="sky_blue" class="skybox" />
+    <geom name="sky_left" type="box" size="0.1 50 50" pos="-50 0 25" material="sky_blue" class="skybox" />
+    <geom name="sky_right" type="box" size="0.1 50 50" pos="50 0 25" material="sky_blue" class="skybox" />
+
+    <camera name="track_cam" mode="targetbody" target="drone" pos="0 -2 1.5" />
+    
+    <camera name="fixed_cam" pos="1.5 -2.5 2" xyaxes="1 0 0 0 1 1.5" />
+    <body name="drone" pos="0 0 0.2">
+      <freejoint />
+
+      
+      <geom name="base_link" type="mesh" mesh="base_link" material="drone_silver" class="body" />
+      <inertial pos="0.0359209 -0.000473047 -0.0390188" mass="3.055264" fullinertia="0.00533272 0.0172139 0.0202509 2.89213e-06 8.78235e-06 -1.16537e-07" />
+
+      
+      <body name="r2" pos="0 -0.0855 -0.01287" quat="0.5 0.5 0.5 -0.5">
+        
+        <joint name="rj2" type="hinge" pos="0 0 0" axis="0 0 -1" limited="true" range="-1.57 1.57" />
+
+        <geom name="r2_mesh" type="mesh" mesh="r2" material="drone_silver" class="body" />
+        <inertial pos="7.145e-05 -0.0392314 0.160773" mass="0.430736" fullinertia="0.0067372 0.00159926 0.00527979 4.96409e-07 -2.07904e-07 9.00484e-05" />
+
+
+        <body name="r1" pos="0 -0.2447 0.3245" quat="0.5 0.5 -0.5 0.5">
+
+          <joint name="rj1" type="hinge" pos="0 0 0" axis="0 0 -1" limited="true" range="-1.57 1.57" />
+
+          <geom name="r1_mesh" type="mesh" mesh="r1" material="drone_silver" class="body" />
+          <inertial pos="9.30467e-05 2.23498e-05 -0.223444" mass="0.248477" fullinertia="0.000965551 0.000998547 8.66173e-05 6.08819e-12 -1.05724e-08 -2.08714e-11" />
+
+          
+          <body name="xy1" pos="0 0.045 -0.2447" quat="0.707107 -0.707107 0 0">
+            <joint name="xyj1" type="hinge" pos="0 0 0" axis="0 0 -1" limited="false" />
+            <geom name="xy1_mesh" type="mesh" mesh="xy1" material="propeller_red" class="propeller" />
+            <inertial pos="4.01606e-07 -1.03677e-06 0.000693207" mass="0.014861" fullinertia="0.000321597 4.61239e-06 0.000325994 -2.1186e-05 -4.96185e-09 -4.4069e-10" />
+            <site name="motor_xy1" pos="0.0 0.0 0.0" zaxis="0 0 1" />
+          </body>
+
+          
+          <body name="xy2" pos="0 -0.045 -0.2447" quat="0.707107 0.707107 0 0">
+            <joint name="xyj2" type="hinge" pos="0 0 0" axis="0 0 -1" limited="false" />
+            <geom name="xy2_mesh" type="mesh" mesh="xy2" material="propeller_red" class="propeller" />
+            <inertial pos="-8.47438e-07 7.11773e-07 0.000693223" mass="0.014861" fullinertia="0.000265509 6.0701e-05 0.000325994 0.00012281 4.13131e-09 2.78312e-09" />
+            <site name="motor_xy2" pos="0.0 0.0 0.0" zaxis="0 0 -1" />
+          </body>
+        </body>
+      </body>
+
+      
+      <body name="l2" pos="0 0.0855 -0.01287" quat="0.5 0.5 0.5 -0.5">
+        
+        <joint name="lj2" type="hinge" pos="0 0 0" axis="0 0 -1" limited="true" range="-1.57 1.57" />
+
+        <geom name="l2_mesh" type="mesh" mesh="l2" material="drone_silver" class="body" />
+        <inertial pos="6.75249e-05 0.0326713 -0.165321" mass="0.443038" fullinertia="0.00673903 0.00160098 0.00528162 -4.92568e-07 2.17779e-07 9.00527e-05" />
+
+
+        <body name="l1" pos="0 0.2447 -0.3245" quat="0.5 0.5 -0.5 0.5">
+
+          <joint name="lj1" type="hinge" pos="0 0 0" axis="0 0 -1" limited="true" range="-1.57 1.57" />
+
+          <geom name="l1_mesh" type="mesh" mesh="l1" material="drone_silver" class="body" />
+          <inertial pos="-9.34016e-05 1.41486e-06 0.223434" mass="0.248206" fullinertia="0.000965664 0.00099843 8.66142e-05 -1.95652e-06 -1.05552e-08 -6.07227e-10" />
+
+          
+          <body name="xy3" pos="0.00267277 -0.0449206 0.2447" quat="0.706825 0.707388 0 0.0297145">
+            <joint name="xyj3" type="hinge" pos="0 0 0" axis="0 0 -1" limited="false" />
+            <geom name="xy3_mesh" type="mesh" mesh="xy3" material="propeller_red" class="propeller" />
+            <inertial pos="-2.95163e-07 -6.82057e-08 0.000693234" mass="0.014860" fullinertia="0.000159669 0.000166533 0.000325987 -0.000159862 -3.61041e-09 3.44534e-09" />
+            <site name="motor_xy3" pos="0.0 0.0 0.0" zaxis="0 0 -1" />
+          </body>
+
+          
+          <body name="xy4" pos="-0.00267277 0.0449206 0.2447" quat="0.706825 -0.707388 0 0.0297145">
+            <joint name="xyj4" type="hinge" pos="0 0 0" axis="0 0 -1" limited="false" />
+            <geom name="xy4_mesh" type="mesh" mesh="xy4" material="propeller_red" class="propeller" />
+            <inertial pos="-3.35068e-07 -1.09872e-07 0.000693235" mass="0.014860" fullinertia="0.00014765 0.000178552 0.000325986 -0.000159151 -3.4797e-09 3.57808e-09" />
+            <site name="motor_xy4" pos="0.0 0.0 0.0" zaxis="0 0 1" />
+          </body>
+        </body>
+      </body>
+
+      
+      <body name="xy5" pos="-0.768 0 0.014875" quat="0.707107 0 0 -0.707107">
+        <joint name="xyj5" type="hinge" pos="0 0 0" axis="0 0 -1" limited="false" />
+        <geom name="xy5_mesh" type="mesh" mesh="xy5" material="propeller_red" class="propeller" />
+        <inertial pos="1.10057e-06 1.8788e-07 0.000708803" mass="0.014861" fullinertia="2.46212e-05 0.000301589 0.000325994 7.99437e-05 -5.30788e-10 -4.95301e-09" />
+        <site name="motor_xy5" pos="0.0 0.0 0.0" zaxis="0 0 1" />
+      </body>
+    </body>
+
+    <light name="light" pos="0 0 5" dir="0 0 -1" directional="true" castshadow="true" />
+  </worldbody>
+
+  
+  <actuator>
+    
+    
+
+    
+    <motor name="motor_xy1" site="motor_xy1" gear="0 0 1 0 0 -0.006" forcerange="0 50" ctrlrange="0 50" />
+    <motor name="motor_xy2" site="motor_xy2" gear="0 0 1 0 0 0.006" forcerange="0 50" ctrlrange="0 50" />
+
+    
+    <motor name="motor_xy3" site="motor_xy3" gear="0 0 1 0 0 0.006" forcerange="0 50" ctrlrange="0 50" />
+    <motor name="motor_xy4" site="motor_xy4" gear="0 0 1 0 0 -0.006" forcerange="0 50" ctrlrange="0 50" />
+
+    
+    <motor name="motor_xy5" site="motor_xy5" gear="0 0 1 0 0 0.00" forcerange="-20 20" ctrlrange="-20 20" />
+
+    
+    <position name="tilt_rj2" joint="rj2" kp="80" kv="8" ctrllimited="true" ctrlrange="-2.7 2.7" />
+    <position name="tilt_lj2" joint="lj2" kp="80" kv="8" ctrllimited="true" ctrlrange="-2.7 2.7" />
+
+    
+    <position name="tilt_rj1" joint="rj1" kp="80" kv="8" ctrllimited="true" ctrlrange="-2.7 2.7" />
+    <position name="tilt_lj1" joint="lj1" kp="80" kv="8" ctrllimited="true" ctrlrange="-2.7 2.7" />
+  </actuator>
+
+  <sensor>
+    
+    <framepos name="drone_pos" objtype="body" objname="drone" />
+    <framequat name="drone_quat" objtype="body" objname="drone" />
+
+    
+    <jointvel name="xy1_vel" joint="xyj1" />
+    <jointvel name="xy2_vel" joint="xyj2" />
+    <jointvel name="xy3_vel" joint="xyj3" />
+    <jointvel name="xy4_vel" joint="xyj4" />
+    <jointvel name="xy5_vel" joint="xyj5" />
+
+    
+    <jointpos name="rj2_pos" joint="rj2" />
+    <jointpos name="lj2_pos" joint="lj2" />
+    <jointpos name="rj1_pos" joint="rj1" />
+    <jointpos name="lj1_pos" joint="lj1" />
+
+    
+    <actuatorfrc name="motor_xy1_torque" actuator="motor_xy1" />
+    <actuatorfrc name="motor_xy2_torque" actuator="motor_xy2" />
+    <actuatorfrc name="motor_xy3_torque" actuator="motor_xy3" />
+    <actuatorfrc name="motor_xy4_torque" actuator="motor_xy4" />
+    <actuatorfrc name="motor_xy5_torque" actuator="motor_xy5" />
+  </sensor>
+</mujoco>

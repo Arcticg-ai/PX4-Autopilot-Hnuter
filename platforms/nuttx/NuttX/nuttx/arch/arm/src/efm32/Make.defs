@@ -1,0 +1,81 @@
+############################################################################
+# arch/arm/src/efm32/Make.defs
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.  The
+# ASF licenses this file to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance with the
+# License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
+# License for the specific language governing permissions and limitations
+# under the License.
+#
+############################################################################
+
+include armv7-m/Make.defs
+
+CHIP_CSRCS  = efm32_start.c efm32_clockconfig.c efm32_irq.c efm32_timerisr.c
+CHIP_CSRCS += efm32_gpio.c efm32_lowputc.c efm32_timer.c efm32_i2c.c
+
+ifeq ($(CONFIG_EFM32_FLASHPROG),y)
+CHIP_CSRCS += efm32_flash.c
+endif
+
+ifeq ($(CONFIG_EFM32_BITBAND),y)
+CHIP_CSRCS += efm32_bitband.c
+endif
+
+ifneq ($(CONFIG_ARCH_IDLE_CUSTOM),y)
+CHIP_CSRCS += efm32_idle.c
+endif
+
+ifeq ($(CONFIG_EFM32_USART_ISUART),y)
+CHIP_CSRCS += efm32_serial.c
+else
+ifeq ($(CONFIG_EFM32_UART),y)
+CHIP_CSRCS += efm32_serial.c
+endif
+endif
+
+ifeq ($(CONFIG_EFM32_RMU),y)
+CHIP_CSRCS += efm32_rmu.c
+endif
+
+ifeq ($(CONFIG_EFM32_USART_ISSPI),y)
+CHIP_CSRCS += efm32_spi.c
+endif
+
+ifeq ($(CONFIG_EFM32_LEUART),y)
+CHIP_CSRCS += efm32_leserial.c
+endif
+
+ifeq ($(CONFIG_EFM32_GPIO_IRQ),y)
+CHIP_CSRCS += efm32_gpioirq.c
+endif
+
+ifeq ($(CONFIG_EFM32_DMA),y)
+CHIP_CSRCS += efm32_dma.c
+endif
+
+ifeq ($(CONFIG_EFM32_RTC_BURTC),y)
+CHIP_CSRCS += efm32_rtc_burtc.c
+endif
+
+ifeq ($(CONFIG_EFM32_OTGFS),y)
+ifeq ($(CONFIG_USBDEV),y)
+CHIP_CSRCS += efm32_usbdev.c
+endif
+ifeq ($(CONFIG_USBHOST),y)
+CHIP_CSRCS += efm32_usbhost.c
+endif
+endif
+
+ifeq ($(CONFIG_PWM),y)
+CHIP_CSRCS += efm32_pwm.c
+endif

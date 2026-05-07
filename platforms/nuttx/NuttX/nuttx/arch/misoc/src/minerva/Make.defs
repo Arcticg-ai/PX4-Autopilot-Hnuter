@@ -1,0 +1,37 @@
+############################################################################
+# arch/misoc/src/minerva/Make.defs
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.  The
+# ASF licenses this file to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance with the
+# License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
+# License for the specific language governing permissions and limitations
+# under the License.
+#
+############################################################################
+
+HEAD_ASRC   = minerva_vectors.S
+
+CMN_CSRCS   = misoc_lowputs.c misoc_serial.c misoc_mdelay.c
+CMN_CSRCS  += misoc_modifyreg8.c misoc_modifyreg16.c misoc_modifyreg32.c
+CMN_CSRCS  += misoc_puts.c misoc_udelay.c misoc_timerisr.c misoc_net.c
+CMN_CSRCS  += misoc_flushcache.c
+
+CHIP_ASRCS  = minerva_syscall.S
+
+CHIP_CSRCS  = minerva_allocateheap.c minerva_assert.c minerva_blocktask.c
+CHIP_CSRCS += minerva_copystate.c minerva_createstack.c minerva_decodeirq.c
+CHIP_CSRCS += minerva_doirq.c minerva_dumpstate.c minerva_exit.c minerva_idle.c
+CHIP_CSRCS += minerva_initialize.c minerva_initialstate.c
+CHIP_CSRCS += minerva_irq.c minerva_releasepending.c minerva_releasestack.c
+CHIP_CSRCS += minerva_stackframe.c minerva_swint.c minerva_unblocktask.c
+CHIP_CSRCS += minerva_reprioritizertr.c minerva_schedulesigaction.c minerva_sigdeliver.c
+CHIP_CSRCS += minerva_flushcache.c minerva_doexceptions.c minerva_usetack.c

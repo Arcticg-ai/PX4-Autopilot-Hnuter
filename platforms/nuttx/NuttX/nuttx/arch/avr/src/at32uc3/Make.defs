@@ -1,0 +1,55 @@
+############################################################################
+# arch/avr/src/at32uc3/Make.defs
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.  The
+# ASF licenses this file to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance with the
+# License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
+# License for the specific language governing permissions and limitations
+# under the License.
+#
+############################################################################
+
+# The start-up, "head", file
+
+HEAD_ASRC = up_nommuhead.S
+
+# Common AVR/AVR32 files
+
+CMN_ASRCS  = up_exceptions.S up_fullcontextrestore.S up_switchcontext.S
+CMN_CSRCS  = up_assert.c up_allocateheap.c up_blocktask.c up_copystate.c
+CMN_CSRCS += up_createstack.c up_mdelay.c up_udelay.c up_exit.c up_idle.c
+CMN_CSRCS += up_initialize.c up_initialstate.c
+CMN_CSRCS += up_modifyreg8.c up_modifyreg16.c up_modifyreg32.c
+CMN_CSRCS += up_releasepending.c up_releasestack.c up_reprioritizertr.c
+CMN_CSRCS += up_schedulesigaction.c up_sigdeliver.c up_stackframe.c
+CMN_CSRCS += up_unblocktask.c up_usestack.c up_doirq.c up_nputs.c
+
+# Configuration-dependent common files
+
+ifeq ($(CONFIG_ARCH_STACKDUMP),y)
+CMN_CSRCS += up_dumpstate.c
+endif
+
+# Required AT32UC3 files
+
+CHIP_CSRCS  = at32uc3_clkinit.c at32uc3_gpio.c at32uc3_irq.c
+CHIP_CSRCS += at32uc3_lowconsole.c at32uc3_lowinit.c at32uc3_serial.c
+
+# Configuration-dependent AT32UC3 files
+
+ifneq ($(CONFIG_SCHED_TICKLESS),y)
+CHIP_CSRCS += at32uc3_timerisr.c
+endif
+
+ifeq ($(CONFIG_AVR32_GPIOIRQ),y)
+CHIP_CSRCS += at32uc3_gpioirq.c
+endif

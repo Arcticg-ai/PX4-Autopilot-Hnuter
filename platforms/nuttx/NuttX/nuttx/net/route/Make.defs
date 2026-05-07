@@ -1,0 +1,72 @@
+############################################################################
+# net/route/Make.defs
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.  The
+# ASF licenses this file to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance with the
+# License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
+# License for the specific language governing permissions and limitations
+# under the License.
+#
+############################################################################
+
+ifeq ($(CONFIG_NET_ROUTE),y)
+
+# General routing table support
+
+SOCK_CSRCS += net_initroute.c net_router.c netdev_router.c
+
+# Support in-memory, RAM-based routing tables
+
+ifeq ($(CONFIG_ROUTE_IPv4_RAMROUTE),y)
+SOCK_CSRCS += net_alloc_ramroute.c  net_add_ramroute.c net_del_ramroute.c
+SOCK_CSRCS += net_queue_ramroute.c net_foreach_ramroute.c
+else ifeq ($(CONFIG_ROUTE_IPv6_RAMROUTE),y)
+SOCK_CSRCS += net_alloc_ramroute.c  net_add_ramroute.c net_del_ramroute.c
+SOCK_CSRCS += net_queue_ramroute.c net_foreach_ramroute.c
+endif
+
+# Support for in-memory, read-only (ROM) routing tables
+
+ifeq ($(CONFIG_ROUTE_IPv4_ROMROUTE),y)
+SOCK_CSRCS += net_foreach_romroute.c
+else ifeq ($(CONFIG_ROUTE_IPv6_ROMROUTE),y)
+SOCK_CSRCS += net_foreach_romroute.c
+endif
+
+# Support for routing tables in files
+
+ifeq ($(CONFIG_ROUTE_IPv4_FILEROUTE),y)
+SOCK_CSRCS += net_fileroute.c net_add_fileroute.c net_del_fileroute.c
+SOCK_CSRCS += net_foreach_fileroute.c
+else ifeq ($(CONFIG_ROUTE_IPv6_FILEROUTE),y)
+SOCK_CSRCS += net_fileroute.c net_add_fileroute.c net_del_fileroute.c
+SOCK_CSRCS += net_foreach_fileroute.c
+endif
+
+# In-memory cache for file-based routing tables
+
+ifeq ($(CONFIG_ROUTE_IPv4_CACHEROUTE),y)
+SOCK_CSRCS += net_cacheroute.c
+else ifeq ($(CONFIG_ROUTE_IPv6_CACHEROUTE),y)
+SOCK_CSRCS += net_cacheroute.c
+endif
+
+ifeq ($(CONFIG_DEBUG_NET_INFO),y)
+SOCK_CSRCS += net_dumproute.c
+endif
+
+# Include routing table build support
+
+DEPPATH += --dep-path route
+VPATH += :route
+
+endif

@@ -1,0 +1,389 @@
+#
+# For a description of the syntax of this configuration file,
+# see the file kconfig-language.txt in the NuttX tools repository.
+#
+
+menuconfig EXAMPLES_FOC
+	tristate "FOC motor controller example"
+	depends on MOTOR_FOC
+	depends on INDUSTRY_FOC
+	---help---
+		Enable the FOC motor controller example.
+		At the moment, this example implements a simple open-loop velocity controller.
+
+if EXAMPLES_FOC
+
+config EXAMPLES_FOC_DEVPATH
+	string "FOC device path prefix"
+	default "/dev/foc"
+	---help---
+		The default path to the FOC device without the device minor number.
+		Default: /dev/foc
+
+config EXAMPLES_FOC_FLOAT_INST
+	int "FOC float instances"
+	depends on INDUSTRY_FOC_FLOAT
+	default 0
+
+config EXAMPLES_FOC_FIXED16_INST
+	int "FOC fixed16 instances"
+	depends on INDUSTRY_FOC_FIXED16
+	default 0
+
+config EXAMPLES_FOC_CONTROL_PRIO
+	int "FOC control thread priority"
+	default 255
+
+config EXAMPLES_FOC_CONTROL_STACKSIZE
+	int "FOC control thread stack size"
+	default 4096
+
+config EXAMPLES_FOC_VERBOSE
+	int "Enable verbose print for app"
+	default 1
+	range 0 2
+
+choice
+	prompt "FOC current controller selection"
+	default EXAMPLES_FOC_CONTROL_PI
+
+config EXAMPLES_FOC_CONTROL_PI
+	bool "FOC use PI current controller"
+	select INDUSTRY_FOC_CONTROL_PI
+
+endchoice # FOC current controller
+
+config EXAMPLES_FOC_PWM_FREQ
+	int "FOC PWM frequency"
+	default 10000
+	---help---
+		Select the FOC PWM switching frequency
+
+config EXAMPLES_FOC_NOTIFIER_FREQ
+	int "FOC notifier frequency"
+	default EXAMPLES_FOC_PWM_FREQ
+	---help---
+		Select the FOC notifier frequency
+
+config EXAMPLES_FOC_IPHASE_ADC
+	int "FOC phase current scale [x100000]"
+	default 0
+	---help---
+		This parameter is used to get real currents from ADC RAW values
+
+config EXAMPLES_FOC_STATE_PRINT_FREQ
+	int "FOC example data printer frequency"
+	default 0
+	depends on INDUSTRY_FOC_HANDLER_PRINT
+	---help---
+		Set 0 to disable FOC data print
+
+config EXAMPLES_FOC_STATE_USE_MODEL_PMSM
+	bool "FOC uses PMSM model"
+	depends on INDUSTRY_FOC_MODEL_PMSM
+	default n
+	---help---
+		Use PMSM model instead of real hardware
+
+choice
+	prompt "FOC sensored or sensorless configuration"
+	default EXAMPLES_FOC_SENSORLESS
+
+config EXAMPLES_FOC_SENSORLESS
+	bool "FOC example sensorless configuration"
+
+config EXAMPLES_FOC_SENSORED
+	bool "FOC example sensored configuration"
+	select EXAMPLES_FOC_HAVE_ALIGN
+
+endchoice #
+
+if EXAMPLES_FOC_SENSORED
+
+choice
+	prompt "FOC sensored sensor selection"
+
+config EXAMPLES_FOC_HAVE_QENCO
+	bool "FOC example have qencoder"
+	select INDUSTRY_FOC_ANGLE_QENCO
+
+config EXAMPLES_FOC_HAVE_HALL
+	bool "FOC example Hall sensor support"
+	select INDUSTRY_FOC_ANGLE_HALL
+
+endchoice # FOC sensored sensor selection
+
+if EXAMPLES_FOC_HAVE_QENCO
+
+config EXAMPLES_FOC_MOTOR_POLES
+	int "FOC example motor poles pairs"
+	default 0
+
+config EXAMPLES_FOC_QENCO_POSMAX
+	int "FOC example qencoder maximum position"
+	default 0
+
+config EXAMPLES_FOC_QENCO_DEVPATH
+	string "FOC example qencoder path prefix"
+	default "/dev/qe"
+	---help---
+		The default path to the qenco device without the device minor number.
+		Default: /dev/qenco
+
+endif # EXAMPLES_FOC_HAVE_QENCO
+
+if EXAMPLES_FOC_HAVE_HALL
+
+config EXAMPLES_FOC_HALL_DEVPATH
+	string "FOC example Hall sensor path prefix"
+	default "/dev/hall"
+	---help---
+		The default path to the Hall device without the device minor number.
+		Default: /dev/hall
+
+endif # EXAMPLES_FOC_HAVE_HALL
+
+endif # EXAMPLES_FOC_SENSORED
+
+config EXAMPLES_FOC_HAVE_OPENLOOP
+	bool "FOC example have open-loop controller"
+	select INDUSTRY_FOC_ANGLE_OPENLOOP
+	default y if EXAMPLES_FOC_SENSORLESS
+	default n
+
+config EXAMPLES_FOC_HAVE_TORQ
+	bool "FOC example torque controller support"
+	default n
+
+config EXAMPLES_FOC_HAVE_VEL
+	bool "FOC example velocity controller support"
+	default y if EXAMPLES_FOC_SENSORLESS
+	default n
+
+config EXAMPLES_FOC_HAVE_POS
+	bool "FOC example position controller support"
+	default n
+
+menu "FOC user input"
+
+config EXAMPLES_FOC_HAVE_ADC
+	bool
+	default n
+
+choice
+	prompt "FOC VBUS source"
+	default EXAMPLES_FOC_VBUS_CONST
+
+config EXAMPLES_FOC_VBUS_CONST
+	bool "Use hardcoded constant VBUS value"
+
+config EXAMPLES_FOC_VBUS_ADC
+	bool "Use VBUS provided by ADC interface"
+	depends on ADC
+	select EXAMPLES_FOC_HAVE_ADC
+
+endchoice # FOC VBUS interface
+
+if EXAMPLES_FOC_VBUS_CONST
+
+config EXAMPLES_FOC_VBUS_CONST_VALUE
+	int "FOC VBUS constant value"
+	default 12000
+
+endif # EXAMPLES_FOC_VBUS_CONST
+
+if EXAMPLES_FOC_HAVE_ADC
+
+config EXAMPLES_FOC_ADC_DEVPATH
+	string "FOC ADC interface path"
+	default "/dev/adc0"
+
+config EXAMPLES_FOC_ADC_VREF
+	int "FOC ADC reference voltage [x1000]"
+	default 0
+
+config EXAMPLES_FOC_ADC_MAX
+	int "FOC ADC aux maximum sample value"
+	default 0
+
+endif # EXAMPLES_FOC_HAVE_ADC
+
+if EXAMPLES_FOC_VBUS_ADC
+
+config EXAMPLES_FOC_VBUS_SCALE
+	int "FOC VBUS SCALE scale [x1000]"
+	default 0
+
+endif # EXAMPLES_FOC_VBUS_ADC
+
+choice
+	prompt "FOC setpoint source"
+	default EXAMPLES_FOC_SETPOINT_CONST
+
+config EXAMPLES_FOC_SETPOINT_CONST
+	bool "Use hardcoded constant setpiont value"
+
+config EXAMPLES_FOC_SETPOINT_ADC
+	bool "Use ADC to control setpoint"
+	select EXAMPLES_FOC_HAVE_ADC
+	select EXAMPLES_FOC_HAVE_SETPOINT_VAR
+
+config EXAMPLES_FOC_SETPOINT_CHAR
+	bool "Use character interface to control setpoint"
+	select EXAMPLES_FOC_HAVE_CHARCTRL
+	select EXAMPLES_FOC_HAVE_SETPOINT_VAR
+
+endchoice # FOC setpoint interface
+
+config EXAMPLES_FOC_HAVE_SETPOINT_VAR
+	bool
+	default n
+
+if EXAMPLES_FOC_SETPOINT_CONST
+
+config EXAMPLES_FOC_SETPOINT_CONST_VALUE
+	int "FOC hardoced setpoint value"
+	default 0
+
+endif # EXAMPLES_FOC_SETPOINT_CONST
+
+if EXAMPLES_FOC_HAVE_SETPOINT_VAR
+
+config EXAMPLES_FOC_SETPOINT_MAX
+	int "FOC maximum setpoint [x1000]"
+	default 0
+
+endif # EXAMPLES_FOC_HAVE_SETPOINT_VAR
+
+config EXAMPLES_FOC_TIME_DEFAULT
+	int "FOC run time default (sec)"
+	default 10
+
+config EXAMPLES_FOC_STATE_INIT
+	int "FOC motor controller state init"
+	default 1
+	range 1 4
+	---help---
+		1 - motor FREE (no current)
+		2 - motor STOP (active break)
+		3 - motor moves in CW direction
+		4 - motor moves in CCW direction
+
+config EXAMPLES_FOC_HAVE_BUTTON
+	bool "FOC button support"
+	default n
+	---help---
+		The button is used to change the motor controller state
+
+if EXAMPLES_FOC_HAVE_BUTTON
+
+config EXAMPLES_FOC_BUTTON_DEVPATH
+	string "FOC button device path"
+	default "/dev/buttons"
+	depends on INPUT_BUTTONS
+
+endif
+
+config EXAMPLES_FOC_HAVE_CHARCTRL
+	bool "FOC character control interface support"
+	default n
+	---help---
+		Use simple character commands to interact with the app
+
+if EXAMPLES_FOC_HAVE_CHARCTRL
+
+config EXAMPLES_FOC_CHAR_SETPOINT_STEP
+	int "FOC character control setpoint step [x1000]"
+	default 0
+
+endif
+
+endmenu # FOC user input
+
+menu "FOC controller parameters"
+
+config EXAMPLES_FOC_FMODE
+	int "FOC control mode"
+	default 2
+	range 1 3
+	---help---
+		1 - IDLE mode
+		2 - voltage mode (default)
+		3 - current mode
+
+config EXAMPLES_FOC_MMODE
+	int "Motor control mode"
+	default 2
+	range 1 3
+	---help---
+		1 - torque control
+		2 - velocity control
+		3 - position control
+
+config EXAMPLES_FOC_OPENLOOP_Q
+	int "FOC open-loop Vq/Iq setting [x1000]"
+	default 200
+	depends on EXAMPLES_FOC_HAVE_OPENLOOP
+
+if EXAMPLES_FOC_CONTROL_PI
+
+config EXAMPLES_FOC_IDQ_KP
+	int "FOC PI controller Kp gain [x1000]"
+	default 0
+	---help---
+		It is set to 0 by default and must be properly configured by the user!
+		The value of Kp and Ki depends on the controlled motor parameters.
+		For more instructions see README.md for this example.
+
+config EXAMPLES_FOC_IDQ_KI
+	int "FOC PI controller Ki gain [x1000]"
+	default 0
+	---help---
+		It is set to 0 by default and must be properly configured by the user!
+		The value of Kp and Ki depends on the controlled motor parameters.
+		For more instructions see README.md for this example.
+
+endif #EXAMPLES_FOC_CONTROL_PI
+
+config EXAMPLES_FOC_RAMP_THR
+	int "FOC velocity ramp threshold [x1000]"
+	default 0
+
+config EXAMPLES_FOC_RAMP_ACC
+	int "FOC velocity ramp acc [x1000]"
+	default 0
+
+config EXAMPLES_FOC_RAMP_DEC
+	int "FOC velocity ramp dec [x1000]"
+	default 0
+
+config EXAMPLES_FOC_HAVE_ALIGN
+	bool "FOC example motor alignment support"
+	select INDUSTRY_FOC_ALIGN
+	default n
+
+if EXAMPLES_FOC_HAVE_ALIGN
+
+config EXAMPLES_FOC_ALIGN_VOLT
+	int "EXAMPLES_FOC_ALIGN_VOLT (x1000)"
+	default 0
+
+config EXAMPLES_FOC_ALIGN_SEC
+	int "EXAMPLES_FOC_ALIGN_SEC (x1000)"
+	default 0
+
+endif # EXAMPLES_FOC_HAVE_ALIGN
+
+endmenu # FOC controller parameters
+
+config EXAMPLES_FOC_HAVE_RUN
+	bool
+	default y if !EXAMPLES_FOC_RUN_DISABLE
+	default n
+
+config EXAMPLES_FOC_RUN_DISABLE
+	bool "FOC Disable FOC motor controller"
+	default n
+
+endif # EXAMPLES_FOC
+

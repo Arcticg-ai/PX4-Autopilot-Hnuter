@@ -1,0 +1,70 @@
+############################################################################
+# drivers/leds/Make.defs
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.  The
+# ASF licenses this file to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance with the
+# License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
+# License for the specific language governing permissions and limitations
+# under the License.
+#
+############################################################################
+
+# Include user LED driver
+
+ifeq ($(CONFIG_USERLED),y)
+  CSRCS += userled_upper.c
+ifeq ($(CONFIG_USERLED_LOWER),y)
+  CSRCS += userled_lower.c
+endif
+  LEDDEPATH = --dep-path leds
+  LEDVPATH = :leds
+endif
+
+ifeq ($(CONFIG_LEDS_APA102),y)
+  CSRCS += apa102.c
+  LEDDEPATH = --dep-path leds
+  LEDVPATH = :leds
+endif
+
+ifeq ($(CONFIG_LEDS_MAX7219),y)
+  CSRCS += max7219.c
+  LEDDEPATH = --dep-path leds
+  LEDVPATH = :leds
+endif
+
+ifeq ($(CONFIG_RGBLED),y)
+  CSRCS += rgbled.c
+  LEDDEPATH = --dep-path leds
+  LEDVPATH = :leds
+endif
+
+ifeq ($(CONFIG_PCA9635PW),y)
+  CSRCS += pca9635pw.c
+  LEDDEPATH = --dep-path leds
+  LEDVPATH = :leds
+endif
+ifeq ($(CONFIG_NCP5623C),y)
+  CSRCS += ncp5623c.c
+  LEDDEPATH = --dep-path leds
+  LEDVPATH = :leds
+endif
+
+ifeq ($(CONFIG_WS2812),y)
+  CSRCS += ws2812.c
+  LEDDEPATH = --dep-path leds
+  LEDVPATH = :leds
+endif
+
+# Include LED build support (if any LED drivers were selected)
+
+DEPPATH += $(LEDDEPATH)
+VPATH += $(LEDVPATH)

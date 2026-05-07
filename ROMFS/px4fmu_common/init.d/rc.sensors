@@ -1,0 +1,244 @@
+#!/bin/sh
+#
+# Standard startup script for sensor drivers.
+#
+# NOTE: Script variables are declared/initialized/unset in the rcS script.
+#
+###############################################################################
+#                           Begin Optional drivers                            #
+###############################################################################
+
+if param compare -s SENS_EN_BATT 1
+then
+	batt_smbus start -X
+fi
+
+# Start batmon driver if enabled using BATMON_DRIVER_EN
+if param compare -s BATMON_DRIVER_EN 1
+then
+	batmon start -X  #start on external bus
+fi
+
+# Sensors on the PWM interface bank
+if param compare -s SENS_EN_LL40LS 1
+then
+	if pwm_input start
+	then
+		ll40ls_pwm start
+	fi
+fi
+
+# External automatic trigger system
+if param compare FD_EXT_ATS_EN 1
+then
+	pwm_input start
+fi
+
+# Lidar-Lite on I2C
+if param compare -s SENS_EN_LL40LS 2
+then
+	ll40ls start -X
+fi
+
+# mappydot lidar sensor
+if param compare -s SENS_EN_MPDT 1
+then
+	mappydot start -X
+fi
+
+# mb12xx sonar sensor
+if param greater -s SENS_EN_MB12XX 0
+then
+	mb12xx start -X
+fi
+
+# pga460 sonar sensor
+if param greater -s SENS_EN_PGA460 0
+then
+	pga460 start
+fi
+
+# Lightware i2c lidar sensor
+if param greater -s SENS_EN_SF1XX 0
+then
+	lightware_laser_i2c start -X
+fi
+
+# Sensor HY-SRF05 or HC-SR05 ultrasonic sensor
+if param compare -s SENS_EN_SR05 1
+then
+	srf05 start
+fi
+
+
+# Teraranger one tof sensor
+if param greater -s SENS_EN_TRANGER 0
+then
+	teraranger start -X
+fi
+
+# paa3905 optical flow sensor (external SPI)
+if param greater -s SENS_EN_PAA3905 0
+then
+	paa3905 -S start
+fi
+
+# paw3902 optical flow sensor (external SPI)
+if param greater -s SENS_EN_PAW3902 0
+then
+	paw3902 -S start
+fi
+
+# pmw3901 optical flow sensor (external SPI)
+if param greater -s SENS_EN_PMW3901 0
+then
+	pmw3901 -S start
+fi
+
+# vl53l0x i2c distance sensor
+if param compare -s SENS_EN_VL53L0X 1
+then
+	vl53l0x start -X
+fi
+
+# vl53l1x i2c distance sensor
+if param compare -s SENS_EN_VL53L1X 1
+then
+	vl53l1x start -X
+fi
+
+# tf02 pro i2c distance sensor
+if param compare -s SENS_EN_TF02PRO 1
+then
+	tf02pro start -X
+fi
+
+# ADIS16448 spi external IMU
+if param compare -s SENS_EN_ADIS164X 1
+then
+	if param compare -s SENS_OR_ADIS164X 0
+	then
+		adis16448 -S start
+	fi
+	if param compare -s SENS_OR_ADIS164X 4
+	then
+		adis16448 -S start -R 4
+	fi
+fi
+
+# ADIS16507 spi external IMU
+if param greater -s SENS_EN_ADIS165X 0
+then
+	adis16507 -S start
+fi
+
+# SCH16T spi external IMU
+if param compare -s SENS_EN_SCH16T 1
+then
+	sch16t -S start
+fi
+
+# Eagle Tree airspeed sensor external I2C
+if param compare -s SENS_EN_ETSASPD 1
+then
+	ets_airspeed start -X
+fi
+
+# Sensirion SDP3X differential pressure sensor external I2C
+if param compare -s SENS_EN_SDP3X 1
+then
+	if ! sdp3x start -X
+	then
+		# try another common address
+		sdp3x start -X -a 0x22
+	fi
+fi
+
+# TE MS4515 differential pressure sensor external I2C
+if param compare -s SENS_EN_MS4515 1
+then
+	ms4515 start -X
+fi
+
+# TE MS4525DO differential pressure sensor external I2C
+if param compare -s SENS_EN_MS4525DO 1
+then
+	ms4525do start -X
+fi
+
+# TE MS5525DSO differential pressure sensor external I2C
+if param compare -s SENS_EN_MS5525DS 1
+then
+	ms5525dso start -X
+fi
+
+# TE ASP5033 differential pressure sensor external I2C
+if param compare -s SENS_EN_ASP5033 1
+then
+	asp5033 start -X
+fi
+
+# AUAV absolute/differential pressure sensor external I2C
+if param greater -s SENS_EN_AUAVX 0
+then
+	auav start -D -X
+	auav start -A -X
+fi
+
+# SHT3x temperature and hygrometer sensor, external I2C
+if param compare -s SENS_EN_SHT3X 1
+then
+	sht3x start -X
+	sht3x start -X -a 0x45
+fi
+
+# IR-LOCK sensor external I2C
+if param compare -s SENS_EN_IRLOCK 1
+then
+	irlock start -X
+fi
+
+# SPL06 sensor external I2C
+if param compare -s SENS_EN_SPL06 1
+then
+	spl06 -X start
+	spl06 -X -a 0x77 start
+fi
+
+# SPA06 sensor external I2C
+if param compare -s SENS_EN_SPA06 1
+then
+	spa06 -X start
+	spa06 -X -a 0x77 start
+fi
+
+# PCF8583 counter (RPM sensor)
+if param compare -s SENS_EN_PCF8583 1
+then
+	pcf8583 start -X
+	pcf8583 start -X -a 0x51
+fi
+
+# probe for optional external I2C devices
+if param compare SENS_EXT_I2C_PRB 1
+then
+	icm20948_i2c_passthrough -X -q start
+
+	# compasses
+	hmc5883 -T -X -q start
+	iis2mdc -X -q start
+	ist8308 -X -q start
+	ist8310 -X -q start
+	if ! lis3mdl -X -q start
+	then
+		lis3mdl -X -q -a 0x1c start
+	fi
+	qmc5883l -X -q start
+	qmc5883p -X -q start
+	rm3100 -X -q start
+	bmm350 -X -q start
+	iis2mdc -X -q start
+
+	# start last (wait for possible icm20948 passthrough mode)
+	ak09916 -X -q start
+fi

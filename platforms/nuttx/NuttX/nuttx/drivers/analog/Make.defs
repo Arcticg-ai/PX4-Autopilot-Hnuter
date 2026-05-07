@@ -1,0 +1,136 @@
+############################################################################
+# drivers/analog/Make.defs
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.  The
+# ASF licenses this file to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance with the
+# License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
+# License for the specific language governing permissions and limitations
+# under the License.
+#
+############################################################################
+
+# Don't build anything if there is no support for analog devices
+
+# Check for DAC devices
+
+ifeq ($(CONFIG_DAC),y)
+
+# Include the common DAC character driver
+
+CSRCS += dac.c
+
+# Include DAC device drivers
+
+ifeq ($(CONFIG_DAC_AD5410),y)
+  CSRCS += ad5410.c
+endif
+
+ifeq ($(CONFIG_DAC7571),y)
+  CSRCS += dac7571.c
+endif
+
+ifeq ($(CONFIG_DAC7554),y)
+  CSRCS += dac7554.c
+endif
+
+ifeq ($(CONFIG_MCP48XX),y)
+  CSRCS += mcp48xx.c
+endif
+
+endif
+
+# Check for COMP devices
+
+ifeq ($(CONFIG_COMP),y)
+
+# Include the common COMP character driver
+
+CSRCS += comp.c
+
+endif
+
+# Check for OPAMP devices
+
+ifeq ($(CONFIG_OPAMP),y)
+
+# Include the common OPAMP character driver
+
+CSRCS += opamp.c
+
+endif
+
+# Check for ADC devices
+
+ifeq ($(CONFIG_ADC),y)
+
+# Include the common ADC character driver
+
+CSRCS += adc.c
+
+# Amplifiers/multiplexers
+
+ifeq ($(CONFIG_ADC_PGA11X),y)
+  CSRCS += pga11x.c
+endif
+
+# Include ADC device drivers
+
+ifeq ($(CONFIG_ADC_ADS1242),y)
+  CSRCS += ads1242.c
+endif
+
+ifeq ($(CONFIG_ADC_ADS125X),y)
+  CSRCS += ads1255.c
+endif
+
+ifeq ($(CONFIG_ADC_ADS7828),y)
+  CSRCS += ads7828.c
+endif
+
+ifeq ($(CONFIG_ADC_MAX1161X),y)
+  CSRCS += max1161x.c
+endif
+
+ifeq ($(CONFIG_ADC_LTC1867L),y)
+  CSRCS += ltc1867l.c
+endif
+endif
+
+ifeq ($(CONFIG_LMP92001),y)
+  CSRCS += lmp92001.c
+endif
+
+# Add analog driver build support (the nested if-then-else implements an OR)
+
+ifeq ($(CONFIG_DAC),y)
+  DEPPATH += --dep-path analog
+  VPATH += :analog
+  CFLAGS += ${shell $(INCDIR) "$(CC)" $(TOPDIR)$(DELIM)drivers$(DELIM)analog}
+else
+ifeq ($(CONFIG_ADC),y)
+  DEPPATH += --dep-path analog
+  VPATH += :analog
+  CFLAGS += ${shell $(INCDIR) "$(CC)" $(TOPDIR)$(DELIM)drivers$(DELIM)analog}
+else
+ifeq ($(CONFIG_COMP),y)
+  DEPPATH += --dep-path analog
+  VPATH += :analog
+  CFLAGS += ${shell $(INCDIR) "$(CC)" $(TOPDIR)$(DELIM)drivers$(DELIM)analog}
+else
+ifeq ($(CONFIG_OPAMP),y)
+  DEPPATH += --dep-path analog
+  VPATH += :analog
+  CFLAGS += ${shell $(INCDIR) "$(CC)" $(TOPDIR)$(DELIM)drivers$(DELIM)analog}
+endif
+endif
+endif
+endif

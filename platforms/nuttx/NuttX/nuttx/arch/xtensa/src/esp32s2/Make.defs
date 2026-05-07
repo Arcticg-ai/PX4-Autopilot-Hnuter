@@ -1,0 +1,81 @@
+############################################################################
+# arch/xtensa/src/esp32s2/Make.defs
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.  The
+# ASF licenses this file to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance with the
+# License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
+# License for the specific language governing permissions and limitations
+# under the License.
+#
+############################################################################
+
+include chip/Bootloader.mk
+include common/Make.defs
+
+# The start-up, "head", file.  May be either a .S or a .c file.
+
+HEAD_CSRC  = esp32s2_start.c esp32s2_wdt.c
+
+# Required ESP32-S2 files (arch/xtensa/src/esp32s2)
+
+CHIP_CSRCS  = esp32s2_allocateheap.c esp32s2_clockconfig.c esp32s2_irq.c
+CHIP_CSRCS += esp32s2_gpio.c esp32s2_region.c esp32s2_user.c
+CHIP_CSRCS += esp32s2_timerisr.c esp32s2_lowputc.c esp32s2_systemreset.c
+
+# Configuration-dependent ESP32-S2 files
+
+ifneq ($(CONFIG_ARCH_IDLE_CUSTOM),y)
+CHIP_CSRCS += esp32s2_idle.c
+endif
+
+ifeq ($(CONFIG_ESP32S2_UART),y)
+CHIP_CSRCS += esp32s2_serial.c
+endif
+
+ifeq ($(CONFIG_ESP32S2_RNG),y)
+CHIP_CSRCS += esp32s2_rng.c
+endif
+
+ifeq ($(CONFIG_ESP32S2_I2C),y)
+CHIP_CSRCS += esp32s2_i2c.c
+endif
+
+ifeq ($(CONFIG_ESP32S2_TIMER),y)
+CHIP_CSRCS += esp32s2_tim.c
+ifeq ($(CONFIG_TIMER),y)
+CHIP_CSRCS += esp32s2_tim_lowerhalf.c
+endif
+endif
+
+ifeq ($(CONFIG_WATCHDOG),y)
+CHIP_CSRCS += esp32s2_wdt_lowerhalf.c
+endif
+
+ifeq ($(CONFIG_ESP32S2_FREERUN),y)
+CHIP_CSRCS += esp32s2_freerun.c
+endif
+
+ifeq ($(CONFIG_ESP32S2_RT_TIMER),y)
+CHIP_CSRCS += esp32s2_rt_timer.c
+endif
+
+ifeq ($(CONFIG_ESP32S2_ONESHOT),y)
+CHIP_CSRCS += esp32s2_oneshot.c
+ifeq ($(CONFIG_ONESHOT),y)
+CHIP_CSRCS += esp32s2_oneshot_lowerhalf.c
+endif
+endif
+
+ifeq ($(CONFIG_ESP32S2_SPIRAM),y)
+CHIP_CSRCS += esp32s2_spiram.c
+CHIP_CSRCS += esp32s2_psram.c
+endif

@@ -1,0 +1,185 @@
+############################################################################
+# boards/arm/cxd56xx/common/src/Make.defs
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.  The
+# ASF licenses this file to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance with the
+# License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
+# License for the specific language governing permissions and limitations
+# under the License.
+#
+############################################################################
+
+ifeq ($(CONFIG_ARCH_BOARD_COMMON),y)
+
+CSRCS += cxd56_boot.c
+
+ifeq ($(CONFIG_AUDIO_CXD56),y)
+CSRCS += cxd56_audio.c
+endif
+
+ifeq ($(CONFIG_CXD56_AUDIO),y)
+CSRCS += cxd56_audio.c
+endif
+
+ifeq ($(CONFIG_MODEM_ALTMDM),y)
+CSRCS += cxd56_altmdm.c
+endif
+
+ifeq ($(CONFIG_BOARDCTL_UNIQUEID),y)
+CSRCS += cxd56_uid.c
+endif
+
+ifeq ($(CONFIG_CXD56_BACKUPLOG),y)
+CSRCS += cxd56_crashdump.c
+endif
+
+ifeq ($(CONFIG_SENSORS),y)
+CSRCS += cxd56_sensors.c
+endif
+
+ifeq ($(CONFIG_SENSORS_AK09912),y)
+CSRCS += cxd56_ak09912_i2c.c
+endif
+
+ifeq ($(CONFIG_SENSORS_AK09912_SCU),y)
+CSRCS += cxd56_ak09912_scu.c
+endif
+
+ifeq ($(CONFIG_SENSORS_APDS9930_SCU),y)
+CSRCS += cxd56_apds9930_scu.c
+endif
+
+ifeq ($(CONFIG_SENSORS_APDS9960),y)
+CSRCS += cxd56_apds9960_i2c.c
+endif
+
+ifeq ($(CONFIG_SENSORS_BH1721FVC_SCU),y)
+CSRCS += cxd56_bh1721fvc_scu.c
+endif
+
+ifeq ($(CONFIG_SENSORS_BH1745NUC_SCU),y)
+CSRCS += cxd56_bh1745nuc_scu.c
+endif
+
+ifeq ($(CONFIG_SENSORS_BM1383GLV_SCU),y)
+CSRCS += cxd56_bm1383glv_scu.c
+endif
+
+ifeq ($(CONFIG_SENSORS_BM1422GMV_SCU),y)
+CSRCS += cxd56_bm1422gmv_scu.c
+endif
+
+ifeq ($(CONFIG_SENSORS_BMI160_I2C),y)
+CSRCS += cxd56_bmi160_i2c.c
+endif
+
+ifeq ($(CONFIG_SENSORS_BMI160_SCU),y)
+CSRCS += cxd56_bmi160_scu.c
+endif
+
+ifeq ($(CONFIG_SENSORS_BMI160_SPI),y)
+CSRCS += cxd56_bmi160_spi.c
+endif
+
+ifeq ($(CONFIG_SENSORS_BMP280),y)
+CSRCS += cxd56_bmp280_i2c.c
+endif
+
+ifeq ($(CONFIG_SENSORS_BMP280_SCU),y)
+CSRCS += cxd56_bmp280_scu.c
+endif
+
+ifeq ($(CONFIG_SENSORS_KX022_SCU),y)
+CSRCS += cxd56_kx022_scu.c
+endif
+
+ifeq ($(CONFIG_SENSORS_LT1PA01_SCU),y)
+CSRCS += cxd56_lt1pa01_scu.c
+endif
+
+ifeq ($(CONFIG_SENSORS_RPR0521RS_SCU),y)
+CSRCS += cxd56_rpr0521rs_scu.c
+endif
+
+ifeq ($(CONFIG_SENSORS_SCD41),y)
+CSRCS += cxd56_scd41_i2c.c
+endif
+
+ifeq ($(CONFIG_NETDEVICES),y)
+CSRCS += cxd56_netinit.c
+endif
+
+ifeq ($(CONFIG_WL_GS2200M),y)
+CSRCS += cxd56_gs2200m.c
+endif
+
+ifeq ($(CONFIG_LCD_ILI9340),y)
+CSRCS += cxd56_ili9340.c
+endif
+
+ifeq ($(CONFIG_LCD_LPM013M091A),y)
+CSRCS += cxd56_lpm013m091a.c
+endif
+
+ifeq ($(CONFIG_CXD56_SFC),y)
+CSRCS += cxd56_flash.c
+endif
+
+ifeq ($(CONFIG_USBMSC),y)
+CSRCS += cxd56_usbmsc.c
+endif
+
+ifeq ($(CONFIG_CXD56_I2C_DRIVER),y)
+CSRCS += cxd56_i2cdev.c
+endif
+
+ifeq ($(CONFIG_I2C_BITBANG),y)
+CSRCS += cxd56_i2cdev_bitbang.c
+endif
+
+ifeq ($(CONFIG_CXD56_SPI_DRIVER),y)
+CSRCS += cxd56_spidev.c
+endif
+
+ifeq ($(CONFIG_VIDEO_ISX012),y)
+CSRCS += cxd56_isx012.c
+endif
+
+ifeq ($(CONFIG_VIDEO_ISX019),y)
+CSRCS += cxd56_isx019.c
+endif
+
+ifeq ($(CONFIG_CXD56_IMAGEPROC),y)
+  CSRCS += cxd56_imageproc.c
+endif
+
+ifeq ($(CONFIG_BCM20706),y)
+  CSRCS += cxd56_bcm20706.c
+endif
+
+ifeq ($(CONFIG_CXD56_EMMC),y)
+  CSRCS += cxd56_emmcdev.c
+endif
+
+ifeq ($(CONFIG_CXD56_SPISD),y)
+  CSRCS += cxd56_spisd.c
+endif
+
+ifeq ($(CONFIG_BOARD_USBDEV_SERIALSTR),y)
+  CSRCS += cxd56_usbdevserialstr.c
+endif
+
+DEPPATH += --dep-path src
+VPATH += :src
+CFLAGS += $(shell $(INCDIR) "$(CC)" $(TOPDIR)$(DELIM)arch$(DELIM)$(CONFIG_ARCH)$(DELIM)src$(DELIM)board$(DELIM)src)
+
+endif

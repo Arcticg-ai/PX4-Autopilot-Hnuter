@@ -1,0 +1,65 @@
+#!/bin/sh
+#
+# @name HolyBro QAV250
+#
+# @url https://docs.px4.io/main/en/frames_multicopter/holybro_qav250_pixhawk4_mini.html
+#
+# @type Quadrotor x
+# @class Copter
+#
+# @maintainer Beat Kueng <beat-kueng@gmx.net>
+#
+# @board px4_fmu-v2 exclude
+# @board bitcraze_crazyflie exclude
+#
+
+. ${R}etc/init.d/rc.mc_defaults
+
+# The set does not include a battery, but most people will probably use 4S
+param set-default BAT1_N_CELLS 4
+
+param set-default IMU_GYRO_CUTOFF 120
+param set-default IMU_DGYRO_CUTOFF 45
+
+param set-default MC_AIRMODE 1
+param set-default MC_PITCHRATE_D 0.0012
+param set-default MC_PITCHRATE_I 0.35
+param set-default MC_PITCHRATE_MAX 1200
+param set-default MC_PITCHRATE_P 0.082
+param set-default MC_PITCH_P 8
+param set-default MC_ROLLRATE_D 0.0012
+param set-default MC_ROLLRATE_I 0.3
+param set-default MC_ROLLRATE_MAX 1200
+param set-default MC_ROLLRATE_P 0.076
+param set-default MC_ROLL_P 8
+param set-default MC_YAWRATE_I 0.3
+param set-default MC_YAWRATE_MAX 600
+param set-default MC_YAWRATE_P 0.25
+param set-default MC_YAW_P 4
+
+param set-default MPC_MANTHR_MIN 0
+param set-default MPC_MAN_TILT_MAX 60
+param set-default MPC_THR_CURVE 1
+param set-default MPC_THR_HOVER 0.25
+param set-default MPC_THR_MIN 0.05
+param set-default MPC_Z_VEL_I_ACC 1.7
+
+param set-default THR_MDL_FAC 0.3
+
+# Square quadrotor X PX4 numbering
+param set-default CA_ROTOR_COUNT 4
+param set-default CA_ROTOR0_PX 1
+param set-default CA_ROTOR0_PY 1
+param set-default CA_ROTOR1_PX -1
+param set-default CA_ROTOR1_PY -1
+param set-default CA_ROTOR2_PX 1
+param set-default CA_ROTOR2_PY -1
+param set-default CA_ROTOR2_KM -0.05
+param set-default CA_ROTOR3_PX -1
+param set-default CA_ROTOR3_PY 1
+param set-default CA_ROTOR3_KM -0.05
+
+param set-default PWM_MAIN_FUNC1 101
+param set-default PWM_MAIN_FUNC2 102
+param set-default PWM_MAIN_FUNC3 103
+param set-default PWM_MAIN_FUNC4 104

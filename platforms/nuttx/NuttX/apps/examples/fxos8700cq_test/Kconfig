@@ -1,0 +1,31 @@
+#
+# For a description of the syntax of this configuration file,
+# see the file kconfig-language.txt in the NuttX tools repository.
+#
+
+config EXAMPLES_FXOS8700CQ
+	bool "FXOS8700CQ motion sensor example"
+	default n
+	select SENSORS
+	select SENSORS_FXOS8700CQ
+	---help---
+		Enable the motion sensor example
+
+if EXAMPLES_FXOS8700CQ
+
+config EXAMPLES_FXOS8700CQ_PROGNAME
+	string "Program name"
+	default "fxos8700cq"
+	---help---
+		This is the name of the program that will be use when the NSH ELF
+		program is installed.
+
+config EXAMPLES_FXOS8700CQ_PRIORITY
+	int "fxos8700cq task priority"
+	default 100
+
+config EXAMPLES_FXOS8700CQ_STACKSIZE
+	int "fxos8700cq stack size"
+	default DEFAULT_TASK_STACKSIZE
+
+endif

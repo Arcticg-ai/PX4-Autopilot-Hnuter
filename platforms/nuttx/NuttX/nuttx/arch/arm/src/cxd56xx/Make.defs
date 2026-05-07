@@ -1,0 +1,164 @@
+############################################################################
+# arch/arm/src/cxd56xx/Make.defs
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.  The
+# ASF licenses this file to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance with the
+# License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
+# License for the specific language governing permissions and limitations
+# under the License.
+#
+############################################################################
+
+include armv7-m/Make.defs
+
+CHIP_ASRCS += cxd56_farapistub.S
+
+CHIP_CSRCS  = cxd56_allocateheap.c cxd56_idle.c
+CHIP_CSRCS += cxd56_uid.c
+CHIP_CSRCS += cxd56_serial.c cxd56_uart.c cxd56_irq.c
+CHIP_CSRCS += cxd56_start.c
+CHIP_CSRCS += cxd56_timerisr.c
+CHIP_CSRCS += cxd56_pinconfig.c
+CHIP_CSRCS += cxd56_clock.c
+CHIP_CSRCS += cxd56_delay.c
+CHIP_CSRCS += cxd56_gpio.c
+CHIP_CSRCS += cxd56_pmic.c
+CHIP_CSRCS += cxd56_cpufifo.c
+CHIP_CSRCS += cxd56_icc.c
+CHIP_CSRCS += cxd56_powermgr.c
+CHIP_CSRCS += cxd56_farapi.c
+CHIP_CSRCS += cxd56_sysctl.c
+
+ifeq ($(CONFIG_SMP), y)
+CHIP_CSRCS += cxd56_cpuidlestack.c
+CHIP_CSRCS += cxd56_cpuindex.c
+CHIP_CSRCS += cxd56_cpupause.c
+CHIP_CSRCS += cxd56_cpustart.c
+ifeq ($(CONFIG_CXD56_TESTSET),y)
+CHIP_CSRCS += cxd56_testset.c
+CMN_ASRCS  := $(filter-out arm_testset.S,$(CMN_ASRCS))
+endif
+endif
+
+ifeq ($(CONFIG_ARCH_USE_TEXT_HEAP), y)
+CHIP_CSRCS += cxd56_textheap.c
+endif
+
+ifeq ($(CONFIG_CXD56_UART0),y)
+CHIP_CSRCS += cxd56_uart0.c
+endif
+
+ifeq ($(CONFIG_CXD56_PM_PROCFS),y)
+CHIP_CSRCS += cxd56_powermgr_procfs.c
+endif
+
+ifeq ($(CONFIG_CXD56_RTC),y)
+CHIP_CSRCS += cxd56_rtc.c
+ifeq ($(CONFIG_RTC_DRIVER),y)
+CHIP_CSRCS += cxd56_rtc_lowerhalf.c
+endif
+endif
+
+ifeq ($(CONFIG_CXD56_GPIO_IRQ),y)
+CHIP_CSRCS += cxd56_gpioint.c
+endif
+
+ifeq ($(CONFIG_USBDEV),y)
+CHIP_CSRCS += cxd56_usbdev.c
+endif
+
+ifeq ($(CONFIG_CXD56_SDIO),y)
+CHIP_CSRCS += cxd56_sdhci.c
+endif
+
+ifeq ($(CONFIG_CXD56_SFC),y)
+CHIP_CSRCS += cxd56_sfc.c
+endif
+
+ifeq ($(CONFIG_CXD56_SPH),y)
+CHIP_CSRCS += cxd56_sph.c
+endif
+
+ifeq ($(CONFIG_CXD56_EMMC),y)
+CHIP_CSRCS += cxd56_emmc.c
+endif
+
+ifeq ($(CONFIG_CXD56_SPI),y)
+CHIP_CSRCS += cxd56_spi.c
+endif
+
+ifeq ($(CONFIG_CXD56_I2C),y)
+CHIP_CSRCS += cxd56_i2c.c
+endif
+
+ifeq ($(CONFIG_I2C_BITBANG),y)
+CHIP_CSRCS += cxd56_i2c_bitbang.c
+endif
+
+ifeq ($(CONFIG_CXD56_DMAC),y)
+CHIP_CSRCS += cxd56_dmac.c
+endif
+
+ifeq ($(CONFIG_CXD56_PWM),y)
+CHIP_CSRCS += cxd56_pwm.c
+endif
+
+ifeq ($(CONFIG_CXD56_GAUGE),y)
+CHIP_CSRCS += cxd56_gauge.c
+endif
+
+ifeq ($(CONFIG_CXD56_CHARGER),y)
+CHIP_CSRCS += cxd56_charger.c
+endif
+
+ifeq ($(CONFIG_CXD56_GE2D),y)
+CHIP_CSRCS += cxd56_ge2d.c
+endif
+
+ifeq ($(CONFIG_CXD56_CISIF),y)
+CHIP_CSRCS += cxd56_cisif.c
+endif
+
+ifeq ($(CONFIG_CXD56_SCU),y)
+CHIP_CSRCS += cxd56_scu.c cxd56_scufifo.c
+ifeq ($(CONFIG_CXD56_ADC),y)
+CHIP_CSRCS += cxd56_adc.c
+endif
+ifeq ($(CONFIG_CXD56_UDMAC),y)
+CHIP_CSRCS += cxd56_udmac.c
+endif
+endif
+
+ifeq ($(CONFIG_CXD56_TIMER),y)
+CHIP_CSRCS += cxd56_timer.c
+endif
+
+ifeq ($(CONFIG_CXD56_WDT),y)
+CHIP_CSRCS += cxd56_wdt.c
+endif
+
+ifeq ($(CONFIG_CXD56_GNSS),y)
+CHIP_CSRCS += cxd56_gnss.c
+CHIP_CSRCS += cxd56_cpu1signal.c
+endif
+
+ifeq ($(CONFIG_CXD56_GEOFENCE),y)
+CHIP_CSRCS += cxd56_geofence.c
+endif
+
+ifeq ($(CONFIG_CXD56_BACKUPLOG),y)
+CHIP_CSRCS += cxd56_backuplog.c
+endif
+
+ifeq ($(CONFIG_CXD56_HOSTIF),y)
+CHIP_CSRCS += cxd56_hostif.c
+endif

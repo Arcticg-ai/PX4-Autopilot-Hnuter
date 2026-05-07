@@ -1,0 +1,71 @@
+#
+# For a description of the syntax of this configuration file,
+# see the file kconfig-language.txt in the NuttX tools repository.
+#
+
+config ESP32_MERGE_BINS
+	bool "Merge raw binary files into a single file"
+	default n
+	---help---
+		Merge the raw binary files into a single file for flashing to the
+		device.
+		This is only useful when the path to binary files (e.g. bootloader)
+		is provided via the ESPTOOL_BINDIR variable.
+
+config ESP32_QEMU_IMAGE
+	bool "ESP32 binary image for QEMU"
+	default n
+	select ESP32_MERGE_BINS
+	---help---
+		Create a binary flash image used for QEMU.
+
+choice ESP32_SPIFLASH_FS
+	prompt "Mount SPI Flash MTD on bring-up"
+	default ESP32_SPIFLASH_SMARTFS
+	depends on ESP32_SPIFLASH
+	optional
+	---help---
+		Mount the SPI Flash MTD with the selected File System format on board
+		bring-up.
+		If not selected, the MTD will be registered as a device node on /dev.
+
+	config ESP32_SPIFLASH_SMARTFS
+		bool "SmartFS"
+		select FS_SMARTFS
+		select MTD_SMART
+		depends on !ESP32_SECURE_FLASH_ENC_ENABLED
+
+	comment "SmartFS not supported with Flash Encryption"
+		depends on ESP32_SECURE_FLASH_ENC_ENABLED
+
+	config ESP32_SPIFLASH_NXFFS
+		bool "NXFFS"
+		select FS_NXFFS
+		depends on !ESP32_SECURE_FLASH_ENC_ENABLED
+
+	comment "NXFFS not supported with Flash Encryption"
+		depends on ESP32_SECURE_FLASH_ENC_ENABLED
+
+	config ESP32_SPIFLASH_SPIFFS
+		bool "SPIFFS"
+		select FS_SPIFFS
+		depends on !ESP32_SECURE_FLASH_ENC_ENABLED
+
+	comment "SPIFFS not supported with Flash Encryption"
+		depends on ESP32_SECURE_FLASH_ENC_ENABLED
+
+	config ESP32_SPIFLASH_LITTLEFS
+		bool "LittleFS"
+		select FS_LITTLEFS
+
+endchoice
+
+config ESP32_LCD_OVERCLOCK
+	bool "Run LCD at higher clock speed than allowed"
+	default n
+	depends on LCD_ILI9341
+	---help---
+		The ILI9341 and ST7789 specify that the maximum clock speed for the
+		SPI interface is 10MHz. However, in practice the driver chips work
+		fine with a higher clock rate, and using that gives a better
+		framerate. Select this to try using the out-of-spec clock rate.

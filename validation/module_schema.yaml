@@ -1,0 +1,592 @@
+# Cerberus Validation Schema for module configuration files.
+# See http://docs.python-cerberus.org/en/stable/validation-rules.html
+
+
+module_name:
+    # human-readable module name (used for descriptions, can contain spaces)
+    type: string
+    required: true
+
+serial_config:
+    # UART configuration (optional)
+    # A module can register autostart command(s) that are associated with a
+    # configuration parameter, so that a user can select on which serial port to
+    # run the command.
+    # One or several commands can be defined.
+    type: list
+    minlength: 1
+    schema:
+        type: dict
+        schema:
+            command:
+                # script command that is executed on autostart.
+                # These variables can be used:
+                #  ${SERIAL_DEV}       Serial device (e.g. /dev/ttyS1)
+                #  ${BAUD_PARAM}       param name for the baudrate
+                #  ${i}                instance in [0, N-1] (for multi-instance commands)
+                # It's possible to use multiple lines.
+                type: string
+                required: true
+
+            port_config_param:
+                # Parameter definition to configure on which port to run the
+                # command
+                type: dict
+                required: true
+                schema:
+                    name:
+                        # Parameter name (e.g. TEL_FRSKY_CONFIG, MAV_${i}_CONFIG)
+                        type: string
+                        regex: '[0-9A-Z_]+(\$\{i\}[0-9A-Z_]*)?_(CONFIG|CFG)'
+                        required: true
+                    group:
+                        # Associated parameter group (e.g. GPS)
+                        type: string
+                        required: true
+                    default:
+                        # Default value(s). This can be a string to specify the
+                        # serial tag (e.g. GPS1, TEL1, ...) or a list of strings
+                        # for multiple instances.
+                        # If omitted, the command is disabled by default.
+                        anyof:
+                            - type: string
+                            - type: list
+                              minlength: 1
+                              schema:
+                                  type: string
+                    depends_on_port:
+                        # Optional serial tag dependency (e.g. GPS1). If a board
+                        # does not specify this serial port, the parameter will
+                        # not be included in the build (i.e. it's not
+                        # configurable)
+                        type: string
+                    description_extended:
+                        # Optional extended description
+                        type: string
+            label:
+                # Optional command label (e.g. used in the autostart script).
+                # If omitted, module_name is used.
+                type: string
+            num_instances:
+                # Allow to configure and run multiple instances of a command.
+                # For multiple instances, '${i}' can be used to refer to
+                # an instance, for example in the parameter name or script
+                # command.
+                # Default: 1
+                type: integer
+                min: 1
+            supports_networking:
+                # set to true if the module supports networking (UDP)
+                type: boolean
+
+
+parameters:
+    # Parameter definitions.
+    # This is a list of parameter groups, where each group has one or more
+    # parameter definitions.
+    type: list
+    minlength: 1
+    schema:
+        type: dict
+        schema:
+            group:
+                # Parameter group (should be short)
+                # This applies to all parameters in the definitions dictionary
+                type: string
+                required: true
+            definitions:
+                type: dict
+                keyschema:
+                    # Parameter name
+                    type: string
+                    regex: '[0-9A-Z_]+(\$\{i\}[0-9A-Z_]*)?'
+                valueschema:
+                    type: dict # This can also be a list containing multiple definitions
+                               # (for multi-instance params with different instance_start)
+                               # Not currently used in any yaml config file.
+                    schema: &parameter_definition
+                        description:
+                            type: dict
+                            required: true
+                            schema:
+                                short:
+                                    # Short description (one line)
+                                    type: string
+                                    required: true
+                                    maxlength: 70
+                                    regex: '[^\n]+'
+                                long:
+                                    # Long description (can be multiple lines)
+                                    type: string
+                                    required: false
+
+                        type:
+                            # Define the parameter type
+                            required: true
+                            type: string
+                            allowed: ['int32', 'float', 'boolean', 'enum', 'bitmask' ]
+                        min:
+                            # Optional minimum value (only for int32 or float)
+                            type: number
+                        max:
+                            # Optional maximum value (only for int32 or float)
+                            type: number
+                        decimal:
+                            # Optional number of decimal places to display (only for float)
+                            type: number
+                        increment:
+                            # Optional increment step size (for a GCS) (only for float)
+                            type: number
+                        unit:
+                            # Optional parameter unit (only for int32 or float)
+                            # (Extend this list as needed)
+                            type: string
+                            allowed: [
+                                '%', 'Hz', '1/s', 'mAh',
+                                'rad', '%/rad', 'rad/s', 'rad/s^2', '%/rad/s',  'rad s^2/m','rad s/m',
+                                'bit/s', 'B/s',
+                                'deg', 'deg*1e7', 'deg/s', 'deg/s^2',
+                                'celcius', 'gauss', 'gauss/s', 'mgauss', 'mgauss^2',
+                                'hPa', 'kg', 'kg/m^2', 'kg m^2', 'kg/m^3',
+                                'mm', 'm', 'm/s', 'm^2', 'm/s^2', 'm/s^3', 'm/s^2/sqrt(Hz)', 'm/s/rad', 'g0',
+                                'Ohm', 'V', 'A',
+                                'us', 'ms', 's',
+                                'S', 'A/%', '(m/s^2)^2',  'm/m',  'tan(rad)^2', '(m/s)^2', 'm/rad',
+                                'm/s^3/sqrt(Hz)', 'm/s/sqrt(Hz)', 's/(1000*PWM)', '%m/s', 'min', 'us/C',
+                                'N/(m/s)', 'Nm/(rad/s)', 'Nm', 'N',
+                                'rpm',
+                                'normalized_thrust/s', 'normalized_thrust', 'norm', 'SD']
+                        bit:
+                            # description of all bits for type bitmask.
+                            # The first bit is 0.
+                            type: dict
+                            keyschema:
+                                type: integer
+                            valueschema:
+                                type: string
+
+                        values:
+                            # enumeration of possible values for type enum
+                            type: dict
+                            keyschema:
+                                type: integer
+                            valueschema:
+                                type: string
+
+                        default:
+                            # Default value(s). This is an integer or a float,
+                            # or a list of values for multiple instances.
+                            required: true
+                            anyof:
+                                - type: boolean
+                                - type: number
+                                - type: list
+                                  minlength: 1
+                                  schema:
+                                      anyof:
+                                          - type: boolean
+                                          - type: number
+                                          - type: list
+
+                        category:
+                            # Optional parameter category
+                            type: string
+                            allowed: [ 'Developer', 'System' ]
+                        volatile:
+                            # Optional volatile flag. Set to true if the
+                            # parameter can be changed by the system
+                            # automatically
+                            type: boolean
+                        reboot_required:
+                            # set to true, if changing of the parameter requires
+                            # a reboot to take effect
+                            type: boolean
+                        num_instances:
+                            # Optional number of instances.
+                            # For multiple instances, '${i}' can be used to
+                            # refer to an instance, for example in the parameter
+                            # name or description.
+                            # Default: 1
+                            type: integer
+                            min: 1
+                        instance_start:
+                            # The value of the first instance for multiple
+                            # instances, used in '${i}'. If 0, ${i} expands to
+                            # [0, N-1]
+                            # Default: 0
+                            type: integer
+                        instance_start_label:
+                            # Allows to use a different instance start for
+                            # labels vs parameter name.
+                            # Default: equal to 'instance_start'
+                            type: integer
+                        requires_ethernet:
+                            # param is only added if the board has ethernet
+                            # support
+                            type: boolean
+
+# Configuration for output drivers
+actuator_output:
+    type: dict
+    schema:
+        show_subgroups_if:
+            # condition: ui only shows the groups if this condition is true
+            # (e.g. 'UAVCAN_ENABLE>=3')
+            type: string
+            regex: &condition_regex "^(true|false|[\\.\\-a-zA-Z0-9_]{1,16}(>|>=|==|!=|<|<=)\\-?\\d+)$"
+
+        config_parameters:
+            # list of configuration parameters that apply to the whole module
+            type: list
+            minlength: 1
+            schema:
+                type: dict
+                schema:
+                  param:
+                      # parameter name
+                      type: string
+                      required: true
+                  label:
+                      # human-readable label
+                      type: string
+                  function:
+                      type: string
+                      allowed: [ enable ]
+        output_groups:
+            type: list
+            minlength: 1
+            schema:
+                type: dict
+                schema:
+                    group_label:
+                        # Human-readable group label, e.g. 'ESCs'
+                        type: string
+                    generator:
+                        # Optional generator that uses additional information for
+                        # param generation (e.g. board-specific config)
+                        type: string
+                        allowed: [ pwm ]
+                    param_prefix:
+                        # parameter prefix for the min/max/disarmed/func params, e.g. PWM_MAIN.
+                        # This also needs to be specified in the source code.
+                        type: string
+                        regex: '([0-9A-Z_]+|\$\{PWM_MAIN_OR_AUX\})'
+                        required: true
+                    channel_label:
+                        # Human-readable per-channel label (index will be added), e.g. 'PWM Main'
+                        type: string
+                    channel_label_module_name_prefix:
+                        # by default, the module_name is prefixed to the
+                        # channel_label as part of the param description. Set
+                        # this to false to turn it off
+                        type: boolean
+                    num_channels:
+                        # (maximum) number of channels
+                        type: integer
+                    standard_params:
+                        type: dict
+                        schema:
+                            disarmed:
+                                type: dict
+                                schema:
+                                    min:
+                                        # Minimum disarmed value
+                                        type: integer
+                                        min: 0
+                                        max: 65536
+                                    max:
+                                        # Maximum disarmed value
+                                        type: integer
+                                        min: 0
+                                        max: 65536
+                                    default:
+                                        # Default disarmed value
+                                        type: integer
+                                        min: 0
+                                        max: 65536
+                                    show_if:
+                                        # ui only shows the param if this condition is true
+                                        type: string
+                                        regex: *condition_regex
+                            min:
+                                type: dict
+                                schema:
+                                    min:
+                                        # Minimum minimum value
+                                        type: integer
+                                        min: 0
+                                        max: 65536
+                                    max:
+                                        # Maximum minimum value
+                                        type: integer
+                                        min: 0
+                                        max: 65536
+                                    default:
+                                        # Default minimum value
+                                        type: integer
+                                        min: 0
+                                        max: 65536
+                                    show_if:
+                                        # ui only shows the param if this condition is true
+                                        type: string
+                                        regex: *condition_regex
+                            max:
+                                type: dict
+                                schema:
+                                    min:
+                                        # Minimum maximum value
+                                        type: integer
+                                        min: 0
+                                        max: 65536
+                                    max:
+                                        # Maximum maximum value
+                                        type: integer
+                                        min: 0
+                                        max: 65536
+                                    default:
+                                        # Default maximum value
+                                        type: integer
+                                        min: 0
+                                        max: 65536
+                                    show_if:
+                                        # ui only shows the param if this condition is true
+                                        type: string
+                                        regex: *condition_regex
+                            failsafe:
+                                type: dict
+                                schema:
+                                    min:
+                                        # Minimum failsafe value
+                                        type: integer
+                                        min: 0
+                                        max: 65536
+                                    max:
+                                        # Maximum failsafe value
+                                        type: integer
+                                        min: 0
+                                        max: 65536
+                                    show_if:
+                                        # ui only shows the param if this condition is true
+                                        type: string
+                                        regex: *condition_regex
+                    custom_params:
+                        type: list
+                        schema: &mixer_parameter
+                            type: dict
+                            schema:
+                                label:
+                                    type: string
+                                name:
+                                    # param name
+                                    type: string
+                                    required: true
+                                show_as:
+                                    type: string
+                                    allowed: [ 'bitset', 'true-if-positive' ]
+                                show_if:
+                                    # condition
+                                    type: string
+                                    regex: *condition_regex
+                                index_offset:
+                                    type: integer
+                                advanced:
+                                    type: integer
+                                function:
+                                    type: string
+                                identifier:
+                                    # for rules
+                                    type: string
+                    extra_function_groups:
+                        # Additional function groups to add, defined in output_functions.yaml
+                        type: list
+                        schema:
+                            type: string
+                    channel_labels:
+                        # Only used for 'pwm' generator, specifies PWM and Capture pins
+                        type: list
+                        minlength: 2
+                        maxlength: 2
+                        schema:
+                            type: string
+                    timer_config_file:
+                        # Only used for 'pwm' generator, specifies
+                        # board-specific timer_config.cpp file
+                        type: string
+                    pwm_timer_param:
+                        # Only used for 'pwm' generator, per-timer config param
+                        type: dict
+                        schema: *parameter_definition
+                    config_parameters:
+                        # list of configuration parameters that apply to the
+                        # group
+                        type: list
+                        minlength: 1
+                        schema:
+                            type: dict
+                            schema:
+                              param:
+                                  # parameter name
+                                  type: string
+                                  required: true
+                              label:
+                                  # human-readable label
+                                  type: string
+                              function:
+                                  type: string
+                                  allowed: [ primary ]
+                    instance_start:
+                        # The value of the first channel instance for multiple
+                        # instances, used in '${i}'. If 0, ${i} expands to
+                        # [0, N-1]
+                        # Default: 1
+                        type: integer
+                    instance_start_label:
+                        # Allows to use a different instance start for
+                        # labels vs parameter name.
+                        # Default: equal to 'instance_start'
+                        type: integer
+
+                    supported_actions:
+                        # set of actuator actions supported by the driver
+                        type: dict
+                        keyschema:
+                            # action name
+                            type: string
+                            regex: "^(beep|3d_mode_on|3d_mode_off|set_spin_direction1|set_spin_direction2)$"
+                        valueschema:
+                            type: dict
+                            schema:
+                              supported_if:
+                                  type: string
+                                  regex: *condition_regex
+                              actuator_types:
+                                  type: list
+                                  minlength: 1
+                                  schema:
+                                      type: string
+
+# Mixer (only set in control_allocator)
+mixer:
+    type: dict
+    schema:
+        actuator_types:
+            type: dict
+            keyschema:
+                # actuator type name
+                type: string
+            valueschema:
+                type: dict
+                schema:
+                    functions:
+                        # Which output functions this maps to. Must be a name from
+                        # output_functions.yaml
+                        type: string
+                    actuator_testing_values:
+                        type: dict
+                        schema:
+                            min:
+                                type: number
+                                min: -1
+                                max: 1
+                                required: true
+                            max:
+                                type: number
+                                min: -1
+                                max: 1
+                                required: true
+                            default:
+                                type: number
+                                min: -1
+                                max: 1
+                            default_is_nan:
+                                type: boolean
+                        required: true
+                    per_item_parameters:
+                        type: list
+                        minlength: 1
+                        schema: *mixer_parameter
+        rules:
+            # mixer rules, validated by the mavlink actuator component information schema
+            type: list
+        config:
+            # Airframe types
+            type: dict
+            schema:
+                param:
+                    # param name to configure the airframe type
+                    type: string
+                types:
+                    type: dict
+                    keyschema:
+                        # parameter value to select the airframe
+                        type: integer
+                    valueschema:
+                        type: dict
+                        schema:
+                            type:
+                                # geometry type (used for rendering a geometry, and
+                                # show type-specific functionality)
+                                type: string
+                                allowed: [ multirotor ]
+                            title:
+                                type: string
+                            actuators:
+                                type: list
+                                minlength: 1
+                                schema:
+                                    type: dict
+                                    schema:
+                                        actuator_type:
+                                            type: string
+                                        group_label:
+                                            type: string
+                                        count:
+                                            # param name or fixed count
+                                            oneof:
+                                              - type: string
+                                              - type: integer
+                                        item_label_prefix:
+                                            # optional per-item label prefix list or (indexed) string
+                                            oneof:
+                                              - type: list
+                                                schema:
+                                                    type: string
+                                              - type: string
+                                        parameters:
+                                            type: list
+                                            minlength: 1
+                                            schema: *mixer_parameter
+                                        per_item_parameters:
+                                            type: dict
+                                            schema:
+                                                standard:
+                                                    type: dict
+                                                    schema:
+                                                        position:
+                                                            type: list
+                                                            minlength: 3
+                                                            maxlength: 3
+                                                            schema:
+                                                                # position param names
+                                                                type: string
+                                                        index_offset:
+                                                            type: integer
+                                                extra:
+                                                    type: list
+                                                    schema: *mixer_parameter
+                                        instances:
+                                            # non-configurable actuators (fixed positions)
+                                            type: list
+                                            schema:
+                                                type: dict
+                                                schema:
+                                                    name:
+                                                        type: string
+                                                        required: true
+                                                    position:
+                                                        type: list
+                                                        required: true
+                                                        schema:
+                                                            minlength: 3
+                                                            maxlength: 3
+                                                            type: number

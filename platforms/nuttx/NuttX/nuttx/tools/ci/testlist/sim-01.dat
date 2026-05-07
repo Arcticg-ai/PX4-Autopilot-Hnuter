@@ -1,0 +1,25 @@
+/sim/*/*/*/[a-n]*
+
+# macOS doesn't have ALSA
+-Darwin,sim:alsa
+
+# clang doesn't -fsanitize=kernel-address
+-Darwin,sim:kasan
+
+# macOS doesn't support ELF loading
+-Darwin,sim:elf
+-Darwin,sim:loadable
+
+# macOS doesn't support 32bit(CONFIG_SIM_M32=y) anymore
+-Darwin,sim:module32
+
+# Do not build Linux configs
+-Darwin,sim:linuxi2c
+-Darwin,sim:linuxspi
+
+# macOS doesn't have X11
+-Darwin,sim:lvgl
+-Darwin,sim:nsh2
+-Darwin,sim:nx11
+-Darwin,sim:nxlines
+-Darwin,sim:nxwm

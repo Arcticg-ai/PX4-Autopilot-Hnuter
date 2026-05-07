@@ -1,0 +1,539 @@
+#
+# For a description of the syntax of this configuration file,
+# see the file kconfig-language.txt in the NuttX tools repository.
+#
+
+if ARCH_SIM
+comment "Simulation Configuration Options"
+
+choice
+	prompt "Host CPU Type"
+	default HOST_X86_64
+
+config HOST_X86_64
+	bool "x86_64"
+	select ARCH_HAVE_STACKCHECK
+	select LIBC_ARCH_ELF_64BIT if LIBC_ARCH_ELF && !SIM_M32
+
+config HOST_X86
+	bool "x86"
+	select ARCH_HAVE_STACKCHECK
+
+config HOST_ARM
+	bool "arm"
+	select ARCH_HAVE_STACKCHECK
+
+config HOST_ARM64
+	bool "arm64"
+	select ARCH_HAVE_STACKCHECK
+
+endchoice # Host CPU Type
+
+config ARCH_CHIP
+	string
+	default "sim"
+
+config SIM_M32
+	bool "Build 32-bit simulation on 64-bit machine"
+	default n
+	depends on HOST_X86_64
+	---help---
+		Simulation context switching is based on logic like setjmp and longjmp.  This
+		context switching is only available for 32-bit targets.  On 64-bit machines,
+		this context switching will fail.
+
+		The workaround on 64-bit machines for now is to build for a 32-bit target on the
+		64-bit machine.  The workaround for this issue has been included in NuttX 6.15 and
+		beyond.  For those versions, you must add SIM_M32=y to the .config file in
+		order to enable building a 32-bit image on a 64-bit platform.
+
+config SIM_CYGWIN_DECORATED
+	bool "Decorated Cygwin names"
+	default n
+	depends on WINDOWS_CYGWIN
+	---help---
+		Older versions of Cygwin tools decorated C symbol names by adding an
+		underscore to the beginning of the symbol name.  Newer versions of
+		Cygwin do not seem to do this.
+
+		How do you know if you need this option?  You could look at the generated
+		symbol tables to see if there are underscore characters at the beginning
+		of the symbol names.  Or, if you need this option, the simulation will not
+		run:  It will crash early, probably in some function due to the failure to
+		allocate memory.
+
+config SIM_ASAN
+	bool "Address Sanitizer"
+	default n
+	depends on MM_CUSTOMIZE_MANAGER && FRAME_POINTER
+	---help---
+		AddressSanitizer (ASan) is a fast compiler-based tool for detecting memory
+		bugs in native code.
+
+config SIM_UBSAN
+	bool "Undefined Behaviour Sanitizer"
+	default n
+	depends on FRAME_POINTER
+	---help---
+		Compile-time instrumentation is used to detect various undefined behaviours
+		at runtime.
+
+choice
+	prompt "X64_64 ABI"
+	default SIM_X8664_SYSTEMV if HOST_LINUX
+	default SIM_X8664_MICROSOFT if HOST_WINDOWS
+	depends on HOST_X86_64 && !SIM_32
+
+config SIM_X8664_SYSTEMV
+	bool "System V AMD64 ABI"
+	---help---
+		The calling convention of the System V AMD64 ABI is followed on Solaris,
+		Linux, FreeBSD, macOS, and other UNIX-like or POSIX-compliant operating
+		systems. The first six integer or pointer arguments are passed in registers
+		RDI, RSI, RDX, RCX, R8, and R9, while XMM0, XMM1, XMM2, XMM3, XMM4, XMM5,
+		XMM6 and XMM7 are used for floating point arguments. For system calls, R10
+		is used instead of RCX.   As in the Microsoft x64 calling convention,
+		additional arguments are passed on the stack and the return value is stored
+		in RAX.
+
+		Registers RBP, RBX, and R12-R15 are callee-save registers; all others must
+		be saved by the caller if they wish to preserve their values.
+
+		Unlike the Microsoft calling convention, a shadow space is not provided; on
+		function entry, the return address is adjacent to the seventh integer argument
+		on the stack.
+
+config SIM_X8664_MICROSOFT
+	bool "Microsoft x64 calling convention"
+	---help---
+		The Microsoft x64 calling convention is followed on Microsoft Windows and
+		pre-boot UEFI (for long mode on x86-64). It uses registers RCX, RDX, R8,
+		R9 for the first four integer or pointer arguments (in that order), and
+		XMM0, XMM1, XMM2, XMM3 are used for floating point arguments. Additional
+		arguments are pushed onto the stack (right to left). Integer return
+		values (similar to x86) are returned in RAX if 64 bits or less. Floating
+		point return values are returned in XMM0. Parameters less than 64 bits
+		long are not zero extended; the high bits are not zeroed.
+
+endchoice
+
+choice
+	prompt "Simulation at a fixed cadence in near real-time"
+	default SIM_WALLTIME_SLEEP
+
+config SIM_WALLTIME_SLEEP
+	bool "Execution the simulation in near real-time using host sleep"
+	---help---
+		NOTE: This configuration setting will cause the sim target's IDLE loop to delay
+		on each call so that the system "timer interrupt" is called at a rate approximately
+		correct for the system timer tick rate.  With this definition in the configuration,
+		sleep() behavior is more or less normal.
+
+config SIM_WALLTIME_SIGNAL
+	bool "Execute the simulation using a host timer"
+	---help---
+		Run the NuttX simulation using a host timer that delivers periodic SIGALRM
+		events at a tick rate specified by CONFIG_USEC_PER_TICK. Enabling this option
+		will generate the timer 'tick' events from the host timer at a fixed rate.
+		The simulated 'tick' events from Idle task are no longer sent.
+
+endchoice
+
+config SIM_STACKSIZE_ADJUSTMENT
+	int "The adjustment of stack size for sim"
+	default 65536
+	---help---
+		The adjustment of stack size for sim. When the task is created,
+		the stack size is increased by this amount.
+
+config SIM_HOSTFS
+	bool "Simulated HostFS"
+	depends on FS_HOSTFS
+	---help---
+		Access host filesystem through HostFS.
+
+choice
+	prompt "Simulated Network Interface"
+	default SIM_NETDEV
+	depends on NET
+	optional
+
+config SIM_NETDEV
+	bool "Simulated Network Device"
+	select ARCH_HAVE_NETDEV_STATISTICS
+	select SCHED_LPWORK
+	select NET_ETHERNET
+	---help---
+		Build in support for a simulated network device.
+
+config SIM_NETUSRSOCK
+	bool "Simulated Network Device with Native Stack via usrsock"
+	select NET_USRSOCK
+	---help---
+		Built-in support for a simulated network device using native stack via usrsock
+
+endchoice
+
+if SIM_NETDEV
+
+choice
+	prompt "Simulated Network Device Type"
+	default SIM_NETDEV_TAP
+
+config SIM_NETDEV_TAP
+	bool "Simulated Network Device with TAP/WPCAP"
+	depends on (HOST_LINUX || HOST_WINDOWS)
+	---help---
+		Build in support for a simulated network device using a TAP device on Linux or
+		WPCAP on Windows.
+
+config SIM_NETDEV_VPNKIT
+	bool "Simulated Network Device with VPNKit"
+	---help---
+		Build in support for a simulated network device using VPNKit.
+
+endchoice
+
+endif
+
+config SIM_NETDEV_VPNKIT_PATH
+	string "Unix domain socket to communicate with VPNKit"
+	default "/tmp/vpnkit-nuttx"
+	depends on SIM_NETDEV_VPNKIT
+
+if HOST_LINUX
+choice
+	prompt "Simulation Network Type"
+	default SIM_NET_HOST_ROUTE
+	depends on SIM_NETDEV_TAP
+
+config SIM_NET_HOST_ROUTE
+	bool "Use local host route"
+	---help---
+		Add a host route for the simulation that points to the created tap device.  The
+		simulation will not be able to access the public network unless iptables is
+		configured to masquerade for it.  See boards/sim/sim sim/NETWORK-LINUX.txt
+		for more information.
+
+config SIM_NET_BRIDGE
+	bool "Attach to Linux bridge"
+	---help---
+		Add the created tap device to the specified bridge.  You will need to manually
+		configure the bridge IP address (if any) and routes that point to the bridge.
+		See boards/sim/sim/sim/NETWORK-LINUX.txt for more information.
+
+endchoice
+endif
+
+if SIM_NET_BRIDGE
+config SIM_NET_BRIDGE_DEVICE
+	string "Bridge device to attach"
+	default "nuttx0"
+	---help---
+		The name of the bridge device (as passed to "brctl create") to which the simulation's
+		TAP interface should be added.
+
+endif
+
+config SIM_SOUND
+	bool "Simulated sound support"
+	depends on AUDIO
+	default y
+
+if SIM_SOUND
+
+choice
+	prompt "Simulated sound Type"
+	default SIM_SOUND_ALSA
+
+config SIM_SOUND_ALSA
+	bool "alsa support on sim"
+	depends on HOST_LINUX
+
+endchoice
+
+endif
+
+menu "Simulated Graphics/Input"
+
+config SIM_X11FB
+	bool "X11 graphics/input"
+	default n
+	select SCHED_LPWORK
+	---help---
+		Use X11 to provide graphics and input emulation to interact with host.
+
+config SIM_X11NOSHM
+	bool "Don't use shared memory with X11"
+	default n
+	depends on SIM_X11FB
+	---help---
+		Don't use shared memory with the X11 graphics device emulation.
+
+menu "Window Configuration"
+
+config SIM_FBHEIGHT
+	int "Display height"
+	default 240
+	---help---
+		Simulated display height.  Default: 240
+
+config SIM_FBWIDTH
+	int "Display width"
+	default 320
+	---help---
+		Simulated width of the display.  Default: 320
+
+config SIM_FBBPP
+	int "Pixel depth in bits"
+	default 8
+	---help---
+		Pixel depth in bits.  Valid choices are 4, 8, 16, 24, or 32.
+		If you use the X11 display emulation, the selected BPP must match the BPP
+		of your graphics hardware (probably 32 bits).  Default: 8
+
+endmenu
+
+choice
+	prompt "Graphics Device"
+	default SIM_FRAMEBUFFER
+	---help---
+		Choose which kind of graphics device to emulate
+
+config SIM_LCDDRIVER
+	bool "LCD device"
+	depends on LCD
+	---help---
+		Emulate an LCD driver
+
+config SIM_FRAMEBUFFER
+	bool "Framebuffer"
+	depends on VIDEO_FB
+	---help---
+		Emulate a framebuffer
+
+config SIM_VNCSERVER
+	bool "VNC server"
+	depends on VNCSERVER
+	---help---
+		Serve a VNC server
+
+endchoice
+
+if INPUT
+choice
+	prompt "Input Device"
+	default SIM_NOINPUT
+
+config SIM_TOUCHSCREEN
+	bool "X11 mouse-based touchscreen emulation"
+	select INPUT_TOUCHSCREEN
+	depends on SIM_X11FB
+	---help---
+		Support an X11 mouse-based touchscreen emulation.  Also needs INPUT=y
+
+config SIM_AJOYSTICK
+	bool "X11 mouse-based analog joystick emulation"
+	depends on SIM_X11FB
+	---help---
+		Support an X11 mouse-based analog joystick emulation.  Also needs INPUT=y
+
+config SIM_BUTTONS
+	bool "X11 mouse-based button emulation"
+	depends on SIM_X11FB
+	---help---
+		Support an X11 mouse-based button emulation
+		(left-click mapped to button press). Also needs INPUT=y
+
+config SIM_NOINPUT
+	bool "No input device"
+
+endchoice # Input Device
+
+config SIM_KEYBOARD
+	bool "X11 keyboard"
+	select INPUT_KEYBOARD
+	depends on SIM_X11FB
+	---help---
+		Support an X11 mouse-based keyboard emulation.  Also needs INPUT=y
+
+config SIM_KEYBOARD_BUFFSIZE
+	int "sim keyboard buffer size"
+	default 64
+	depends on SIM_KEYBOARD
+	---help---
+		Emulator keyboard buffer size
+
+endif # if INPUT
+
+endmenu
+
+config SIM_HCISOCKET
+	bool "Attach Host Bluetooth"
+	default false
+	depends on HOST_LINUX
+	---help---
+		Attached the local bluetooth device to the simulation
+		target via HCI_CHANNEL_USER. This gives NuttX full
+		control of the device, but is abstracted from the
+		physical interface which is still handled by Linux.
+
+config SIM_HCISOCKET_DEVID
+	int "Bluetooth Device ID"
+	default 0
+	depends on SIM_HCISOCKET
+	---help---
+		Attached the local bluetooth device use specific
+		Bluetooth HCI number id.
+
+config SIM_I2CBUS
+	bool "Simulated I2C Bus"
+	default n
+	select I2C
+	---help---
+		Build in support for simulated i2c bus
+
+if SIM_I2CBUS
+
+choice
+	prompt "Simulated I2C Bus Type"
+	default SIM_I2CBUS_LINUX
+
+config SIM_I2CBUS_LINUX
+	bool "Linux I2C Bus Character Dev"
+	depends on HOST_LINUX
+	---help---
+		Attach a Linux I2C bus via the character device
+		interface. This should be used with caution as it
+		could interfere with devices internal to the system.
+		It is recommended to use this with a USB<>I2C device
+		like the MCP2221 and set udev rules so that only
+		the bus provided by this device can be controlled
+		by the user running the simulator.
+		https://www.kernel.org/doc/html/latest/i2c/dev-interface.html
+
+endchoice
+
+endif
+
+config SIM_SPI
+	bool "Simulated SPI port"
+	default n
+	select SPI
+	---help---
+		Build in support for simulated spi port
+
+if SIM_SPI
+
+choice
+	prompt "Simulated SPI Type"
+	default SIM_SPI_LINUX
+
+config SIM_SPI_LINUX
+	bool "Linux SPI Character Dev"
+	depends on HOST_LINUX
+	---help---
+		Attach a Linux SPI port via the character device
+		interface. To achieve a SPI port on Linux host, it is
+		recommended to use a USB<>SPI device such as CH341A/B.
+
+endchoice
+
+endif
+
+menu "Simulated UART"
+
+config SIM_UART_NUMBER
+	int "Number of simulated UART ports"
+	default 0
+	range 0 4
+	---help---
+		Under simulation, a NuttX port can be bound to a serial
+		port on the host machine. This way NuttX can access the
+		host's hardware directly.
+				
+		There are two possibilities regarding the host's port:
+		it can be either a physical one, or a simulated one.
+		
+		In case of a physical port, NuttX will be able to open
+		this port and communicate with any actual hardware that
+		it is connected to. This is useful for testing code that
+		uses external hardware (e.g. sensors or other boards).
+		In order for this to work, NuttX port name must be set to
+		the same name that the host is using for this port (e.g.
+		/dev/ttyUSB0).
+		
+		Alternativelly, a "simulated" host port may be used to.
+		This is useful if you need to also simulate the external
+		hardware, or to have NuttX communicate with any other
+		software in your system.
+		You can create a "simulated" port in your host,
+		by running:
+		
+			socat PTY,link=/dev/ttySIM0 PTY,link=/dev/ttyNX0
+		 	stty -F /dev/ttySIM0 raw
+		 	stty -F /dev/ttyNX0 raw
+		
+		This will create two new ports on your system.
+		NuttX will use the ttySIM0 port, and another software
+		may open and use the ttyNX0 port.
+		Anything sent to the one of these ports will be relayed
+		automatically to the other, and vice-versa.
+
+config SIM_UART_BUFFER_SIZE
+	int "UART buffer size"
+	default 256
+	depends on SIM_UART_NUMBER >= 1
+	---help---
+		The size of the transmit and receive buffers of the
+		simulated UART ports.
+		
+		Note that all ports will have the same buffer size.
+
+config SIM_UART0_NAME
+	string "UART port 0 name"
+	default "/dev/ttySIM0"
+	depends on SIM_UART_NUMBER >= 1
+	---help---
+		This is the name of the simulated UART port.
+		The port will be mounted in NuttX under this name.
+		
+		A UART port must also exist on the host system
+		with the exact same name specified here.
+
+config SIM_UART1_NAME
+	string "UART port 1 name"
+	default "/dev/ttySIM1"
+	depends on SIM_UART_NUMBER >= 2
+	---help---
+		This is the name of the simulated UART port.
+		The port will be mounted in NuttX under this name.
+		
+		A UART port must also exist on the host system
+		with the exact same name specified here.
+
+config SIM_UART2_NAME
+	string "UART port 2 name"
+	default "/dev/ttySIM2"
+	depends on SIM_UART_NUMBER >= 3
+	---help---
+		This is the name of the simulated UART port.
+		The port will be mounted in NuttX under this name.
+		
+		A UART port must also exist on the host system
+		with the exact same name specified here.
+
+config SIM_UART3_NAME
+	string "UART port 3 name"
+	default "/dev/ttySIM3"
+	depends on SIM_UART_NUMBER >= 4
+	---help---
+		This is the name of the simulated UART port.
+		The port will be mounted in NuttX under this name.
+		
+		A UART port must also exist on the host system
+		with the exact same name specified here.
+
+endmenu
+
+endif # ARCH_SIM

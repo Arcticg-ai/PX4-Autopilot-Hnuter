@@ -1,0 +1,49 @@
+############################################################################
+# net/ieee802154/Make.defs
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.  The
+# ASF licenses this file to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance with the
+# License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
+# License for the specific language governing permissions and limitations
+# under the License.
+#
+############################################################################
+
+# Packet socket support
+
+ifeq ($(CONFIG_NET_IEEE802154),y)
+
+# Initialization / resource management
+
+NET_CSRCS  += ieee802154_initialize.c
+NET_CSRCS  += ieee802154_conn.c
+NET_CSRCS  += ieee802154_container.c
+
+# Socket layer
+
+SOCK_CSRCS += ieee802154_sockif.c
+SOCK_CSRCS += ieee802154_sendmsg.c
+SOCK_CSRCS += ieee802154_recvmsg.c
+
+# Device interface
+
+NET_CSRCS  += ieee802154_input.c
+NET_CSRCS  += ieee802154_callback.c
+NET_CSRCS  += ieee802154_poll.c
+NET_CSRCS  += ieee802154_finddev.c
+
+# Include packet socket build support
+
+DEPPATH += --dep-path ieee802154
+VPATH += :ieee802154
+
+endif # CONFIG_NET_IEEE802154

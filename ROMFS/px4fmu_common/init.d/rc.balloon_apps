@@ -1,0 +1,6 @@
+#!/bin/sh
+#
+# Standard apps for balloons
+#
+# NOTE: Script variables are declared/initialized/unset in the rcS script.
+#

@@ -1,0 +1,67 @@
+#!/bin/sh
+#
+# @name Generic Dodecarotor cox geometry
+#
+# @type Dodecarotor cox
+# @class Copter
+#
+# @maintainer Ian McNanie <ianmcnanie@gmail.com>
+# @maintainer William Peale <develop707@gmail.com>
+#
+# @board bitcraze_crazyflie exclude
+# @board px4_fmu-v2 exclude
+#
+
+. ${R}etc/init.d/rc.mc_defaults
+
+param set-default NAV_ACC_RAD 2
+
+param set-default RTL_DESCEND_ALT 10
+param set-default RTL_RETURN_ALT 30
+
+param set-default CA_ROTOR_COUNT 12
+# Bottom motors
+param set-default CA_ROTOR0_PX 0
+param set-default CA_ROTOR0_PY 0.5
+param set-default CA_ROTOR0_PZ 0.05
+param set-default CA_ROTOR1_KM -0.05
+param set-default CA_ROTOR1_PX 0
+param set-default CA_ROTOR1_PY -0.5
+param set-default CA_ROTOR1_PZ 0.05
+param set-default CA_ROTOR2_PX 0.433
+param set-default CA_ROTOR2_PY -0.25
+param set-default CA_ROTOR2_PZ 0.05
+param set-default CA_ROTOR3_PX -0.433
+param set-default CA_ROTOR3_PY 0.25
+param set-default CA_ROTOR3_PZ 0.05
+param set-default CA_ROTOR3_KM -0.05
+param set-default CA_ROTOR4_PX 0.433
+param set-default CA_ROTOR4_PY 0.25
+param set-default CA_ROTOR4_PZ 0.05
+param set-default CA_ROTOR4_KM -0.05
+param set-default CA_ROTOR5_PX -0.344
+param set-default CA_ROTOR5_PY -0.25
+param set-default CA_ROTOR5_PZ 0.05
+
+# Top motors
+param set-default CA_ROTOR6_PX 0
+param set-default CA_ROTOR6_PY 0.5
+param set-default CA_ROTOR6_PZ -0.05
+param set-default CA_ROTOR6_KM -0.05
+param set-default CA_ROTOR7_PX 0
+param set-default CA_ROTOR7_PY -0.5
+param set-default CA_ROTOR7_PZ -0.05
+param set-default CA_ROTOR8_PX 0.433
+param set-default CA_ROTOR8_PY -0.25
+param set-default CA_ROTOR8_PZ -0.05
+param set-default CA_ROTOR8_KM -0.05
+param set-default CA_ROTOR9_PX -0.433
+param set-default CA_ROTOR9_PY 0.25
+param set-default CA_ROTOR9_PZ -0.05
+param set-default CA_ROTOR10_PX 0.433
+param set-default CA_ROTOR10_PY 0.25
+param set-default CA_ROTOR10_PZ -0.05
+param set-default CA_ROTOR11_PX -0.344
+param set-default CA_ROTOR11_PY -0.25
+param set-default CA_ROTOR11_PZ -0.05
+param set-default CA_ROTOR11_KM -0.05

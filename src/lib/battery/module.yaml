@@ -1,0 +1,180 @@
+__max_num_config_instances: &max_num_config_instances 3
+
+module_name: battery
+
+parameters:
+    - group: Battery Calibration
+      definitions:
+        BAT${i}_V_EMPTY:
+            description:
+                short: Empty cell voltage
+                long: |
+                    Defines the voltage where a single cell of the battery is considered empty.
+                    The voltage should be chosen above the steep dropoff at 3.5V. A typical
+                    lithium battery can only be discharged under high load down to 10% before
+                    it drops off to a voltage level damaging the cells.
+
+            type: float
+            unit: V
+            decimal: 2
+            increment: 0.01
+            reboot_required: true
+            num_instances: *max_num_config_instances
+            instance_start: 1
+            default: [3.6, 3.6, 3.6]
+
+        BAT${i}_V_CHARGED:
+            description:
+                short: Full cell voltage
+                long: |
+                    Defines the voltage where a single cell of the battery is considered full.
+                    For a more accurate estimate set this below the nominal voltage of e.g. 4.2V
+
+            type: float
+            unit: V
+            decimal: 2
+            increment: 0.01
+            reboot_required: true
+            num_instances: *max_num_config_instances
+            instance_start: 1
+            default: [4.05, 4.05, 4.05]
+
+        BAT${i}_R_INTERNAL:
+            description:
+                short: Explicitly defines the per cell internal resistance for battery ${i}
+                long: |
+                    If non-negative, then this will be used instead of the online estimated internal resistance.
+
+            type: float
+            unit: Ohm
+            min: -1.0
+            max: 0.2
+            decimal: 4
+            increment: 0.0005
+            reboot_required: true
+            num_instances: *max_num_config_instances
+            instance_start: 1
+            default: [-1.0, -1.0, -1.0]
+
+        BAT${i}_N_CELLS:
+            description:
+                short: Number of cells for battery ${i}.
+                long: |
+                    Defines the number of cells the attached battery consists of.
+
+            type: enum
+            values:
+                0: Unknown
+                1: 1S Battery
+                2: 2S Battery
+                3: 3S Battery
+                4: 4S Battery
+                5: 5S Battery
+                6: 6S Battery
+                7: 7S Battery
+                8: 8S Battery
+                9: 9S Battery
+                10: 10S Battery
+                11: 11S Battery
+                12: 12S Battery
+                13: 13S Battery
+                14: 14S Battery
+                15: 15S Battery
+                16: 16S Battery
+            num_instances: *max_num_config_instances
+            instance_start: 1
+            default: [0, 0, 0]
+
+        BAT${i}_CAPACITY:
+            description:
+                short: Battery ${i} capacity.
+                long: |
+                    Defines the capacity of battery ${i} in mAh.
+            type: float
+            unit: mAh
+            min: -1.0
+            max: 100000
+            decimal: 0
+            increment: 50
+            reboot_required: true
+            num_instances: *max_num_config_instances
+            instance_start: 1
+            default: [-1.0, -1.0, -1.0]
+
+        BAT${i}_SOURCE:
+            description:
+                short: Battery ${i} monitoring source.
+                long: |
+                    This parameter controls the source of battery data. The value 'Power Module'
+                    means that measurements are expected to come from a power module. If the value is set to
+                    'External' then the system expects to receive mavlink battery status messages.
+                    If the value is set to 'ESCs', the battery information are taken from the esc_status message.
+                    This requires the ESC to provide both voltage as well as current.
+            type: enum
+            values:
+                -1: Disabled
+                0: Power Module
+                1: External
+                2: ESCs
+            reboot_required: true
+            num_instances: *max_num_config_instances
+            instance_start: 1
+            default: [0, -1, -1]
+
+        BAT_LOW_THR:
+            description:
+                short: Low threshold.
+                long: |
+                    Sets the threshold when the battery will be reported as low.
+                    This has to be higher than the critical threshold.
+            type: float
+            unit: norm
+            min: 0.12
+            max: 0.5
+            decimal: 2
+            increment: 0.01
+            default: 0.15
+
+        BAT_CRIT_THR:
+            description:
+                short: Critical threshold.
+                long: |
+                    Sets the threshold when the battery will be reported as critically low.
+                    This has to be lower than the low threshold. This threshold commonly
+                    will trigger RTL.
+            type: float
+            unit: norm
+            min: 0.05
+            max: 0.5
+            decimal: 2
+            increment: 0.01
+            default: 0.07
+
+        BAT_EMERGEN_THR:
+            description:
+                short: Emergency threshold.
+                long: |
+                    Sets the threshold when the battery will be reported as dangerously low.
+                    This has to be lower than the critical threshold. This threshold commonly
+                    will trigger landing.
+            type: float
+            unit: norm
+            min: 0.03
+            max: 0.5
+            decimal: 2
+            increment: 0.01
+            default: 0.05
+
+        BAT_AVRG_CURRENT:
+            description:
+                short: Expected battery current in flight.
+                long: |
+                    This value is used to initialize the in-flight average current estimation,
+                    which in turn is used for estimating remaining flight time and RTL triggering.
+            type: float
+            unit: A
+            min: 0
+            max: 500
+            decimal: 2
+            increment: 0.1
+            default: 15

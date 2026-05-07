@@ -1,0 +1,21 @@
+#!/bin/sh
+#
+# Standard apps for airships. Attitude/Position estimator, Attitude/Position control.
+#
+# NOTE: Script variables are declared/initialized/unset in the rcS script.
+#
+
+#
+# Start Control Allocator
+#
+control_allocator start
+
+#
+# Start Airship Attitude Controller.
+#
+airship_att_control start
+
+#
+# Start Land Detector.
+#
+land_detector start airship

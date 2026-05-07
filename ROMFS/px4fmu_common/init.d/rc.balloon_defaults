@@ -1,0 +1,18 @@
+#!/bin/sh
+#
+# Balloon default parameters
+#
+# NOTE: Script variables are declared/initialized/unset in the rcS script.
+#
+
+set VEHICLE_TYPE fw
+
+# MAV_TYPE_FREE_BALLOON 8
+param set-default MAV_TYPE 8
+
+#
+# Default parameters for balloon UAVs.
+#
+param set-default LPE_EN 1
+param set-default ATT_EN 1
+param set-default EKF2_EN 0

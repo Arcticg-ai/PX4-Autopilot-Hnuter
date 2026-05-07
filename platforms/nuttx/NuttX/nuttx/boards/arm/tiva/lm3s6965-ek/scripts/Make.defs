@@ -1,0 +1,64 @@
+############################################################################
+# boards/arm/tiva/lm3s6965-ek/scripts/Make.defs
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.  The
+# ASF licenses this file to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance with the
+# License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
+# License for the specific language governing permissions and limitations
+# under the License.
+#
+############################################################################
+
+include $(TOPDIR)/.config
+include $(TOPDIR)/tools/Config.mk
+include $(TOPDIR)/arch/arm/src/armv7-m/Toolchain.defs
+
+ARCHSCRIPT += $(BOARD_DIR)$(DELIM)scripts$(DELIM)ld.script
+
+ARCHPICFLAGS = -fpic -msingle-pic-base -mpic-register=r10
+ifeq ($(CONFIG_NXFLAT),y)
+  # mpic-data-is-text-relative flag first time appeared in GCC source code tree on 2016-Jul-12
+  # and it was included in GCC 4.9.4 release on 2016-Aug-03.
+  ARCHCC_HAS_PIC_DATA_IS_TEXT_RELATIVE_FLAG = ${shell $(CC) --target-help 2>&1 | grep -c "mpic-data-is-text-relative"}
+
+  # Turn off -mpic-data-is-text-relative flag to access bss via the GOT
+  # (https://cwiki.apache.org/confluence/pages/viewpage.action?pageId=139630111)
+  ifneq ($(ARCHCC_HAS_PIC_DATA_IS_TEXT_RELATIVE_FLAG),0)
+    ARCHPICFLAGS += -mno-pic-data-is-text-relative
+  endif
+endif
+
+CFLAGS := $(ARCHCFLAGS) $(ARCHOPTIMIZATION) $(ARCHCPUFLAGS) $(ARCHINCLUDES) $(ARCHDEFINES) $(EXTRAFLAGS) -pipe
+CPICFLAGS = $(ARCHPICFLAGS) $(CFLAGS)
+CXXFLAGS := $(ARCHCXXFLAGS) $(ARCHOPTIMIZATION) $(ARCHCPUFLAGS) $(ARCHXXINCLUDES) $(ARCHDEFINES) $(EXTRAFLAGS) -pipe
+CXXPICFLAGS = $(ARCHPICFLAGS) $(CXXFLAGS)
+CPPFLAGS := $(ARCHINCLUDES) $(ARCHDEFINES) $(EXTRAFLAGS)
+AFLAGS := $(CFLAGS) -D__ASSEMBLY__
+
+NXFLATLDFLAGS1 = -r -d -warn-common
+NXFLATLDFLAGS2 = $(NXFLATLDFLAGS1) -T$(TOPDIR)/binfmt/libnxflat/gnu-nxflat-pcrel.ld -no-check-sections
+LDNXFLATFLAGS = -e main -s 2048
+
+# Loadable module definitions
+
+CMODULEFLAGS = $(CFLAGS) -mlong-calls # --target1-abs
+
+LDMODULEFLAGS = -r -e module_initialize
+LDMODULEFLAGS += -T $(call CONVERT_PATH,$(TOPDIR)/libs/libc/modlib/gnu-elf.ld)
+
+# ELF module definitions
+
+CELFFLAGS = $(CFLAGS) -mlong-calls
+CXXELFFLAGS = $(CXXFLAGS) -mlong-calls
+
+LDELFFLAGS = -r -e main
+LDELFFLAGS += -T $(call CONVERT_PATH,$(TOPDIR)/binfmt/libelf/gnu-elf.ld)

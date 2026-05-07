@@ -1,0 +1,751 @@
+<sdf version='1.11'>
+  <model name='hnuter'>
+    <self_collide>false</self_collide>
+    <pose>0 0 1.0 0 0 0</pose>
+
+    <link name='base_link'>
+      <inertial>
+        <pose>-0.15 0 0 0 0 0</pose>
+        <mass>3.0552478</mass>
+        <inertia>
+          <ixx>0.076945537</ixx> <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyy>0.076945537</iyy> <iyz>0</iyz>
+          <izz>0.12824256</izz> </inertia>
+      </inertial>
+      <collision name='base_link_collision'>
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>1 1 1</scale>
+            <uri>meshes/base_link.STL</uri>
+          </mesh>
+        </geometry>
+      </collision>
+      <visual name='base_link_visual'>
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>1 1 1</scale>
+            <uri>meshes/base_link.STL</uri>
+          </mesh>
+        </geometry>
+        <material>
+          <diffuse>1 1 1 1</diffuse>
+          <ambient>1 1 1 1</ambient>
+        </material>
+      </visual>
+
+      <sensor name="air_pressure_sensor" type="air_pressure">
+        <always_on>1</always_on>
+        <update_rate>50</update_rate>
+        <air_pressure>
+          <pressure>
+            <noise type="gaussian">
+              <mean>0</mean>
+              <stddev>3</stddev>
+            </noise>
+          </pressure>
+        </air_pressure>
+      </sensor>
+      <sensor name="magnetometer_sensor" type="magnetometer">
+        <always_on>1</always_on>
+        <update_rate>100</update_rate>
+        <magnetometer>
+          <x>
+            <noise type="gaussian">
+              <stddev>0.0001</stddev>
+            </noise>
+          </x>
+          <y>
+            <noise type="gaussian">
+              <stddev>0.0001</stddev>
+            </noise>
+          </y>
+          <z>
+            <noise type="gaussian">
+              <stddev>0.0001</stddev>
+            </noise>
+          </z>
+        </magnetometer>
+      </sensor>
+      <sensor name="imu_sensor" type="imu">
+        <always_on>1</always_on>
+        <update_rate>250</update_rate>
+        <imu>
+          <angular_velocity>
+            <x>
+              <noise type="gaussian">
+                <mean>0.0</mean>
+                <stddev>0.0008726646</stddev>
+              </noise>
+            </x>
+            <y>
+              <noise type="gaussian">
+                <mean>0.0</mean>
+                <stddev>0.0008726646</stddev>
+              </noise>
+            </y>
+            <z>
+              <noise type="gaussian">
+                <mean>0.0</mean>
+                <stddev>0.0008726646</stddev>
+              </noise>
+            </z>
+          </angular_velocity>
+          <linear_acceleration>
+            <x>
+              <noise type="gaussian">
+                <mean>0.0</mean>
+                <stddev>0.00637</stddev>
+              </noise>
+            </x>
+            <y>
+              <noise type="gaussian">
+                <mean>0.0</mean>
+                <stddev>0.00637</stddev>
+              </noise>
+            </y>
+            <z>
+              <noise type="gaussian">
+                <mean>0.0</mean>
+                <stddev>0.00686</stddev>
+              </noise>
+            </z>
+          </linear_acceleration>
+        </imu>
+      </sensor>
+      <sensor name="navsat_sensor" type="navsat">
+        <always_on>1</always_on>
+        <update_rate>30</update_rate>
+      </sensor>
+    </link>
+
+    <joint name='lj2' type='revolute'>
+      <pose relative_to='base_link'>0 0.085500000000009596 -0.0128750000030618 1.5707963267949003 1.5707963267948966 0</pose>
+      <parent>base_link</parent>
+      <child>l2</child>
+      <axis>
+        <xyz>0 0 -1</xyz>
+        <limit>
+          <lower>-1.5700000000000001</lower>
+          <upper>1.5700000000000001</upper>
+          <effort>500</effort> <velocity>10</velocity> </limit>
+        <dynamics>
+          <damping>0.5</damping>
+          <friction>0.1</friction>
+          <spring_reference>0</spring_reference>
+          <spring_stiffness>0</spring_stiffness>
+        </dynamics>
+      </axis>
+    </joint>
+    <link name='l2'>
+      <pose relative_to='lj2'>0 0 0 0 0 0</pose>
+      <inertial>
+        <pose>6.7524936363062797e-05 0.032671251423278903 -0.16532055473375801 0 0 0</pose>
+        <mass>0.44303614</mass>
+        <inertia>
+          <ixx>0.0051297025</ixx>
+          <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyy>0.0051297025</iyy>
+          <iyz>0</iyz>
+          <izz>0.0051297025</izz>
+        </inertia>
+      </inertial>
+      <collision name='l2_collision'>
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>1 1 1</scale>
+            <uri>meshes/l2.STL</uri>
+          </mesh>
+        </geometry>
+      </collision>
+      <visual name='l2_visual'>
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>1 1 1</scale>
+            <uri>meshes/l2.STL</uri>
+          </mesh>
+        </geometry>
+        <material>
+          <diffuse>1 1 1 1</diffuse>
+          <ambient>1 1 1 1</ambient>
+        </material>
+      </visual>
+    </link>
+    <joint name='lj1' type='revolute'>
+      <pose relative_to='l2'>0 0.244699999614929 -0.32450000000000001 1.5707963267949003 -1.5707963267948966 0</pose>
+      <parent>l2</parent>
+      <child>l1</child>
+      <axis>
+        <xyz>0 0 -1</xyz>
+        <limit>
+          <lower>-1.5700000000000001</lower>
+          <upper>1.5700000000000001</upper>
+          <effort>500</effort> <velocity>10</velocity> </limit>
+        <dynamics>
+          <damping>0.5</damping>
+          <friction>0.1</friction>
+          <spring_reference>0</spring_reference>
+          <spring_stiffness>0</spring_stiffness>
+        </dynamics>
+      </axis>
+    </joint>
+    <link name='l1'>
+      <pose relative_to='lj1'>0 0 0 0 0 0</pose>
+      <inertial>
+        <pose>-9.3401645748059106e-05 1.4148647762557399e-06 0.22343430671995701 0 0 0</pose>
+        <mass>0.24820493</mass>
+        <inertia>
+          <ixx>0.0051297025</ixx>
+          <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyy>0.0051297025</iyy>
+          <iyz>0</iyz>
+          <izz>0.0051297025</izz>
+        </inertia>
+      </inertial>
+      <collision name='l1_collision'>
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>1 1 1</scale>
+            <uri>meshes/l1.STL</uri>
+          </mesh>
+        </geometry>
+      </collision>
+      <visual name='l1_visual'>
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>1 1 1</scale>
+            <uri>meshes/l1.STL</uri>
+          </mesh>
+        </geometry>
+        <material>
+          <diffuse>0.975490212 1 1 1</diffuse>
+          <ambient>0.975490212 1 1 1</ambient>
+        </material>
+      </visual>
+    </link>
+    <joint name='xyj3' type='revolute'>
+      <pose relative_to='l1'>0.0026727691435781101 -0.044920555663678703 0.24469999878524601 1.5707963267949003 -3.4694469519536142e-18 0.059429866219687016</pose>
+      <parent>l1</parent>
+      <child>xy3</child>
+      <axis>
+        <xyz>0 0 -1</xyz>
+        <limit>
+          <effort>30</effort>
+          <velocity>-1</velocity>
+          <lower>-inf</lower>
+          <upper>inf</upper>
+        </limit>
+        <dynamics>
+          <spring_reference>0</spring_reference>
+          <spring_stiffness>0</spring_stiffness>
+        </dynamics>
+      </axis>
+    </joint>
+    <link name='xy3'>
+      <pose relative_to='xyj3'>0 0 0 3.14159265 0 0</pose>
+      <inertial>
+        <pose>-2.9516316568667399e-07 -6.8205682405274196e-08 0.00069323365810707699 0 0 0</pose>
+        <mass>0.014860135</mass>
+        <inertia>
+          <ixx>8.190568e-05</ixx>
+          <ixy>-8.2004693e-05</ixy>
+          <ixz>-1.8520336e-09</ixz>
+          <iyy>8.5426572e-05</iyy>
+          <iyz>1.7673587e-09</iyz>
+          <izz>0.00016722139</izz>
+        </inertia>
+      </inertial>
+      <collision name='xy3_collision'>
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>1 1 1</scale>
+            <uri>meshes/xy3.STL</uri>
+          </mesh>
+        </geometry>
+      </collision>
+      <visual name='xy3_visual'>
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>1 1 1</scale>
+            <uri>meshes/xy3.STL</uri>
+          </mesh>
+        </geometry>
+        <material>
+          <diffuse>0.627451003 0 0 1</diffuse>
+          <ambient>0.627451003 0 0 1</ambient>
+        </material>
+      </visual>
+    </link>
+    <joint name='xyj4' type='revolute'>
+      <pose relative_to='l1'>-0.0026727708496897501 0.044920555205772698 0.24469999878776599 -1.5707963267949003 0 0.059429866219687905</pose>
+      <parent>l1</parent>
+      <child>xy4</child>
+      <axis>
+        <xyz>0 0 1</xyz>
+        <limit>
+          <effort>30</effort>
+          <velocity>-1</velocity>
+          <lower>-inf</lower>
+          <upper>inf</upper>
+        </limit>
+        <dynamics>
+          <spring_reference>0</spring_reference>
+          <spring_stiffness>0</spring_stiffness>
+        </dynamics>
+      </axis>
+    </joint>
+    <link name='xy4'>
+      <pose relative_to='xyj4'>0 0 0 0 0 0</pose>
+      <inertial>
+        <pose>-3.3506818575279601e-07 -1.09872108884365e-07 0.00069323504321908104 0 0 0</pose>
+        <mass>0.014860128</mass>
+        <inertia>
+          <ixx>7.5740313e-05</ixx>
+          <ixy>-8.1639737e-05</ixy>
+          <ixz>-1.7849795e-09</ixz>
+          <iyy>9.1591893e-05</iyy>
+          <iyz>1.8354476e-09</iyz>
+          <izz>0.00016722135</izz>
+        </inertia>
+      </inertial>
+      <collision name='xy4_collision'>
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>1 1 1</scale>
+            <uri>meshes/xy4.STL</uri>
+          </mesh>
+        </geometry>
+      </collision>
+      <visual name='xy4_visual'>
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>1 1 1</scale>
+            <uri>meshes/xy4.STL</uri>
+          </mesh>
+        </geometry>
+        <material>
+          <diffuse>0.627451003 0 0 1</diffuse>
+          <ambient>0.627451003 0 0 1</ambient>
+        </material>
+      </visual>
+    </link>
+
+    <joint name='rj2' type='revolute'>
+      <pose relative_to='base_link'>0 -0.085500008330716998 -0.012875014954200801 1.5707963267949003 1.5707963267948966 0</pose>
+      <parent>base_link</parent>
+      <child>r2</child>
+      <axis>
+        <xyz>0 0 -1</xyz>
+        <limit>
+          <lower>-1.5700000000000001</lower>
+          <upper>1.5700000000000001</upper>
+          <effort>500</effort> <velocity>10</velocity> </limit>
+        <dynamics>
+          <damping>0.5</damping>
+          <friction>0.1</friction>
+          <spring_reference>0</spring_reference>
+          <spring_stiffness>0</spring_stiffness>
+        </dynamics>
+      </axis>
+    </joint>
+    <link name='r2'>
+      <pose relative_to='rj2'>0 0 0 0 0 0</pose>
+      <inertial>
+        <pose>7.1450448124839999e-05 -0.039231362704817502 0.160772984085926 0 0 0</pose>
+        <mass>0.430734</mass>
+        <inertia>
+          <ixx>0.0051297025</ixx>
+          <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyy>0.0051297025</iyy>
+          <iyz>0</iyz>
+          <izz>0.0051297025</izz>
+        </inertia>
+      </inertial>
+      <collision name='r2_collision'>
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>1 1 1</scale>
+            <uri>meshes/r2.STL</uri>
+          </mesh>
+        </geometry>
+      </collision>
+      <visual name='r2_visual'>
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>1 1 1</scale>
+            <uri>meshes/r2.STL</uri>
+          </mesh>
+        </geometry>
+        <material>
+          <diffuse>1 1 1 1</diffuse>
+          <ambient>1 1 1 1</ambient>
+        </material>
+      </visual>
+    </link>
+    <joint name='rj1' type='revolute'>
+      <pose relative_to='r2'>0 -0.244700003721606 0.32449999791731499 1.5707963267949003 -1.5707963267948966 0</pose>
+      <parent>r2</parent>
+      <child>r1</child>
+      <axis>
+        <xyz>0 0 -1</xyz>
+        <limit>
+          <lower>-1.5700000000000001</lower>
+          <upper>1.5700000000000001</upper>
+          <effort>500</effort> <velocity>10</velocity> </limit>
+        <dynamics>
+          <damping>0.5</damping>
+          <friction>0.1</friction>
+          <spring_reference>0</spring_reference>
+          <spring_stiffness>0</spring_stiffness>
+        </dynamics>
+      </axis>
+    </joint>
+    <link name='r1'>
+      <pose relative_to='rj1'>0 0 0 0 0 0</pose>
+      <inertial>
+        <pose>9.30466671190677e-05 2.2349813872390999e-05 -0.22344384462022901 0 0 0</pose>
+        <mass>0.24847547</mass>
+        <inertia>
+          <ixx>0.0051297025</ixx>
+          <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyy>0.0051297025</iyy>
+          <iyz>0</iyz>
+          <izz>0.0051297025</izz>
+        </inertia>
+      </inertial>
+      <collision name='r1_collision'>
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>1 1 1</scale>
+            <uri>meshes/r1.STL</uri>
+          </mesh>
+        </geometry>
+      </collision>
+      <visual name='r1_visual'>
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>1 1 1</scale>
+            <uri>meshes/r1.STL</uri>
+          </mesh>
+        </geometry>
+        <material>
+          <diffuse>0.975490212 1 1 1</diffuse>
+          <ambient>0.975490212 1 1 1</ambient>
+        </material>
+      </visual>
+    </link>
+    <joint name='xyj1' type='revolute'>
+      <pose relative_to='r1'>0 0.045000011700213297 -0.24469998962094799 -1.5707963267949003 0 0</pose>
+      <parent>r1</parent>
+      <child>xy1</child>
+      <axis>
+        <xyz>0 0 1</xyz>
+        <limit>
+          <effort>30</effort>
+          <velocity>-1</velocity>
+          <lower>-inf</lower>
+          <upper>inf</upper>
+        </limit>
+        <dynamics>
+          <spring_reference>0</spring_reference>
+          <spring_stiffness>0</spring_stiffness>
+        </dynamics>
+      </axis>
+    </joint>
+    <link name='xy1'>
+      <pose relative_to='xyj1'>0 0 0 0 0 0</pose>
+      <inertial>
+        <pose>4.0160622816198799e-07 -1.03676963247319e-06 0.000693207458100073 0 0 0</pose>
+        <mass>0.014860459</mass>
+        <inertia>
+          <ixx>0.00016496993</ixx>
+          <ixy>-1.086781e-05</ixy>
+          <ixz>-2.5452837e-09</ixz>
+          <iyy>2.3660169e-06</iyy>
+          <iyz>-2.2606062e-10</iyz>
+          <izz>0.00016722508</izz>
+        </inertia>
+      </inertial>
+      <collision name='xy1_collision'>
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>1 1 1</scale>
+            <uri>meshes/xy1.STL</uri>
+          </mesh>
+        </geometry>
+      </collision>
+      <visual name='xy1_visual'>
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>1 1 1</scale>
+            <uri>meshes/xy1.STL</uri>
+          </mesh>
+        </geometry>
+        <material>
+          <diffuse>0.627451003 0 0 1</diffuse>
+          <ambient>0.627451003 0 0 1</ambient>
+        </material>
+      </visual>
+    </link>
+    <joint name='xyj2' type='revolute'>
+      <pose relative_to='r1'>0 -0.044999988299802798 -0.244699989620977 1.5707963267949003 0 0</pose>
+      <parent>r1</parent>
+      <child>xy2</child>
+      <axis>
+        <xyz>0 0 -1</xyz>
+        <limit>
+          <effort>30</effort>
+          <velocity>-1</velocity>
+          <lower>-inf</lower>
+          <upper>inf</upper>
+        </limit>
+        <dynamics>
+          <spring_reference>0</spring_reference>
+          <spring_stiffness>0</spring_stiffness>
+        </dynamics>
+      </axis>
+    </joint>
+    <link name='xy2'>
+      <pose relative_to='xyj2'>0 0 0 3.14159265 0 0</pose>
+      <inertial>
+        <pose>-8.4743776435081099e-07 7.1177342621661699e-07 0.00069322340254728703 0 0 0</pose>
+        <mass>0.014860459</mass>
+        <inertia>
+          <ixx>0.00013619811</ixx>
+          <ixy>6.2997628e-05</ixy>
+          <ixz>2.1192388e-09</ixz>
+          <iyy>3.1137829e-05</iyy>
+          <iyz>1.4276561e-09</iyz>
+          <izz>0.00016722507</izz>
+        </inertia>
+      </inertial>
+      <collision name='xy2_collision'>
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>1 1 1</scale>
+            <uri>meshes/xy2.STL</uri>
+          </mesh>
+        </geometry>
+      </collision>
+      <visual name='xy2_visual'>
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>1 1 1</scale>
+            <uri>meshes/xy2.STL</uri>
+          </mesh>
+        </geometry>
+        <material>
+          <diffuse>0.627451003 0 0 1</diffuse>
+          <ambient>0.627451003 0 0 1</ambient>
+        </material>
+      </visual>
+    </link>
+    <joint name='xyj5' type='revolute'>
+      <pose relative_to='base_link'>-0.76799999999999902 0 0.014874999999999999 0 0 -1.5707963267949003</pose>
+      <parent>base_link</parent>
+      <child>xy5</child>
+      <axis>
+        <xyz>0 0 1</xyz>
+        <limit>
+          <effort>30</effort>
+          <velocity>-1</velocity>
+          <lower>-inf</lower>
+          <upper>inf</upper>
+        </limit>
+        <dynamics>
+          <spring_reference>0</spring_reference>
+          <spring_stiffness>0</spring_stiffness>
+        </dynamics>
+      </axis>
+    </joint>
+    <link name='xy5'>
+      <pose relative_to='xyj5'>0 0 0 0 0 0</pose>
+      <inertial>
+        <pose>1.1005704686877801e-06 1.8788039390926801e-07 0.00070880264187552595 0 0 0</pose>
+        <mass>0.014860459</mass>
+        <inertia>
+          <ixx>1.2629937e-05</ixx>
+          <ixy>4.1008716e-05</ixy>
+          <ixz>-2.7227838e-10</ixz>
+          <iyy>0.00015470601</iyy>
+          <iyz>-2.5407492e-09</iyz>
+          <izz>0.00016722508</izz>
+        </inertia>
+      </inertial>
+      <collision name='xy5_collision'>
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>1 1 1</scale>
+            <uri>meshes/xy5.STL</uri>
+          </mesh>
+        </geometry>
+      </collision>
+      <visual name='xy5_visual'>
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>1 1 1</scale>
+            <uri>meshes/xy5.STL</uri>
+          </mesh>
+        </geometry>
+        <material>
+          <diffuse>0.627451003 0 0 1</diffuse>
+          <ambient>0.627451003 0 0 1</ambient>
+        </material>
+      </visual>
+    </link>
+
+    <plugin filename="gz-sim-multicopter-motor-model-system" name="gz::sim::systems::MulticopterMotorModel">
+      <jointName>xyj1</jointName>
+      <linkName>xy1</linkName>
+      <turningDirection>ccw</turningDirection>
+      <timeConstantUp>0.001</timeConstantUp>
+      <timeConstantDown>0.002</timeConstantDown>
+      <maxRotVelocity>1000.0</maxRotVelocity>
+      <motorConstant>8.54858e-05</motorConstant>
+      <momentConstant>0.016</momentConstant>
+      <commandSubTopic>command/motor_speed</commandSubTopic>
+      <motorNumber>0</motorNumber>
+      <rotorDragCoefficient>8.06428e-05</rotorDragCoefficient>
+      <rollingMomentCoefficient>1e-06</rollingMomentCoefficient>
+      <rotorVelocitySlowdownSim>10</rotorVelocitySlowdownSim>
+      <motorType>velocity</motorType>
+    </plugin>
+    <plugin filename="gz-sim-multicopter-motor-model-system" name="gz::sim::systems::MulticopterMotorModel">
+      <jointName>xyj2</jointName>
+      <linkName>xy2</linkName>
+      <turningDirection>cw</turningDirection>
+      <timeConstantUp>0.001</timeConstantUp>
+      <timeConstantDown>0.002</timeConstantDown>
+      <maxRotVelocity>1000.0</maxRotVelocity>
+      <motorConstant>8.54858e-05</motorConstant>
+      <momentConstant>0.016</momentConstant>
+      <commandSubTopic>command/motor_speed</commandSubTopic>
+      <motorNumber>1</motorNumber>
+      <rotorDragCoefficient>8.06428e-05</rotorDragCoefficient>
+      <rollingMomentCoefficient>1e-06</rollingMomentCoefficient>
+      <rotorVelocitySlowdownSim>10</rotorVelocitySlowdownSim>
+      <motorType>velocity</motorType>
+    </plugin>
+    <plugin filename="gz-sim-multicopter-motor-model-system" name="gz::sim::systems::MulticopterMotorModel">
+      <jointName>xyj3</jointName>
+      <linkName>xy3</linkName>
+      <turningDirection>ccw</turningDirection>
+      <timeConstantUp>0.001</timeConstantUp>
+      <timeConstantDown>0.002</timeConstantDown>
+      <maxRotVelocity>1000.0</maxRotVelocity>
+      <motorConstant>8.54858e-05</motorConstant>
+      <momentConstant>0.016</momentConstant>
+      <commandSubTopic>command/motor_speed</commandSubTopic>
+      <motorNumber>2</motorNumber>
+      <rotorDragCoefficient>8.06428e-05</rotorDragCoefficient>
+      <rollingMomentCoefficient>1e-06</rollingMomentCoefficient>
+      <rotorVelocitySlowdownSim>10</rotorVelocitySlowdownSim>
+      <motorType>velocity</motorType>
+    </plugin>
+    <plugin filename="gz-sim-multicopter-motor-model-system" name="gz::sim::systems::MulticopterMotorModel">
+      <jointName>xyj4</jointName>
+      <linkName>xy4</linkName>
+      <turningDirection>cw</turningDirection>
+      <timeConstantUp>0.001</timeConstantUp>
+      <timeConstantDown>0.002</timeConstantDown>
+      <maxRotVelocity>1000.0</maxRotVelocity>
+      <motorConstant>8.54858e-05</motorConstant>
+      <momentConstant>0.016</momentConstant>
+      <commandSubTopic>command/motor_speed</commandSubTopic>
+      <motorNumber>3</motorNumber>
+      <rotorDragCoefficient>8.06428e-05</rotorDragCoefficient>
+      <rollingMomentCoefficient>1e-06</rollingMomentCoefficient>
+      <rotorVelocitySlowdownSim>10</rotorVelocitySlowdownSim>
+      <motorType>velocity</motorType>
+    </plugin>
+    <plugin filename="gz-sim-multicopter-motor-model-system" name="gz::sim::systems::MulticopterMotorModel">
+      <jointName>xyj5</jointName>
+      <linkName>xy5</linkName>
+      <turningDirection>ccw</turningDirection>
+      <timeConstantUp>0.001</timeConstantUp>
+      <timeConstantDown>0.002</timeConstantDown>
+      <maxRotVelocity>1000.0</maxRotVelocity>
+      <motorConstant>8.54858e-05</motorConstant>
+      <momentConstant>0.016</momentConstant>
+      <commandSubTopic>command/motor_speed</commandSubTopic>
+      <motorNumber>4</motorNumber>
+      <rotorDragCoefficient>8.06428e-05</rotorDragCoefficient>
+      <rollingMomentCoefficient>1e-06</rollingMomentCoefficient>
+      <rotorVelocitySlowdownSim>10</rotorVelocitySlowdownSim>
+      <motorType>velocity</motorType>
+    </plugin>
+
+    <plugin filename="gz-sim-joint-position-controller-system" name="gz::sim::systems::JointPositionController">
+      <joint_name>rj2</joint_name>
+      <sub_topic>servo_0</sub_topic>
+      <p_gain>650</p_gain>
+      <i_gain>0</i_gain>
+      <d_gain>50</d_gain>
+      <i_max>0.0</i_max>
+      <i_min>0.0</i_min>
+      <cmd_max>1.57</cmd_max>
+      <cmd_min>-1.57</cmd_min>
+      </plugin>
+
+    <plugin filename="gz-sim-joint-position-controller-system" name="gz::sim::systems::JointPositionController">
+      <joint_name>lj2</joint_name>
+      <sub_topic>servo_1</sub_topic>
+      <p_gain>650</p_gain>
+      <i_gain>0</i_gain>
+      <d_gain>50</d_gain>
+      <i_max>0.0</i_max>
+      <i_min>0.0</i_min>
+      <cmd_max>1.57</cmd_max>
+      <cmd_min>-1.57</cmd_min>
+    </plugin>
+
+    <plugin filename="gz-sim-joint-position-controller-system" name="gz::sim::systems::JointPositionController">
+      <joint_name>rj1</joint_name>
+      <sub_topic>servo_2</sub_topic>
+      <p_gain>650</p_gain>
+      <i_gain>0</i_gain>
+      <d_gain>50</d_gain>
+      <i_max>0.0</i_max>
+      <i_min>0.0</i_min>
+      <cmd_max>1.57</cmd_max>
+      <cmd_min>-1.57</cmd_min>
+    </plugin>
+
+    <plugin filename="gz-sim-joint-position-controller-system" name="gz::sim::systems::JointPositionController">
+      <joint_name>lj1</joint_name>
+      <sub_topic>servo_3</sub_topic>
+      <p_gain>650</p_gain>
+      <i_gain>0</i_gain>
+      <d_gain>50</d_gain>
+      <i_max>0.0</i_max>
+      <i_min>0.0</i_min>
+      <cmd_max>1.57</cmd_max>
+      <cmd_min>-1.57</cmd_min>
+    </plugin>
+
+  </model>
+</sdf>

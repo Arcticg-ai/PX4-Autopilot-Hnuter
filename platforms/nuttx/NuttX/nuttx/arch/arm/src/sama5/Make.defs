@@ -1,0 +1,219 @@
+############################################################################
+# arch/arm/src/sama5/Make.defs
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.  The
+# ASF licenses this file to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance with the
+# License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
+# License for the specific language governing permissions and limitations
+# under the License.
+#
+############################################################################
+
+include armv7-a/Make.defs
+
+# SAMA5-specific C source files
+
+CHIP_CSRCS  = sam_allocateheap.c sam_boot.c sam_clockconfig.c sam_irq.c
+CHIP_CSRCS += sam_lowputc.c sam_memories.c sam_memorymap.c sam_pck.c
+CHIP_CSRCS += sam_pio.c sam_pmc.c sam_sckc.c sam_serial.c sam_serialinit.c
+
+# Configuration dependent C and assembly language files
+
+ifeq ($(CONFIG_MM_PGALLOC),y)
+CHIP_CSRCS += sam_pgalloc.c
+endif
+
+ifneq ($(CONFIG_SCHED_TICKLESS),y)
+CHIP_CSRCS += sam_timerisr.c
+endif
+
+ifeq ($(CONFIG_SAMA5_SYSTEMRESET),y)
+CHIP_CSRCS += sam_systemreset.c
+endif
+
+ifeq ($(CONFIG_SAMA5_DMAC0),y)
+CHIP_CSRCS += sam_dmac.c
+else
+ifeq ($(CONFIG_SAMA5_DMAC1),y)
+CHIP_CSRCS += sam_dmac.c
+endif
+endif
+
+ifeq ($(CONFIG_SAMA5_XDMAC0),y)
+CHIP_CSRCS += sam_xdmac.c
+else
+ifeq ($(CONFIG_SAMA5_XDMAC1),y)
+CHIP_CSRCS += sam_xdmac.c
+endif
+endif
+
+ifeq ($(CONFIG_SAMA5_PIO_IRQ),y)
+CHIP_CSRCS += sam_pioirq.c
+endif
+
+ifeq ($(CONFIG_SAMA5_RTC),y)
+CHIP_CSRCS += sam_rtc.c
+endif
+
+ifeq ($(CONFIG_SAMA5_WDT),y)
+CHIP_CSRCS += sam_wdt.c
+endif
+
+ifeq ($(CONFIG_SAMA5_DBGU),y)
+CHIP_CSRCS += sam_dbgu.c
+endif
+
+ifeq ($(CONFIG_SAMA5_TRNG),y)
+CHIP_CSRCS += sam_trng.c
+endif
+
+ifeq ($(CONFIG_SAMA5_FLEXCOM_USART),y)
+CHIP_CSRCS += sam_flexcom_serial.c
+endif
+
+ifeq ($(CONFIG_SAMA5_SPI0),y)
+CHIP_CSRCS += sam_spi.c
+else
+ifeq ($(CONFIG_SAMA5_SPI1),y)
+CHIP_CSRCS += sam_spi.c
+else
+endif
+endif
+
+ifeq ($(CONFIG_SAMA5_SSC0),y)
+CHIP_CSRCS += sam_ssc.c
+else
+ifeq ($(CONFIG_SAMA5_SSC1),y)
+CHIP_CSRCS += sam_ssc.c
+else
+endif
+endif
+
+ifeq ($(CONFIG_SAMA5_LCDC),y)
+CHIP_CSRCS += sam_lcd.c
+endif
+
+ifeq ($(CONFIG_SAMA5_UHPHS),y)
+ifeq ($(CONFIG_SAMA5_OHCI),y)
+CHIP_CSRCS += sam_ohci.c
+endif
+ifeq ($(CONFIG_SAMA5_EHCI),y)
+CHIP_CSRCS += sam_ehci.c
+endif
+endif
+
+ifeq ($(CONFIG_SAMA5_UDPHS),y)
+CHIP_CSRCS += sam_udphs.c
+endif
+
+ifeq ($(CONFIG_USBHOST),y)
+ifeq ($(CONFIG_USBHOST_TRACE),y)
+CHIP_CSRCS += sam_usbhost.c
+else
+ifeq ($(CONFIG_DEBUG_USB),y)
+CHIP_CSRCS += sam_usbhost.c
+endif
+endif
+endif
+
+ifeq ($(CONFIG_SAMA5_SDMMC0),y)
+CHIP_CSRCS += sam_sdmmc.c
+else
+ifeq ($(CONFIG_SAMA5_SDMMC1),y)
+CHIP_CSRCS += sam_sdmmc.c
+endif
+endif
+
+ifeq ($(CONFIG_SAMA5_HSMCI0),y)
+CHIP_CSRCS += sam_hsmci.c sam_hsmci_clkdiv.c
+else
+ifeq ($(CONFIG_SAMA5_HSMCI1),y)
+CHIP_CSRCS += sam_hsmci.c sam_hsmci_clkdiv.c
+else
+ifeq ($(CONFIG_SAMA5_HSMCI2),y)
+CHIP_CSRCS += sam_hsmci.c sam_hsmci_clkdiv.c
+endif
+endif
+endif
+
+ifeq ($(CONFIG_NET),y)
+CHIP_CSRCS += sam_ethernet.c
+ifeq ($(CONFIG_SAMA5_EMACA),y)
+CHIP_CSRCS += sam_emaca.c
+endif
+ifeq ($(CONFIG_SAMA5_EMACB),y)
+CHIP_CSRCS += sam_emacb.c
+endif
+ifeq ($(CONFIG_SAMA5_GMAC),y)
+CHIP_CSRCS += sam_gmac.c
+endif
+endif
+
+ifeq ($(CONFIG_SAMA5_CAN0),y)
+CHIP_CSRCS += sam_can.c
+else
+ifeq ($(CONFIG_SAMA5_CAN1),y)
+CHIP_CSRCS += sam_can.c
+endif
+endif
+
+ifeq ($(CONFIG_SAMA5_TWI0),y)
+CHIP_CSRCS += sam_twi.c
+else
+ifeq ($(CONFIG_SAMA5_TWI1),y)
+CHIP_CSRCS += sam_twi.c
+else
+ifeq ($(CONFIG_SAMA5_TWI2),y)
+CHIP_CSRCS += sam_twi.c
+endif
+endif
+endif
+
+ifeq ($(CONFIG_SAMA5_ADC),y)
+CHIP_CSRCS += sam_adc.c
+ifeq ($(CONFIG_SAMA5_TSD),y)
+CHIP_CSRCS += sam_tsd.c
+endif
+endif
+
+ifeq ($(CONFIG_SAMA5_PWM),y)
+CHIP_CSRCS += sam_pwm.c
+endif
+
+ifeq ($(CONFIG_SAMA5_HAVE_TC),y)
+CHIP_CSRCS += sam_tc.c
+ifeq ($(CONFIG_SAMA5_ONESHOT),y)
+CHIP_CSRCS += sam_oneshot.c sam_oneshot_lowerhalf.c
+endif
+ifeq ($(CONFIG_SAMA5_FREERUN),y)
+CHIP_CSRCS += sam_freerun.c
+endif
+ifeq ($(CONFIG_SCHED_TICKLESS),y)
+CHIP_CSRCS += sam_tickless.c
+endif
+endif
+
+ifeq ($(CONFIG_SAMA5_EBICS0_NAND),y)
+CHIP_CSRCS += sam_nand.c sam_pmecc.c sam_gf512.c sam_gf1024.c
+else
+ifeq ($(CONFIG_SAMA5_EBICS1_NAND),y)
+CHIP_CSRCS += sam_nand.c sam_pmecc.c sam_gf512.c sam_gf1024.c
+else
+ifeq ($(CONFIG_SAMA5_EBICS2_NAND),y)
+CHIP_CSRCS += sam_nand.c sam_pmecc.c sam_gf512.c sam_gf1024.c
+else
+ifeq ($(CONFIG_SAMA5_EBICS3_NAND),y)
+CHIP_CSRCS += sam_nand.c sam_pmecc.c sam_gf512.c sam_gf1024.c
+endif
+endif
+endif
+endif

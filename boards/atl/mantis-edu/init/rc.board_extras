@@ -1,0 +1,3 @@
+#!/bin/sh
+
+tap_esc start -d /dev/ttyS4 -n 4

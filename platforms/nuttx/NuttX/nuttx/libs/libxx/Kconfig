@@ -1,0 +1,105 @@
+#
+# For a description of the syntax of this configuration file,
+# see the file kconfig-language.txt in the NuttX tools repository.
+#
+
+comment "Basic CXX Support"
+
+config HAVE_CXX
+	bool "Have C++ compiler"
+	default n
+	---help---
+		Toolchain supports C++ and CXX, CXXFLAGS, and COMPILEXX have been
+		defined in the configurations Make.defs file.
+
+config HAVE_CXXINITIALIZE
+	bool "Have C++ initialization"
+	default n
+	---help---
+		The platform-specific logic includes support for initialization
+		of static C++ instances for this architecture and for the selected
+		toolchain.
+
+if HAVE_CXX
+
+choice
+	prompt "C++ Library"
+	default LIBCXXMINI
+
+config LIBCXXMINI
+	bool "Basic C++ support"
+	---help---
+		A fragmentary C++ library that will allow to build only
+		the simplest of C++ applications. Only contain basic C++
+		runtime support function.
+
+config LIBCXX
+	bool "LLVM libc++ C++ Standard Library"
+	select HAVE_CXXINITIALIZE
+	select LIBC_LOCALE
+	---help---
+		LLVM "libc++" C++ Standard Library
+		https://libcxx.llvm.org/
+
+config UCLIBCXX
+	bool "uClibc++ Standard C++ Library"
+	select HAVE_CXXINITIALIZE
+	---help---
+		uClibc++ C++ library
+		https://cxx.uclibc.org/
+
+endchoice
+
+if LIBCXXMINI
+
+config ETL
+	bool "Embedded Template Library (ETL)"
+	depends on ALLOW_MIT_COMPONENTS
+	---help---
+		ETL A C++ Template library for Embedded applications
+		Implements C++ templates such as containers, string
+		singleton math without C++ STL libraries
+
+endif
+
+if LIBCXX || UCLIBCXX
+
+choice
+	prompt "C++ low level library select"
+	default LIBSUPCXX
+
+config LIBCXXABI
+	bool "LLVM low level C++ Library"
+	---help---
+		LLVM "libc++abi" C++ Standard Library
+		https://libcxxabi.llvm.org/
+		Select if your use libc++abi as lower level c++ library
+
+config LIBSUPCXX
+	bool "GNU low level libsupc++"
+	---help---
+		Select if your toolchain provides libsupc++ and use libsupc++ as lower
+		level c++ library.
+
+endchoice
+
+endif
+
+config CXX_EXCEPTION
+	bool "Enable Exception Support"
+
+config CXX_RTTI
+	bool "Enable RTTI Support"
+
+if UCLIBCXX
+
+config UCLIBCXX_WCHAR
+	bool "Enable Wide Stream Support"
+	default n
+
+config UCLIBCXX_BUFSIZE
+	int "IO Stream/Container Buffer Size"
+	default 32
+
+endif
+endif

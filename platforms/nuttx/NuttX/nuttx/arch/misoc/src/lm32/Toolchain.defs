@@ -1,0 +1,122 @@
+############################################################################
+# arch/misco/src/lm32/Toolchain.defs
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.  The
+# ASF licenses this file to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance with the
+# License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
+# License for the specific language governing permissions and limitations
+# under the License.
+#
+############################################################################
+
+# Setup for the selected toolchain
+
+#
+# Select and allow the selected toolchain to be overridden by a command-line
+#selection.
+#
+
+ifeq ($(filter y, \
+      $(CONFIG_LM32_TOOLCHAIN_BUILDROOT) \
+    ),y)
+  CONFIG_LM32_TOOLCHAIN ?= BUILDROOT
+endif
+
+ifeq ($(filter y, \
+      $(CONFIG_LM32_TOOLCHAIN_GNU) \
+    ),y)
+  CONFIG_LM32_TOOLCHAIN ?= GNU
+endif
+
+#
+# Supported toolchains
+#
+# Each toolchain definition should set:
+#
+#  CROSSDEV         The GNU toolchain triple (command prefix)
+#  ARCHCPUFLAGS     CPU-specific flags selecting the instruction set
+#                   FPU options, etc.
+#  ARCHOPTIMIZATION The optimization level that results in
+#                   reliable code generation.
+#
+
+ifeq ($(CONFIG_DEBUG_CUSTOMOPT),y)
+  ARCHOPTIMIZATION += $(CONFIG_DEBUG_OPTLEVEL)
+else ifeq ($(CONFIG_DEBUG_FULLOPT),y)
+  ARCHOPTIMIZATION += -Os
+endif
+
+ifneq ($(CONFIG_DEBUG_NOOPT),y)
+  ARCHOPTIMIZATION += -fno-strict-aliasing
+endif
+
+ifeq ($(CONFIG_FRAME_POINTER),y)
+  ARCHOPTIMIZATION += -fno-omit-frame-pointer -fno-optimize-sibling-calls
+else
+  ARCHOPTIMIZATION += -fomit-frame-pointer
+endif
+
+LDFLAGS += -nostdlib
+
+ifeq ($(CONFIG_DEBUG_SYMBOLS),y)
+  ARCHOPTIMIZATION += -g
+endif
+
+ARCHCFLAGS += -fno-common
+ARCHCXXFLAGS += -fno-common -nostdinc++
+
+ARCHCFLAGS += -Wall -Wstrict-prototypes -Wshadow -Wundef
+ARCHCXXFLAGS += -Wall -Wshadow -Wundef
+
+ifneq ($(CONFIG_CXX_EXCEPTION),y)
+  ARCHCXXFLAGS += -fno-exceptions -fcheck-new
+endif
+
+ifneq ($(CONFIG_CXX_RTTI),y)
+  ARCHCXXFLAGS += -fno-rtti
+endif
+
+# NuttX buildroot under Linux or Cygwin
+
+ifeq ($(CONFIG_LM32_TOOLCHAIN),BUILDROOT)
+  CROSSDEV ?= lm32-nuttx-elf-
+endif
+
+# Generic GNU toolchain
+
+ifeq ($(CONFIG_LM32_TOOLCHAIN),GNUL)
+  CROSSDEV ?= lm32-elf-
+endif
+
+# Default toolchain
+
+CC = $(CROSSDEV)gcc
+CXX = $(CROSSDEV)g++
+CPP = $(CROSSDEV)gcc -E -P -x c
+LD = $(CROSSDEV)ld
+STRIP = $(CROSSDEV)strip --strip-unneeded
+AR = $(CROSSDEV)ar rcs
+NM = $(CROSSDEV)nm
+OBJCOPY = $(CROSSDEV)objcopy
+OBJDUMP = $(CROSSDEV)objdump
+
+# Add the builtin library
+
+EXTRA_LIBS += $(wildcard $(shell $(CC) $(ARCHCPUFLAGS) --print-libgcc-file-name))
+
+ifneq ($(CONFIG_LIBM),y)
+  EXTRA_LIBS += $(wildcard $(shell $(CC) $(ARCHCPUFLAGS) --print-file-name=libm.a))
+endif
+
+ifeq ($(CONFIG_LIBSUPCXX),y)
+  EXTRA_LIBS += $(wildcard $(shell $(CC) $(ARCHCPUFLAGS) --print-file-name=libsupc++.a))
+endif

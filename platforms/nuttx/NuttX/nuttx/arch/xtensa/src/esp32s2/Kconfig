@@ -1,0 +1,728 @@
+#
+# For a description of the syntax of this configuration file,
+# see the file kconfig-language.txt in the NuttX tools repository.
+#
+
+if ARCH_CHIP_ESP32S2
+
+comment "ESP32-S2 Configuration Options"
+
+choice
+	prompt "ESP32-S2 Chip Selection"
+	default ARCH_CHIP_ESP32S2WROVER
+
+config ARCH_CHIP_ESP32S2WROVER
+	bool "ESP32-S2-WROVER"
+	select ESP32S2_FLASH_4M
+	select ESP32S2_PSRAM_2M
+	select ARCH_HAVE_I2CRESET
+	---help---
+		Generic module with an embedded ESP32-S2
+
+endchoice # ESP32-S2 Chip Selection
+
+choice ESP32S2_DEFAULT_CPU_FREQ
+	prompt "CPU Frequency"
+	default ESP32S2_DEFAULT_CPU_FREQ_240
+	---help---
+		CPU frequency to be set on application startup.
+
+config ESP32S2_DEFAULT_CPU_FREQ_80
+	bool "80 MHz"
+
+config ESP32S2_DEFAULT_CPU_FREQ_160
+	bool "160 MHz"
+
+config ESP32S2_DEFAULT_CPU_FREQ_240
+	bool "240 MHz"
+
+endchoice # CPU Frequency
+
+config ESP32S2_DEFAULT_CPU_FREQ_MHZ
+	int
+	default 80 if ESP32S2_DEFAULT_CPU_FREQ_80
+	default 160 if ESP32S2_DEFAULT_CPU_FREQ_160
+	default 240 if ESP32S2_DEFAULT_CPU_FREQ_240
+
+menu "Cache Configuration"
+
+choice ESP32S2_INSTRUCTION_CACHE_SIZE
+	prompt "Instruction cache size"
+	default ESP32S2_INSTRUCTION_CACHE_8KB
+	---help---
+		Instruction cache size to be set on application startup.
+		If you use 8KB instruction cache rather than 16KB instruction cache,
+		then the other 8KB will be managed by heap allocator.
+
+config ESP32S2_INSTRUCTION_CACHE_8KB
+	bool "8KB"
+	---help---
+		Use 8KB of SRAM as Instruction Cache
+
+config ESP32S2_INSTRUCTION_CACHE_16KB
+	bool "16KB"
+	---help---
+		Use 16KB of SRAM as Instruction Cache
+
+endchoice # Instruction cache size
+
+config ESP32S2_INSTRUCTION_CACHE_SIZE
+	hex
+	default 0x2000 if ESP32S2_INSTRUCTION_CACHE_8KB
+	default 0x4000 if ESP32S2_INSTRUCTION_CACHE_16KB
+
+choice ESP32S2_INSTRUCTION_CACHE_LINE_SIZE
+	prompt "Instruction cache line size"
+	default ESP32S2_INSTRUCTION_CACHE_LINE_32B
+	---help---
+		Instruction cache line size to be set on application startup.
+
+	config ESP32S2_INSTRUCTION_CACHE_LINE_16B
+		bool "16 Bytes"
+		depends on ESP32S2_INSTRUCTION_CACHE_16KB
+
+	config ESP32S2_INSTRUCTION_CACHE_LINE_32B
+		bool "32 Bytes"
+
+endchoice
+
+config ESP32S2_INSTRUCTION_CACHE_LINE_SIZE
+	int
+	default 16 if ESP32S2_INSTRUCTION_CACHE_LINE_16B
+	default 32 if ESP32S2_INSTRUCTION_CACHE_LINE_32B
+
+choice ESP32S2_DATA_CACHE_SIZE
+	prompt "Data cache size"
+	default ESP32S2_DATA_CACHE_0KB if !ESP32S2_SPIRAM
+	default ESP32S2_DATA_CACHE_8KB if ESP32S2_SPIRAM
+	---help---
+		Data cache size to be set on application startup.
+		If you use 0KB data cache, the other 16KB will be added to the heap.
+		If you use 8KB data cache rather than 16KB data cache, the other 8KB
+		will be added to the heap.
+
+config ESP32S2_DATA_CACHE_0KB
+	depends on !ESP32S2_SPIRAM
+	bool "No DATA CACHE"
+	---help---
+		Disable Data Cache
+
+config ESP32S2_DATA_CACHE_8KB
+	bool "8KB"
+	---help---
+		Use 8KB of SRAM as Data Cache
+
+config ESP32S2_DATA_CACHE_16KB
+	bool "16KB"
+	---help---
+		Use 16KB of SRAM as Data Cache
+
+endchoice # Data cache size
+
+config ESP32S2_DATA_CACHE_SIZE
+	hex
+	default 0x0 if ESP32S2_DATA_CACHE_0KB
+	default 0x2000 if ESP32S2_DATA_CACHE_8KB
+	default 0x4000 if ESP32S2_DATA_CACHE_16KB
+
+choice ESP32S2_DATA_CACHE_LINE_SIZE
+	prompt "Data cache line size"
+	default ESP32S2_DATA_CACHE_LINE_32B
+	---help---
+		Data cache line size to be set on application startup.
+
+	config ESP32S2_DATA_CACHE_LINE_16B
+		bool "16 Bytes"
+
+	config ESP32S2_DATA_CACHE_LINE_32B
+		bool "32 Bytes"
+
+endchoice
+
+config ESP32S2_DATA_CACHE_LINE_SIZE
+	int
+	default 16 if ESP32S2_DATA_CACHE_LINE_16B
+	default 32 if ESP32S2_DATA_CACHE_LINE_32B
+
+endmenu # Cache Configuration
+
+config ESP32S2_FLASH_2M
+	bool
+	default n
+
+config ESP32S2_FLASH_4M
+	bool
+	default n
+
+config ESP32S2_FLASH_8M
+	bool
+	default n
+
+config ESP32S2_PSRAM_2M
+	bool
+	default n
+
+config ESP32S2_ESPTOOLPY_NO_STUB
+	bool "Disable download stub"
+	default n
+	---help---
+		The flasher tool sends a precompiled download stub first by default.
+		That stub allows things like compressed downloads and more.
+		Usually you should not need to disable that feature.
+		It is only required to be disabled in certain scenarios when either
+		Secure Boot V2 or Flash Encryption is enabled.
+
+config ESP32S2_FLASH_DETECT
+	bool "Auto-detect FLASH size"
+	default y
+	---help---
+		Auto detect flash size when flashing.
+
+choice ESP32S2_FLASH_MODE
+	prompt "SPI FLASH mode"
+	default ESP32S2_FLASH_MODE_DIO
+	---help---
+		These options control how many I/O pins are used for communication
+		with the attached SPI flash chip.
+		The option selected here is then used by esptool when flashing.
+
+	config ESP32S2_FLASH_MODE_DIO
+	bool "Dual IO (DIO)"
+
+	config ESP32S2_FLASH_MODE_DOUT
+	bool "Dual Output (DOUT)"
+
+	config ESP32S2_FLASH_MODE_QIO
+	bool "Quad IO (QIO)"
+
+	config ESP32S2_FLASH_MODE_QOUT
+	bool "Quad Output (QOUT)"
+
+endchoice # SPI FLASH mode
+
+choice ESP32S2_FLASH_FREQ
+	prompt "SPI FLASH frequency"
+	default ESP32S2_FLASH_FREQ_40M
+	---help---
+		SPI FLASH frequency
+		
+	config ESP32S2_FLASH_FREQ_80M
+	bool "80 MHz"
+
+	config ESP32S2_FLASH_FREQ_40M
+	bool "40 MHz"
+
+	config ESP32S2_FLASH_FREQ_26M
+	bool "26 MHz"
+
+	config ESP32S2_FLASH_FREQ_20M
+	bool "20 MHz"
+
+endchoice # SPI FLASH frequency
+
+config ESP32S2_RUN_IRAM
+	bool "Run from IRAM"
+	default n
+	---help---
+		This loads all of NuttX inside IRAM. Used to test somewhat small
+		images that can fit entirely in IRAM.
+
+menu "ESP32-S2 Peripheral Selection"
+
+config ESP32S2_UART
+	bool
+	default n
+
+config ESP32S2_I2C
+	bool
+	default n
+
+config ESP32S2_TIMER
+	bool
+	default n
+
+config ESP32S2_WDT
+	bool
+	default n
+
+config ESP32S2_RNG
+	bool "Random Number Generator (RNG)"
+	default n
+	select ARCH_HAVE_RNG
+	---help---
+		ESP32-S2 supports a RNG that passed on Dieharder test suite.
+
+config ESP32S2_SPIFLASH
+	bool "SPI Flash"
+	default n
+
+config ESP32S2_TIMER0
+	bool "64-bit Timer 0 (Group 0 Timer 0)"
+	default n
+	select ESP32S2_TIMER
+	---help---
+		Enables Timer
+
+config ESP32S2_TIMER1
+	bool "64-bit Timer 1 (Group 0 Timer 1)"
+	default n
+	select ESP32S2_TIMER
+	---help---
+		Enables Timer
+
+config ESP32S2_TIMER2
+	bool "64-bit Timer 2 (Group 1 Timer 0)"
+	default n
+	select ESP32S2_TIMER
+	---help---
+		Enables Timer
+
+config ESP32S2_TIMER3
+	bool "64-bit Timer 3 (Group 1 Timer 1)"
+	default n
+	select ESP32S2_TIMER
+	---help---
+		Enables Timer
+
+config ESP32S2_MWDT0
+	bool "Main System Watchdog Timer (Group 0)"
+	default n
+	select ESP32S2_WDT
+	---help---
+		Includes MWDT0. This watchdog timer is part of the Group 0
+		timer submodule.
+
+config ESP32S2_MWDT1
+	bool "Main System Watchdog Timer (Group 1)"
+	default n
+	select ESP32S2_WDT
+	---help---
+		Includes MWDT1. This watchdog timer is part of the Group 0
+		timer submodule.
+
+config ESP32S2_RWDT
+	bool "RTC Watchdog Timer"
+	default n
+	select ESP32S2_WDT
+	---help---
+		Includes RWDT. This watchdog timer is from the RTC module.
+		When it is selected, if the developer sets it to reset on expiration
+		it will reset Main System and the RTC module. If you don't want
+		to have the RTC module reset, please, use the Timers' Module WDTs.
+		They will only reset Main System.
+
+config ESP32S2_UART0
+	bool "UART 0"
+	default n
+	select ESP32S2_UART
+	select UART0_SERIALDRIVER
+	select ARCH_HAVE_SERIAL_TERMIOS
+
+config ESP32S2_UART1
+	bool "UART 1"
+	default n
+	select ESP32S2_UART
+	select UART1_SERIALDRIVER
+	select ARCH_HAVE_SERIAL_TERMIOS
+
+config ESP32S2_I2C0
+	bool "I2C 0"
+	default n
+	select ESP32S2_I2C
+	select I2C
+
+config ESP32S2_I2C1
+	bool "I2C 1"
+	default n
+	select ESP32S2_I2C
+	select I2C
+
+config ESP32S2_RT_TIMER
+	bool "Real-time Timer"
+	select ESP32S2_TIMER
+	default n
+
+endmenu # ESP32-S2 Peripheral Selection
+
+menu "Memory Configuration"
+
+config ESP32S2_TRACEMEM_RESERVE_DRAM
+	int "Reserved trace memory DRAM"
+	default 0
+
+config ESP32S2_ULP_COPROC_RESERVE_MEM
+	int "Reserved ULP co-processor DRAM"
+	default 0
+
+endmenu # Memory Configuration
+
+config ESP32S2_GPIO_IRQ
+	bool "GPIO pin interrupts"
+	---help---
+		Enable support for interrupting GPIO pins.
+
+menu "UART Configuration"
+	depends on ESP32S2_UART
+
+if ESP32S2_UART0
+
+config ESP32S2_UART0_TXPIN
+	int "UART0 Tx Pin"
+	default 43
+	range 0 46
+
+config ESP32S2_UART0_RXPIN
+	int "UART0 Rx Pin"
+	default 44
+	range 0 46
+
+config ESP32S2_UART0_RTSPIN
+	int "UART0 RTS Pin"
+	depends on SERIAL_IFLOWCONTROL
+	default 16
+	range 0 46
+
+config ESP32S2_UART0_CTSPIN
+	int "UART0 CTS Pin"
+	depends on SERIAL_OFLOWCONTROL
+	default 15
+	range 0 46
+
+endif # ESP32S2_UART0
+
+if ESP32S2_UART1
+
+config ESP32S2_UART1_TXPIN
+	int "UART1 Tx Pin"
+	default 37
+	range 0 46
+
+config ESP32S2_UART1_RXPIN
+	int "UART1 Rx Pin"
+	default 38
+	range 0 46
+
+config ESP32S2_UART1_RTSPIN
+	int "UART1 RTS Pin"
+	depends on SERIAL_IFLOWCONTROL
+	default 35
+	range 0 46
+
+config ESP32S2_UART1_CTSPIN
+	int "UART1 CTS Pin"
+	depends on SERIAL_OFLOWCONTROL
+	default 36
+	range 0 46
+
+endif # ESP32S2_UART1
+
+endmenu # UART Configuration
+
+menu "I2C Configuration"
+	depends on ESP32S2_I2C
+
+if ESP32S2_I2C0
+
+config ESP32S2_I2C0_SCLPIN
+	int "I2C0 SCL Pin"
+	default 19
+	range 0 46
+
+config ESP32S2_I2C0_SDAPIN
+	int "I2C0 SDA Pin"
+	default 18
+	range 0 46
+
+endif # ESP32S2_I2C0
+
+if ESP32S2_I2C1
+
+config ESP32S2_I2C1_SCLPIN
+	int "I2C1 SCL Pin"
+	default 6
+	range 0 46
+
+config ESP32S2_I2C1_SDAPIN
+	int "I2C1 SDA Pin"
+	default 7
+	range 0 46
+
+endif # ESP32S2_I2C1
+
+config ESP32S2_I2CTIMEOSEC
+	int "Timeout seconds"
+	default 0
+
+config ESP32S2_I2CTIMEOMS
+	int "Timeout milliseconds"
+	default 500
+
+endmenu # I2C Configuration
+
+menu "SPI Flash Configuration"
+	depends on ESP32S2_SPIFLASH
+
+if ESP32S2_HAVE_OTA_PARTITION
+
+comment "Application Image OTA Update support"
+
+config ESP32S2_OTA_PRIMARY_SLOT_OFFSET
+	hex "Application image primary slot offset"
+	default 0x10000
+
+config ESP32S2_OTA_PRIMARY_SLOT_DEVPATH
+	string "Application image primary slot device path"
+	default "/dev/ota0"
+
+config ESP32S2_OTA_SECONDARY_SLOT_OFFSET
+	hex "Application image secondary slot offset"
+	default 0x110000
+
+config ESP32S2_OTA_SECONDARY_SLOT_DEVPATH
+	string "Application image secondary slot device path"
+	default "/dev/ota1"
+
+config ESP32S2_OTA_SLOT_SIZE
+	hex "Application image slot size (in bytes)"
+	default 0x100000
+
+config ESP32S2_OTA_SCRATCH_OFFSET
+	hex "Scratch partition offset"
+	default 0x210000
+
+config ESP32S2_OTA_SCRATCH_SIZE
+	hex "Scratch partition size"
+	default 0x40000
+
+config ESP32S2_OTA_SCRATCH_DEVPATH
+	string "Scratch partition device path"
+	default "/dev/otascratch"
+
+endif
+
+endmenu # SPI Flash Configuration
+
+menu "SPI RAM Configuration"
+	depends on ESP32S2_SPIRAM
+
+config ESP32S2_DEFAULT_PSRAM_CLK_IO
+	int "PSRAM CLK pin"
+	default 30
+
+config ESP32S2_DEFAULT_PSRAM_CS_IO
+	int "PSRAM CS pin"
+	default 26
+
+choice ESP32S2_SPIRAM_TYPE
+	prompt "Type of SPI RAM chip in use"
+	default ESP32S2_SPIRAM_TYPE_AUTO
+
+config ESP32S2_SPIRAM_TYPE_AUTO
+	bool "Auto-detect"
+
+config ESP32S2_SPIRAM_TYPE_ESPPSRAM32
+	bool "ESP-PSRAM32 or IS25WP032"
+
+config ESP32S2_SPIRAM_TYPE_ESPPSRAM64
+	bool "ESP-PSRAM64 or LY68L6400"
+
+endchoice # ESP32S2_SPIRAM_TYPE
+
+config ESP32S2_SPIRAM_SIZE
+	int
+	default -1 if ESP32S2_SPIRAM_TYPE_AUTO
+	default 4194304 if ESP32S2_SPIRAM_TYPE_ESPPSRAM32
+	default 8388608 if ESP32S2_SPIRAM_TYPE_ESPPSRAM64
+	default 0
+
+config ESP32S2_SPIRAM_FETCH_INSTRUCTIONS
+	bool "Cache fetch instructions from SPI RAM"
+	default n
+	---help---
+		If enabled, instruction in flash will be copied into SPI RAM.
+		If ESP32S2_SPIRAM_RODATA is also enabled, you can run the instruction
+		when erasing or programming the flash.
+
+config ESP32S2_SPIRAM_RODATA
+	bool "Cache load read only data from SPI RAM"
+	default n
+	---help---
+		If enabled, rodata in flash will be copied into SPI RAM.
+		If ESP32S2_SPIRAM_FETCH_INSTRUCTIONS is also enabled,
+		you can run the instruction when erasing or programming the
+		flash.
+
+choice ESP32S2_SPIRAM_SPEED
+	prompt "Set RAM clock speed"
+	default ESP32S2_SPIRAM_SPEED_40M
+	---help---
+		Select the speed for the SPI RAM chip.
+
+config ESP32S2_SPIRAM_SPEED_40M
+	bool "40MHz clock speed"
+
+config ESP32S2_SPIRAM_SPEED_80M
+	bool "80MHz clock speed"
+
+endchoice # ESP32S2_SPIRAM_SPEED
+
+config ESP32S2_SPIRAM_SPEED
+	int
+	default 80 if ESP32S2_SPIRAM_SPEED_80M
+	default 40 if ESP32S2_SPIRAM_SPEED_40M
+
+config ESP32S2_SPIRAM_BOOT_INIT
+	bool "Initialize SPI RAM during startup"
+	default "y"
+	---help---
+		If this is enabled, the SPI RAM will be enabled during initial
+		boot. Unless you have specific requirements, you'll want to leave
+		this enabled so memory allocated during boot-up can also be
+		placed in SPI RAM.
+
+config ESP32S2_SPIRAM_IGNORE_NOTFOUND
+	bool "Ignore PSRAM when not found"
+	default "n"
+	depends on ESP32S2_SPIRAM_BOOT_INIT && !BOOT_SDRAM_DATA
+	---help---
+		Normally, if PSRAM initialization is enabled during compile time
+		but not found at runtime, it is seen as an error making the CPU
+		panic. If this is enabled, booting will complete but no PSRAM
+		will be available.
+
+endmenu # SPI RAM Configuration
+
+menu "Real-Time Timer Configuration"
+	depends on ESP32S2_RT_TIMER
+
+config ESP32S2_RT_TIMER_TASK_NAME
+	string "Timer task name"
+	default "rt_timer"
+
+config ESP32S2_RT_TIMER_TASK_PRIORITY
+	int "Timer task priority"
+	default 223 # Lower than high priority workqueue
+
+config ESP32S2_RT_TIMER_TASK_STACK_SIZE
+	int "Timer task stack size"
+	default 2048
+
+endmenu # Real-Time Timer Configuration
+
+menu "Timer/Counter Configuration"
+	depends on ESP32S2_TIMER
+
+config ESP32S2_ONESHOT
+	bool "One-shot wrapper"
+	default n
+	---help---
+		Enable a wrapper around the low level timer/counter functions to
+		support one-shot timer.
+
+config ESP32S2_FREERUN
+	bool "Freerun timer wrapper"
+	default n
+	---help---
+		Enable a wrapper around the low level timer/counter functions to
+		support freerun timer.
+
+endmenu # Timer/Counter Configuration
+
+config ESP32S2_HAVE_OTA_PARTITION
+	bool
+	default n
+
+menu "Application Image Configuration"
+
+choice
+	prompt "Application Image Format"
+	default ESP32S2_APP_FORMAT_LEGACY
+	---help---
+		Depending on the chosen 2nd stage bootloader, the application may
+		be required to be perform a specific startup routine. Furthermore,
+		the image binary must be formatted according to the definition from
+		the 2nd stage bootloader.
+
+config ESP32S2_APP_FORMAT_LEGACY
+	bool "Legacy format"
+	---help---
+		This is the legacy application image format, as supported by the ESP-IDF
+		2nd stage bootloader.
+
+config ESP32S2_APP_FORMAT_MCUBOOT
+	bool "MCUboot-bootable format"
+	select ESP32S2_HAVE_OTA_PARTITION
+	depends on EXPERIMENTAL
+	---help---
+		The Espressif port of MCUboot supports the loading of unsegmented firmware
+		images.
+
+comment "MCUboot support depends on CONFIG_EXPERIMENTAL"
+	depends on !EXPERIMENTAL
+
+endchoice # Application Image Format
+
+choice
+	prompt "Source for bootloader binaries"
+	default ESP32S2_BOOTLOADER_DOWNLOAD_PREBUILT
+	---help---
+		Select the action to be taken by the build system for the
+		"make bootloader" target.
+
+config ESP32S2_BOOTLOADER_DOWNLOAD_PREBUILT
+	bool "Download prebuilt binaries"
+	---help---
+		The build system will download the prebuilt binaries from
+		https://github.com/espressif/esp-nuttx-bootloader according to the chosen
+		Application Image Format (ESP32S2_APP_FORMAT_LEGACY or ESP32S2_APP_FORMAT_MCUBOOT)
+
+config ESP32S2_BOOTLOADER_BUILD_FROM_SOURCE
+	bool "Build binaries from source"
+	---help---
+		The build system will build all the required binaries from source. It will clone
+		the https://github.com/espressif/esp-nuttx-bootloader repository and build a
+		custom bootloader according to the chosen Application Image Format
+		(ESP32S2_APP_FORMAT_LEGACY or ESP32S2_APP_FORMAT_MCUBOOT) and partition information.
+
+endchoice
+
+choice
+	prompt "Target slot for image flashing"
+	default ESP32S2_ESPTOOL_TARGET_PRIMARY
+	depends on ESP32S2_HAVE_OTA_PARTITION
+	---help---
+		Slot to which ESPTOOL will flash the generated binary image.
+
+config ESP32S2_ESPTOOL_TARGET_PRIMARY
+	bool "Application image primary slot"
+	---help---
+		This assumes that the generated image is already pre-validated.
+		This is the recommended option for the initial stages of the
+		application firmware image development.
+
+config ESP32S2_ESPTOOL_TARGET_SECONDARY
+	bool "Application image secondary slot"
+	---help---
+		The application needs to confirm the generated image as valid,
+		otherwise the bootloader may consider it invalid and perform the
+		rollback of the update after a reset.
+		This is the choice most suitable for the development and verification
+		of a secure firmware update workflow.
+
+endchoice
+
+config ESP32S2_APP_MCUBOOT_HEADER_SIZE
+	int "Application image header size (in bytes)"
+	default 32
+	depends on ESP32S2_APP_FORMAT_MCUBOOT
+
+config ESP32S2_PARTITION_TABLE_OFFSET
+	hex "Partition Table offset"
+	default 0x8000
+	depends on ESP32S2_APP_FORMAT_LEGACY
+
+source "arch/xtensa/src/esp32s2/Kconfig.security"
+
+endmenu # Application Image Configuration
+
+endif # ARCH_CHIP_ESP32S2

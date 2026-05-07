@@ -1,0 +1,12 @@
+menuconfig SYSTEMCMDS_DYN
+	bool "dyn"
+	default n
+	---help---
+		Enable support for dyn
+
+menuconfig USER_DYN
+	bool "dyn running as userspace module"
+	default y
+	depends on BOARD_PROTECTED && SYSTEMCMDS_DYN
+	---help---
+		Put dyn in userspace memory

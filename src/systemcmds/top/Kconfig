@@ -1,0 +1,12 @@
+menuconfig SYSTEMCMDS_TOP
+	bool "top"
+	default n
+	---help---
+		Enable support for top
+
+menuconfig USER_TOP
+	bool "top running as userspace module"
+	default n
+	depends on BOARD_PROTECTED && SYSTEMCMDS_TOP
+	---help---
+		Put top in userspace memory

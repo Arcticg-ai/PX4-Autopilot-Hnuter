@@ -1,0 +1,118 @@
+#!/bin/sh
+# Un comment and use set +e to ignore and set -e to enable 'exit on error control'
+set +e
+# Un comment the line below to help debug scripts by printing a trace of the script commands
+#set -x
+# PX4FMU startup script.
+#
+# NOTE: environment variable references:
+#    If the dollar sign ('$') is followed by a left bracket ('{') then the
+#    variable name is terminated with the right bracket character ('}').
+#    Otherwise, the variable name goes to the end of the argument.
+#
+#
+# NOTE: COMMENT LINES ARE REMOVED BEFORE STORED IN ROMFS.
+#
+#------------------------------------------------------------------------------
+set R /
+
+#
+# Print full system version.
+#
+ver all
+
+# Load param file location from kconfig
+. ${R}etc/init.d/rc.filepaths
+
+#
+# Load parameters.
+#
+param select $PARAM_FILE
+
+if ! param load
+then
+	param reset_all
+fi
+
+#
+# Optional board architecture defaults: rc.board_arch_defaults
+#
+set BOARD_ARCH_RC_DEFAULTS ${R}etc/init.d/rc.board_arch_defaults
+if [ -f $BOARD_ARCH_RC_DEFAULTS ]
+then
+	echo "Board architecture defaults: ${BOARD_ARCH_RC_DEFAULTS}"
+	. $BOARD_ARCH_RC_DEFAULTS
+fi
+unset BOARD_ARCH_RC_DEFAULTS
+
+#
+# Optional board defaults: rc.board_defaults
+#
+set BOARD_RC_DEFAULTS ${R}etc/init.d/rc.board_defaults
+if [ -f $BOARD_RC_DEFAULTS ]
+then
+	echo "Board defaults: ${BOARD_RC_DEFAULTS}"
+	. $BOARD_RC_DEFAULTS
+fi
+unset BOARD_RC_DEFAULTS
+
+#
+# Optional additional init file: rc.additional_init
+#
+set BOARD_RC_ADDITIONAL_INIT ${R}etc/init.d/rc.additional_init
+if [ -f $BOARD_RC_ADDITIONAL_INIT ]
+then
+	echo "Board additional init: ${BOARD_RC_ADDITIONAL_INIT}"
+	. $BOARD_RC_ADDITIONAL_INIT
+fi
+unset BOARD_RC_ADDITIONAL_INIT
+
+#
+# Start system state indicator.
+#
+rgbled start -X -q
+rgbled_ncp5623c start -X -q
+
+#
+# board sensors: rc.sensors
+#
+set BOARD_RC_SENSORS ${R}etc/init.d/rc.board_sensors
+if [ -f $BOARD_RC_SENSORS ]
+then
+	echo "Board sensors: ${BOARD_RC_SENSORS}"
+	. $BOARD_RC_SENSORS
+fi
+unset BOARD_RC_SENSORS
+
+#
+# Start UART/Serial device drivers.
+# Note: rc.serial is auto-generated from Tools/serial/generate_config.py
+#
+. ${R}etc/init.d/rc.serial
+
+# Check for flow sensor
+if param compare -s SENS_EN_PX4FLOW 1
+then
+	px4flow start -X &
+fi
+
+if param compare -s IMU_GYRO_CAL_EN 1
+then
+	gyro_calibration start
+fi
+
+
+if param compare -s MBE_ENABLE 1
+then
+	# conservative mag bias estimation
+	param set-default MBE_LEARN_GAIN 5
+	param set-default IMU_GYRO_CUTOFF 20
+	mag_bias_estimator start
+fi
+
+param set-default SENS_MAG_RATE 100
+
+sensors start
+
+uavcannode start
+unset R

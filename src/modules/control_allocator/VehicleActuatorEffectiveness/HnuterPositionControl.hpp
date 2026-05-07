@@ -1,0 +1,226 @@
+/****************************************************************************
+ *
+ *   Copyright (c) 2020 PX4 Development Team. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in
+ *    the documentation and/or other materials provided with the
+ *    distribution.
+ * 3. Neither the name PX4 nor the names of its contributors may be
+ *    used to endorse or promote products derived from this software
+ *    without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ * COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+ * BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
+ * AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
+ *
+ ****************************************************************************/
+
+/**
+ * @file HnuterPositionControl.hpp
+ *
+ * Position controller for Hnuter tiltrotor vehicles
+ *
+ * @author PX4 Development Team
+ */
+
+#pragma once
+
+#include <lib/mathlib/mathlib.h>
+#include <matrix/matrix/math.hpp>
+#include <drivers/drv_hrt.h>
+#include <uORB/topics/trajectory_setpoint.h>
+#include <uORB/topics/vehicle_attitude_setpoint.h>
+#include <uORB/topics/vehicle_local_position_setpoint.h>
+
+struct PositionControlStates {
+	matrix::Vector3f position;
+	matrix::Vector3f velocity;
+	matrix::Vector3f acceleration;
+	float yaw;
+};
+
+/**
+ * 	Position-Control for Hnuter Tiltrotor.
+ * 	This class contains PD-controller for position and
+ * 	PID-controller for velocity, based on hnuter_controller_frame design.
+ * 	Inputs:
+ * 		vehicle position/velocity/yaw
+ * 		desired set-point position/velocity/thrust/yaw/yaw-speed
+ * 		constraints that are stricter than global limits
+ * 	Output
+ * 		thrust vector and a yaw-setpoint
+ */
+class HnuterPositionControl
+{
+public:
+
+	HnuterPositionControl();
+	~HnuterPositionControl() = default;
+
+	/**
+	 * Set the position control gains
+	 * @param P 3D vector of proportional gains for x,y,z axis
+	 * @param D 3D vector of derivative gains for x,y,z axis
+	 */
+	void setPositionGains(const matrix::Vector3f &P, const matrix::Vector3f &D) {
+		_Kp = P;
+		_Dp = D;
+	}
+
+	/**
+	 * Set the velocity control gains
+	 * @param P 3D vector of proportional gains for x,y,z axis
+	 * @param I 3D vector of integral gains
+	 * @param D 3D vector of derivative gains
+	 */
+	void setVelocityGains(const matrix::Vector3f &P, const matrix::Vector3f &I, const matrix::Vector3f &D);
+
+	/**
+	 * Set the maximum velocity to execute with feed forward and position control
+	 * @param vel_horizontal horizontal velocity limit
+	 * @param vel_up upwards velocity limit
+	 * @param vel_down downwards velocity limit
+	 */
+	void setVelocityLimits(const float vel_horizontal, const float vel_up, float vel_down);
+
+	/**
+	 * Set the minimum and maximum collective normalized thrust [0,1] that can be output by the controller
+	 * @param min minimum thrust e.g. 0.1 or 0
+	 * @param max maximum thrust e.g. 0.9 or 1
+	 */
+	void setThrustLimits(const float min, const float max);
+
+	/**
+	 * Set margin that is kept for horizontal control when prioritizing vertical thrust
+	 * @param margin of normalized thrust that is kept for horizontal control e.g. 0.3
+	 */
+	void setHorizontalThrustMargin(const float margin);
+
+	/**
+	 * Set the maximum tilt angle in radians the output attitude is allowed to have
+	 * @param tilt angle in radians from level orientation
+	 */
+	void setTiltLimit(const float tilt) { _lim_tilt = tilt; }
+
+	/**
+	 * Set the normalized hover thrust
+	 * @param hover_thrust [HOVER_THRUST_MIN, HOVER_THRUST_MAX] with which the vehicle hovers not accelerating down or up with level orientation
+	 */
+	void setHoverThrust(const float hover_thrust) { _hover_thrust = math::constrain(hover_thrust, HOVER_THRUST_MIN, HOVER_THRUST_MAX); }
+
+	/**
+	 * Pass the current vehicle state to the controller
+	 * @param PositionControlStates structure
+	 */
+	void setState(const PositionControlStates &states);
+
+	/**
+	 * Pass the desired setpoints
+	 * Note: NAN value means no feed forward/leave state uncontrolled if there's no higher order setpoint.
+	 * @param setpoint setpoints including feed-forwards to execute in update()
+	 */
+	void setInputSetpoint(const trajectory_setpoint_s &setpoint);
+
+	/**
+	 * Apply PD-position and PID-velocity controller that updates the member
+	 * thrust vector and a yaw-setpoint.
+	 * @param dt time in seconds since last iteration
+	 * @return true if update succeeded and output setpoint is executable, false if not
+	 */
+	bool update(const float dt);
+
+	/**
+	 * Set the integral term to 0.
+	 */
+	void resetIntegral() { _vel_int.setZero(); }
+	void resetIntegralXY() { _vel_int.xy() = matrix::Vector2f(); }
+
+	/**
+	 * If set, the tilt setpoint is computed by assuming no vertical acceleration
+	 */
+	void decoupleHorizontalAndVecticalAcceleration(bool val) { _decouple_horizontal_and_vertical_acceleration = val; }
+
+	/**
+	 * Get the controllers output local position setpoint
+	 * These setpoints are the ones which were executed on including PID output and feed-forward.
+	 * The acceleration or thrust setpoints can be used for attitude control.
+	 * @param local_position_setpoint reference to struct to fill up
+	 */
+	void getLocalPositionSetpoint(vehicle_local_position_setpoint_s &local_position_setpoint) const;
+
+	/**
+	 * Get the controllers output attitude setpoint
+	 * This attitude setpoint was generated from the resulting acceleration setpoint after position and velocity control.
+	 * It needs to be executed by the attitude controller to achieve velocity and position tracking.
+	 * @param attitude_setpoint reference to struct to fill up
+	 */
+	void getAttitudeSetpoint(vehicle_attitude_setpoint_s &attitude_setpoint) const;
+
+	/**
+	 * All setpoints are set to NAN (uncontrolled). Timestampt zero.
+	 */
+	static const trajectory_setpoint_s empty_trajectory_setpoint;
+
+private:
+	// The range limits of the hover thrust configuration/estimate
+	static constexpr float HOVER_THRUST_MIN = 0.05f;
+	static constexpr float HOVER_THRUST_MAX = 0.9f;
+
+	bool _inputValid();
+
+	void _positionControl(); ///< Position PD control
+	void _velocityControl(const float dt); ///< Velocity PID control
+	void _accelerationControl(); ///< Acceleration setpoint processing
+
+	// Position gains from hnuter_controller_frame
+	matrix::Vector3f _Kp; ///< Position proportional gain (diag([6, 6, 6]))
+	matrix::Vector3f _Dp; ///< Position derivative gain (diag([5, 5, 5]))
+
+	// Velocity gains
+	matrix::Vector3f _gain_vel_p; ///< Velocity control proportional gain
+	matrix::Vector3f _gain_vel_i; ///< Velocity control integral gain
+	matrix::Vector3f _gain_vel_d; ///< Velocity control derivative gain
+
+	// Limits
+	float _lim_vel_horizontal{}; ///< Horizontal velocity limit with feed forward and position control
+	float _lim_vel_up{}; ///< Upwards velocity limit with feed forward and position control
+	float _lim_vel_down{}; ///< Downwards velocity limit with feed forward and position control
+	float _lim_thr_min{}; ///< Minimum collective thrust allowed as output [-1,0] e.g. -0.9
+	float _lim_thr_max{}; ///< Maximum collective thrust allowed as output [-1,0] e.g. -0.1
+	float _lim_thr_xy_margin{}; ///< Margin to keep for horizontal control when saturating prioritized vertical thrust
+	float _lim_tilt{}; ///< Maximum tilt from level the output attitude is allowed to have
+
+	float _hover_thrust{}; ///< Thrust [HOVER_THRUST_MIN, HOVER_THRUST_MAX] with which the vehicle hovers not accelerating down or up with level orientation
+	bool _decouple_horizontal_and_vertical_acceleration{true}; ///< Ignore vertical acceleration setpoint to remove its effect on the tilt setpoint
+
+	// States
+	matrix::Vector3f _pos; /**< current position */
+	matrix::Vector3f _vel; /**< current velocity */
+	matrix::Vector3f _vel_dot; /**< velocity derivative (replacement for acceleration estimate) */
+	matrix::Vector3f _vel_int; /**< integral term of the velocity controller */
+	float _yaw{}; /**< current heading */
+
+	// Setpoints
+	matrix::Vector3f _pos_sp; /**< desired position */
+	matrix::Vector3f _vel_sp; /**< desired velocity */
+	matrix::Vector3f _acc_sp; /**< desired acceleration */
+	matrix::Vector3f _thr_sp; /**< desired thrust */
+	float _yaw_sp{}; /**< desired heading */
+	float _yawspeed_sp{}; /** desired yaw-speed */
+};

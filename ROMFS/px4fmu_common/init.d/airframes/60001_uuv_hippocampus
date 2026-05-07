@@ -1,0 +1,20 @@
+#!/bin/sh
+#
+# @name HippoCampus UUV (Unmanned Underwater Vehicle)
+#
+# @type Underwater Robot
+# @class Underwater Robot
+#
+# @maintainer Daniel Duecker <daniel.duecker@tuhh.de>
+#
+# @board px4_fmu-v2 exclude
+# @board bitcraze_crazyflie exclude
+#
+
+. ${R}etc/init.d/rc.uuv_defaults
+. ${R}etc/init.d/airframes/60000_uuv_generic
+
+param set-default PWM_MAIN_FUNC1 101
+param set-default PWM_MAIN_FUNC2 102
+param set-default PWM_MAIN_FUNC3 103
+param set-default PWM_MAIN_FUNC4 104

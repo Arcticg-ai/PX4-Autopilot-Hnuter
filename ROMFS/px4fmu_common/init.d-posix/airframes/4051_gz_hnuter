@@ -1,0 +1,224 @@
+#!/bin/sh
+#
+# @name hnuter tiltrotor (Gazebo)
+# @class VTOL
+# @type tiltrotor
+#
+# @output Motor1 xy1 right upper rotor
+# @output Motor2 xy2 right lower rotor
+# @output Motor3 xy3 left upper rotor
+# @output Motor4 xy4 left lower rotor
+# @output Motor5 xy5 rear bidirectional rotor
+# @output Servo1 rj2 right primary tilt
+# @output Servo2 lj2 left primary tilt
+# @output Servo3 rj1 right secondary tilt
+# @output Servo4 lj1 left secondary tilt
+#
+# @maintainer hnuter <arcticg@foxmail.com>
+#
+
+. ${R}etc/init.d/rc.mc_defaults
+
+# =============================================================================
+# Gazebo Simulator Configuration
+# =============================================================================
+
+PX4_SIMULATOR=${PX4_SIMULATOR:=gz}
+PX4_GZ_WORLD=${PX4_GZ_WORLD:=default}
+PX4_SIM_MODEL=${PX4_SIM_MODEL:=hnuter}
+
+param set-default SIM_GZ_EN 1
+param set-default SIM_GZ_EN_GPS 1
+param set-default SIM_GZ_EN_BARO 1
+param set-default SIM_BAT_ENABLE 1
+
+# =============================================================================
+# Gazebo Actuator Mapping
+# =============================================================================
+
+# 5 motors: SIM_GZ_EC_FUNC -> Motor function (101-105)
+param set-default SIM_GZ_EC_FUNC1 101  # xy1 (right upper)
+param set-default SIM_GZ_EC_FUNC2 102  # xy2 (right lower)
+param set-default SIM_GZ_EC_FUNC3 103  # xy3 (left upper)
+param set-default SIM_GZ_EC_FUNC4 104  # xy4 (left lower)
+param set-default SIM_GZ_EC_FUNC5 105  # xy5 (rear)
+
+param set-default SIM_GZ_EC_MIN1 10
+param set-default SIM_GZ_EC_MIN2 10
+param set-default SIM_GZ_EC_MIN3 10
+param set-default SIM_GZ_EC_MIN4 10
+param set-default SIM_GZ_EC_MIN5 10
+
+param set-default SIM_GZ_EC_MAX1 1000
+param set-default SIM_GZ_EC_MAX2 1000
+param set-default SIM_GZ_EC_MAX3 1000
+param set-default SIM_GZ_EC_MAX4 1000
+param set-default SIM_GZ_EC_MAX5 1000
+
+# 4 servos: SIM_GZ_SV_FUNC -> Servo function (201-204)
+# servo_0 -> rj2, servo_1 -> lj2, servo_2 -> rj1, servo_3 -> lj1
+param set-default SIM_GZ_SV_FUNC1 201
+param set-default SIM_GZ_SV_FUNC2 202
+param set-default SIM_GZ_SV_FUNC3 203
+param set-default SIM_GZ_SV_FUNC4 204
+
+# Servo angle limits (degrees! GZMixingInterfaceServo calls math::radians())
+# actuator_sp [-1,1] maps to [MINA, MAXA] degrees -> radians
+param set-default SIM_GZ_SV_MAXA1 90
+param set-default SIM_GZ_SV_MINA1 -90
+param set-default SIM_GZ_SV_MAXA2 90
+param set-default SIM_GZ_SV_MINA2 -90
+param set-default SIM_GZ_SV_MAXA3 90
+param set-default SIM_GZ_SV_MINA3 -90
+param set-default SIM_GZ_SV_MAXA4 90
+param set-default SIM_GZ_SV_MINA4 -90
+
+
+# Tail motor is bidirectional. ActuatorEffectivenessHnuter publishes Motor 5 in [-1, 1].
+param set-default CA_R_REV 16
+
+# =============================================================================
+# Control Allocator Configuration
+# =============================================================================
+
+param set-default MAV_TYPE 2   # Multicopter (custom updateSetpoint handles all allocation)
+param set-default CA_AIRFRAME 16  # Hnuter Tiltrotor (ActuatorEffectivenessHnuter)
+param set-default CA_ROTOR_COUNT 5
+
+# Motor 0: xy1 (right arm upper, CCW)
+param set-default CA_ROTOR0_PX 0.0
+param set-default CA_ROTOR0_PY 0.2
+param set-default CA_ROTOR0_PZ 0.05
+param set-default CA_ROTOR0_KM -0.05
+
+# Motor 1: xy2 (right arm lower, CW)
+param set-default CA_ROTOR1_PX 0.0
+param set-default CA_ROTOR1_PY 0.2
+param set-default CA_ROTOR1_PZ -0.05
+param set-default CA_ROTOR1_KM 0.05
+
+# Motor 2: xy3 (left arm upper, CCW)
+param set-default CA_ROTOR2_PX 0.0
+param set-default CA_ROTOR2_PY -0.2
+param set-default CA_ROTOR2_PZ 0.05
+param set-default CA_ROTOR2_KM -0.05
+
+# Motor 3: xy4 (left arm lower, CW)
+param set-default CA_ROTOR3_PX 0.0
+param set-default CA_ROTOR3_PY -0.2
+param set-default CA_ROTOR3_PZ -0.05
+param set-default CA_ROTOR3_KM 0.05
+
+# Motor 4: xy5 (rear, CCW)
+param set-default CA_ROTOR4_PX -0.4
+param set-default CA_ROTOR4_PY 0.0
+param set-default CA_ROTOR4_PZ 0.0
+param set-default CA_ROTOR4_KM -0.05
+
+# =============================================================================
+# Tilt Servo Configuration
+# =============================================================================
+# CA_SV_TL_COUNT=4 ensures _tilts.addActuators() registers 4 servo actuators.
+# CT=0 (None): PX4 standard tilt logic does NOT write to effectiveness matrix.
+# Our updateSetpoint() fully controls tilt angles via the nonlinear inverse mapping.
+
+param set-default CA_SV_TL_COUNT 4
+
+# Tilt 0: rj2 (right arm primary, yaw axis)
+param set-default CA_SV_TL0_MAXA 90
+param set-default CA_SV_TL0_MINA -90
+param set-default CA_SV_TL0_TD 0
+param set-default CA_SV_TL0_CT 0
+
+# Tilt 1: lj2 (left arm primary, yaw axis)
+param set-default CA_SV_TL1_MAXA 90
+param set-default CA_SV_TL1_MINA -90
+param set-default CA_SV_TL1_TD 0
+param set-default CA_SV_TL1_CT 0
+
+# Tilt 2: rj1 (right arm secondary, roll axis)
+param set-default CA_SV_TL2_MAXA 90
+param set-default CA_SV_TL2_MINA -90
+param set-default CA_SV_TL2_TD 90
+param set-default CA_SV_TL2_CT 0
+
+# Tilt 3: lj1 (left arm secondary, roll axis)
+param set-default CA_SV_TL3_MAXA 90
+param set-default CA_SV_TL3_MINA -90
+param set-default CA_SV_TL3_TD 90
+param set-default CA_SV_TL3_CT 0
+
+# =============================================================================
+# MC Controller Tuning (Ported from hnuter104.py)
+# =============================================================================
+
+# Position Control
+param set-default MPC_XY_P 1.875
+param set-default MPC_XY_VEL_P_ACC 8.0
+param set-default MPC_XY_VEL_I_ACC 0.0
+param set-default MPC_XY_VEL_D_ACC 0.0
+param set-default MPC_Z_P 2.5
+param set-default MPC_Z_VEL_P_ACC 12.0
+param set-default MPC_Z_VEL_I_ACC 0.0
+param set-default MPC_Z_VEL_D_ACC 0.0
+
+# Attitude Control
+param set-default MC_ROLL_P 5.0
+param set-default MC_PITCH_P 5.0
+param set-default MC_YAW_P 4.0
+
+# Rate Control
+param set-default MC_ROLLRATE_P 0.14
+param set-default MC_ROLLRATE_I 0.0
+param set-default MC_ROLLRATE_D 0.0
+param set-default MC_PITCHRATE_P 0.052
+param set-default MC_PITCHRATE_I 0.0
+param set-default MC_PITCHRATE_D 0.0
+param set-default MC_YAWRATE_P 0.117
+param set-default MC_YAWRATE_I 0.0
+param set-default MC_YAWRATE_D 0.0
+
+param set-default MC_AIRMODE 1
+
+# =============================================================================
+# Sensor & EKF
+# =============================================================================
+
+param set-default SYS_HAS_NUM_ASPD 0
+param set-default EKF2_GPS_CHECK 21
+param set-default EKF2_REQ_GPS_H 10
+
+# =============================================================================
+# Arming & Safety (simulation)
+# =============================================================================
+
+param set-default COM_ARM_WO_GPS 1
+param set-default CBRK_SUPPLY_CHK 894281
+param set-default CBRK_USB_CHK 197848
+param set-default COM_ARM_MAG_ANG 60
+param set-default COM_ARM_CHK_ESCS 0
+param set-default FD_ESCS_EN 0
+
+# =============================================================================
+# RC & Flight Modes
+# =============================================================================
+
+param set-default COM_RC_IN_MODE 1
+param set-default RC_MAP_FLTMODE 5
+param set-default RC_MAP_AUX1 6
+param set-default RC_MAP_AUX2 7
+
+param set-default COM_FLTMODE1 0
+param set-default COM_FLTMODE2 2
+param set-default COM_FLTMODE3 7
+param set-default COM_FLTMODE4 8
+param set-default COM_FLTMODE5 7
+param set-default COM_FLTMODE6 0
+
+# =============================================================================
+# Safety Actions
+# =============================================================================
+
+param set-default COM_LOW_BAT_ACT 0
+param set-default NAV_RCL_ACT 0
+param set-default MIS_TAKEOFF_ALT 10

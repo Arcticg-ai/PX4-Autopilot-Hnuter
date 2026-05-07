@@ -1,0 +1,38 @@
+############################################################################
+# sched/signal/Make.defs
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.  The
+# ASF licenses this file to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance with the
+# License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
+# License for the specific language governing permissions and limitations
+# under the License.
+#
+############################################################################
+
+CSRCS += sig_initialize.c
+CSRCS += sig_action.c sig_procmask.c sig_pending.c sig_suspend.c
+CSRCS += sig_kill.c sig_queue.c sig_waitinfo.c sig_timedwait.c
+CSRCS += sig_findaction.c sig_allocpendingsigaction.c
+CSRCS += sig_releasependingsigaction.c sig_unmaskpendingsignal.c
+CSRCS += sig_removependingsignal.c sig_releasependingsignal.c sig_lowest.c
+CSRCS += sig_notification.c sig_cleanup.c sig_dispatch.c sig_deliver.c
+CSRCS += sig_pause.c sig_nanosleep.c sig_usleep.c sig_sleep.c
+CSRCS += sig_ppoll.c sig_pselect.c
+
+ifeq ($(CONFIG_SIG_DEFAULT),y)
+CSRCS += sig_default.c
+endif
+
+# Include signal build support
+
+DEPPATH += --dep-path signal
+VPATH += :signal

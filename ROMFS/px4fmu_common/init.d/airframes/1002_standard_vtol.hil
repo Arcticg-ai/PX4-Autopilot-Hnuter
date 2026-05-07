@@ -1,0 +1,109 @@
+#!/bin/sh
+#
+# @name HIL Standard VTOL QuadPlane
+#
+# @type Standard VTOL
+# @class VTOL
+#
+# @output Motor1 MC motor front right
+# @output Motor2 MC motor back left
+# @output Motor3 MC motor front left
+# @output Motor4 MC motor back right
+# @output Motor5 Forward thrust motor
+# @output Servo1 Aileron
+# @output Servo2 Elevator
+# @output Servo3 Rudder
+#
+# @maintainer Roman Bapst <roman@auterion.com>
+#
+# @board px4_fmu-v2 exclude
+# @board bitcraze_crazyflie exclude
+# @board holybro_kakutef7 exclude
+#
+
+. ${R}etc/init.d/rc.vtol_defaults
+
+param set-default BAT1_N_CELLS 3
+
+param set-default COM_RC_IN_MODE 1
+
+param set-default EKF2_ANGERR_INIT 0.01
+param set-default EKF2_GBIAS_INIT 0.01
+param set-default EKF2_MAG_TYPE 1
+
+param set-default FW_AIRSPD_MAX 25
+param set-default FW_AIRSPD_MIN 14
+param set-default FW_AIRSPD_TRIM 16
+
+param set-default MC_PITCH_P 6
+param set-default MC_PITCHRATE_P 0.2
+param set-default MC_ROLL_P 6
+param set-default MC_ROLLRATE_P 0.3
+param set-default MIS_TAKEOFF_ALT 10
+param set-default MIS_YAW_TMT 10
+
+param set-default MPC_THR_MIN 0.1
+param set-default MPC_XY_P 0.8
+param set-default MPC_XY_VEL_D_ACC 0.1
+param set-default MPC_XY_VEL_I_ACC 4
+param set-default MPC_XY_VEL_P_ACC 3
+param set-default MPC_Z_VEL_P_ACC 12
+param set-default MPC_Z_VEL_I_ACC 3
+
+param set-default NAV_ACC_RAD 5
+param set-default NAV_DLL_ACT 2
+
+param set-default RTL_DESCEND_ALT 10
+param set-default RTL_RETURN_ALT 30
+
+param set-default SDLOG_DIRS_MAX 7
+
+param set-default VT_F_TRANS_THR 0.75
+param set-default VT_TYPE 2
+
+param set-default CA_AIRFRAME 2
+param set-default CA_ROTOR_COUNT 5
+param set-default CA_ROTOR4_AX 1
+param set-default CA_ROTOR4_AZ 0
+param set-default CA_ROTOR4_PX 0.2
+
+# Square quadrotor X PX4 numbering
+param set-default CA_ROTOR_COUNT 4
+param set-default CA_ROTOR0_PX 1
+param set-default CA_ROTOR0_PY 1
+param set-default CA_ROTOR1_PX -1
+param set-default CA_ROTOR1_PY -1
+param set-default CA_ROTOR2_PX 1
+param set-default CA_ROTOR2_PY -1
+param set-default CA_ROTOR2_KM -0.05
+param set-default CA_ROTOR3_PX -1
+param set-default CA_ROTOR3_PY 1
+param set-default CA_ROTOR3_KM -0.05
+
+param set-default CA_SV_CS_COUNT 3
+param set-default CA_SV_CS0_TRQ_R -0.5
+param set-default CA_SV_CS0_TYPE 1
+param set-default CA_SV_CS1_TRQ_R 0.5
+param set-default CA_SV_CS1_TYPE 2
+param set-default CA_SV_CS2_TRQ_P 1
+param set-default CA_SV_CS2_TYPE 3
+
+param set-default HIL_ACT_FUNC1 101
+param set-default HIL_ACT_FUNC2 102
+param set-default HIL_ACT_FUNC3 103
+param set-default HIL_ACT_FUNC4 104
+param set-default HIL_ACT_FUNC5 105
+param set-default HIL_ACT_FUNC6 201
+param set-default HIL_ACT_FUNC7 202
+param set-default HIL_ACT_FUNC8 203
+
+
+param set SYS_HITL 1
+
+param set UAVCAN_ENABLE 0
+
+# disable some checks to allow to fly
+# - without real battery
+param set-default CBRK_SUPPLY_CHK 894281
+
+param set-default MAV_TYPE 22

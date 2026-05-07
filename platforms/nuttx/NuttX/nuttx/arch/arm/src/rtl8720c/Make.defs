@@ -1,0 +1,53 @@
+############################################################################
+# arch/arm/src/rtl8720c/Make.defs
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.  The
+# ASF licenses this file to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance with the
+# License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
+# License for the specific language governing permissions and limitations
+# under the License.
+#
+############################################################################
+
+include armv8-m/Make.defs
+
+# arch/arm/src/rtl8720c
+#
+CHIP_CSRCS += ameba_nvic.c ameba_heap.c ameba_idle.c ameba_uart.c ameba_start.c
+CHIP_CSRCS += ameba_vectors.c ameba_efuse.c ameba_flash.c ameba_wdt.c ameba_hci.c
+
+CHIP_ASRCS += ameba_lto.S
+
+# arch/arm/src/rtl8720c/8710c/fwlib/source
+#
+CHIP_CSRCS += hal_efuse.c hal_flash.c hal_misc.c hal_spic.c hal_ssi.c hal_uart.c
+
+CFLAGS += -I$(TOPDIR)/arch/arm/include/rtl8720c
+CFLAGS += -I$(TOPDIR)/arch/arm/src/rtl8720c
+CFLAGS += -I$(TOPDIR)/arch/arm/src/rtl8720c/8710c/cmsis/cmsis-core/include
+CFLAGS += -I$(TOPDIR)/arch/arm/src/rtl8720c/8710c/cmsis/rtl8710c/include
+CFLAGS += -I$(TOPDIR)/arch/arm/src/rtl8720c/8710c/app/rtl_printf/include
+CFLAGS += -I$(TOPDIR)/arch/arm/src/rtl8720c/8710c/app/stdio_port
+CFLAGS += -I$(TOPDIR)/arch/arm/src/rtl8720c/8710c/misc/utilities/include
+CFLAGS += -I$(TOPDIR)/arch/arm/src/rtl8720c/8710c/fwlib/include
+
+CFLAGS += -Wno-attributes
+
+ifeq ($(CONFIG_IEEE80211_REALTEK_AMEBAZ),y)
+CHIP_CSRCS += amebaZ.c amebaz_driver.c amebaz_netdev.c amebaz_depend.c amebaz_wlan.c ameba_func.c
+CHIP_CSRCS += amebaz_hci_board.c amebaz_coex.c amebaz_firmware.c
+endif # CONFIG_IEEE80211_REALTEK_AMEBAZ
+
+VPATH += chip/8710c
+VPATH += chip/8710c/fwlib/source/ram
+VPATH += chip/8710c/fwlib/source/ram_s
+VPATH += chip/8710c/fwlib/source/ram_ns

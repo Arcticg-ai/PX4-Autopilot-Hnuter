@@ -1,0 +1,92 @@
+############################################################################
+# apps/system/zmodem/Makefile.host
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.  The
+# ASF licenses this file to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance with the
+# License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
+# License for the specific language governing permissions and limitations
+# under the License.
+#
+############################################################################
+
+############################################################################
+# USAGE:
+#
+#   1. TOPDIR and APPDIR must be defined on the make command line:  TOPDIR
+#      is the full path to the nuttx/ directory; APPDIR is the full path to
+#      the apps/ directory.  For example:
+#
+#        make -f Makefile.host TOPDIR=/home/me/projects/nuttx
+#          APPDIR=/home/me/projects/apps
+#
+#   2. Add CONFIG_DEBUG_FEATURES=y to the make command line to enable debug output
+#   3. Make sure to clean old target .o files before making new host .o
+#      files.
+#
+############################################################################
+
+include $(APPDIR)/Make.defs
+
+NUTTXINC = $(TOPDIR)/include
+APPSINC  = $(APPDIR)/include
+
+ZMODEM   = $(APPDIR)/system/zmodem
+HOSTDIR  = $(ZMODEM)/host
+HOSTAPPS = $(ZMODEM)/host/apps
+
+HOSTCFLAGS  += -I $(HOSTDIR) -I $(HOSTAPPS)
+ifeq ($(CONFIG_DEBUG_FEATURES),y)
+HOSTCFLAGS  += -DCONFIG_DEBUG_ZMODEM=1
+endif
+
+# Zmodem sz and rz commands
+
+SZSRCS   = sz_main.c zm_send.c
+RZSRCS   = rz_main.c zm_receive.c
+CMNSRCS  = zm_state.c zm_proto.c zm_watchdog.c zm_utils.c
+CMNSRCS += crc16.c crc32.c
+SRCS     = $(SZSRCS) $(RZSRCS) $(CMNSRCS)
+
+SZOBJS   = $(SZSRCS:.c=$(OBJEXT))
+RZOBJS   = $(RZSRCS:.c=$(OBJEXT))
+CMNOBJS  = $(CMNSRCS:.c=$(OBJEXT))
+OBJS     = $(SRCS:.c=$(OBJEXT))
+
+RZBIN    = rz$(HOSTEXEEXT)
+SZBIN    = sz$(HOSTEXEEXT)
+
+VPATH    = host
+
+all: $(RZBIN) $(SZBIN)
+.PHONY: clean
+
+$(OBJS): %$(OBJEXT): %.c
+	$(Q) $(HOSTCC) -c $(HOSTCFLAGS) -o $@ $<
+
+$(HOSTAPPS)/system:
+	$(Q) mkdir $(HOSTAPPS)/system
+
+$(HOSTAPPS)/system/zmodem.h: $(HOSTAPPS)/system $(APPSINC)/system/zmodem.h
+	$(Q) cp $(APPSINC)/system/zmodem.h $(HOSTAPPS)/system/zmodem.h
+
+$(RZBIN): $(HOSTAPPS)/system/zmodem.h $(RZOBJS) $(CMNOBJS)
+	$(Q) $(HOSTCC) $(HOSTCFLAGS) -o $@ $(RZOBJS) $(CMNOBJS) -lrt
+
+$(SZBIN): $(HOSTAPPS)/system/zmodem.h $(SZOBJS) $(CMNOBJS)
+	$(Q) $(HOSTCC) $(HOSTCFLAGS) -o $@ $(SZOBJS) $(CMNOBJS) -lrt
+
+clean:
+ifneq ($(OBJEXT),)
+	rm -f *$(OBJEXT)
+endif
+	rm -f $(RZBIN) $(SZBIN)
+	rm -rf $(HOSTAPPS)/system

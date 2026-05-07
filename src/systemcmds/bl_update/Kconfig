@@ -1,0 +1,13 @@
+menuconfig SYSTEMCMDS_BL_UPDATE
+	bool "bl_update"
+	default n
+	depends on PLATFORM_NUTTX
+	---help---
+		Enable support for bl_update
+
+menuconfig USER_BL_UPDATE
+	bool "bl_update running as userspace module"
+	default n
+	depends on BOARD_PROTECTED && SYSTEMCMDS_BL_UPDATE
+	---help---
+		Put bl_update in userspace memory

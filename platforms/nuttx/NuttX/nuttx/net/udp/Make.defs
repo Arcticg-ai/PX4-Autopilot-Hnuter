@@ -1,0 +1,68 @@
+############################################################################
+# net/udp/Make.defs
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.  The
+# ASF licenses this file to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance with the
+# License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
+# License for the specific language governing permissions and limitations
+# under the License.
+#
+############################################################################
+
+# UDP source files
+
+ifeq ($(CONFIG_NET_UDP),y)
+ifneq ($(CONFIG_NET_UDP_NO_STACK),y)
+
+# Socket layer
+
+SOCK_CSRCS += udp_recvfrom.c
+
+ifeq ($(CONFIG_NET_UDPPROTO_OPTIONS),y)
+SOCK_CSRCS += udp_setsockopt.c
+endif
+
+ifeq ($(CONFIG_NET_UDP_WRITE_BUFFERS),y)
+SOCK_CSRCS += udp_sendto_buffered.c
+else
+SOCK_CSRCS += udp_sendto_unbuffered.c
+endif
+
+ifeq ($(CONFIG_NET_UDP_NOTIFIER),y)
+SOCK_CSRCS += udp_notifier.c
+ifeq ($(CONFIG_NET_UDP_WRITE_BUFFERS),y)
+SOCK_CSRCS += udp_txdrain.c
+endif
+endif
+
+# Transport layer
+
+NET_CSRCS += udp_conn.c udp_devpoll.c udp_send.c udp_input.c udp_finddev.c
+NET_CSRCS += udp_close.c udp_callback.c udp_ipselect.c udp_netpoll.c
+NET_CSRCS += udp_ioctl.c
+
+# UDP write buffering
+
+ifeq ($(CONFIG_NET_UDP_WRITE_BUFFERS),y)
+NET_CSRCS += udp_wrbuffer.c
+ifeq ($(CONFIG_DEBUG_FEATURES),y)
+NET_CSRCS += udp_wrbuffer_dump.c
+endif
+endif
+
+# Include UDP build support
+
+DEPPATH += --dep-path udp
+VPATH += :udp
+
+endif # !CONFIG_NET_UDP_NO_STACK
+endif # CONFIG_NET_UDP

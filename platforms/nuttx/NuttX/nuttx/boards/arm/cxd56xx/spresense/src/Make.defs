@@ -1,0 +1,80 @@
+############################################################################
+# boards/arm/cxd56xx/spresense/src/Make.defs
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.  The
+# ASF licenses this file to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance with the
+# License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
+# License for the specific language governing permissions and limitations
+# under the License.
+#
+############################################################################
+
+CSRCS += cxd56_main.c
+CSRCS += cxd56_clock.c
+CSRCS += cxd56_bringup.c
+
+ifeq ($(CONFIG_BOARDCTL),y)
+CSRCS += cxd56_appinit.c
+CSRCS += cxd56_power.c
+endif
+
+ifeq ($(CONFIG_BOARDCTL_IOCTL),y)
+CSRCS += cxd56_ioctl.c
+endif
+
+ifeq ($(CONFIG_ARCH_LEDS),y)
+CSRCS += cxd56_leds.c
+else
+ifeq ($(CONFIG_USERLED),y)
+CSRCS += cxd56_userleds.c
+endif
+endif
+
+ifeq ($(CONFIG_ARCH_BUTTONS),y)
+CSRCS += cxd56_buttons.c
+endif
+
+ifeq ($(CONFIG_CXD56_GPIO_IRQ),y)
+CSRCS += cxd56_gpioif.c
+endif
+
+ifeq ($(CONFIG_CXD56_PWM),y)
+CSRCS += cxd56_pwm.c
+endif
+
+ifeq ($(CONFIG_SPI),y)
+CSRCS += cxd56_spi.c
+endif
+
+ifeq ($(CONFIG_CXD56_SDIO),y)
+CSRCS += cxd56_sdcard.c
+endif
+
+ifeq ($(CONFIG_CXD56_GAUGE),y)
+CSRCS += cxd56_gauge.c
+endif
+
+ifeq ($(CONFIG_CXD56_CHARGER),y)
+CSRCS += cxd56_charger.c
+endif
+
+ifeq ($(CONFIG_USBDEV_COMPOSITE),y)
+CSRCS += cxd56_composite.c
+endif
+
+ifeq ($(CONFIG_MODEM_ALTMDM),y)
+CSRCS += cxd56_altmdm_power.c
+endif
+
+DEPPATH += --dep-path board
+VPATH += :board
+CFLAGS += $(shell $(INCDIR) "$(CC)" $(TOPDIR)$(DELIM)arch$(DELIM)$(CONFIG_ARCH)$(DELIM)src$(DELIM)board$(DELIM)board)

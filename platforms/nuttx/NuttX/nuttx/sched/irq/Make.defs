@@ -1,0 +1,45 @@
+############################################################################
+# sched/irq/Make.defs
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.  The
+# ASF licenses this file to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance with the
+# License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
+# License for the specific language governing permissions and limitations
+# under the License.
+#
+############################################################################
+
+CSRCS += irq_initialize.c irq_attach.c irq_dispatch.c irq_unexpectedisr.c
+
+ifeq ($(CONFIG_SMP),y)
+CSRCS += irq_spinlock.c
+endif
+
+ifeq ($(CONFIG_IRQCOUNT),y)
+CSRCS += irq_csection.c
+endif
+
+ifeq ($(CONFIG_SCHED_IRQMONITOR),y)
+CSRCS += irq_foreach.c
+ifeq ($(CONFIG_FS_PROCFS),y)
+CSRCS += irq_procfs.c
+endif
+endif
+
+ifeq ($(CONFIG_IRQCHAIN),y)
+CSRCS += irq_chain.c
+endif
+
+# Include irq build support
+
+DEPPATH += --dep-path irq
+VPATH += :irq

@@ -1,0 +1,184 @@
+############################################################################
+# arch/arm/src/stm32l4/Make.defs
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.  The
+# ASF licenses this file to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance with the
+# License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
+# License for the specific language governing permissions and limitations
+# under the License.
+#
+############################################################################
+
+# The start-up, "head", file.  Only common vectors are support so there
+# isn't one.
+
+# Common ARM and Cortex-M4 files (copied from stm32/Make.defs)
+
+include armv7-m/Make.defs
+
+# Required STM32L4 files
+
+CHIP_CSRCS  = stm32l4_allocateheap.c stm32l4_exti_gpio.c stm32l4_gpio.c
+CHIP_CSRCS += stm32l4_irq.c stm32l4_lowputc.c stm32l4_rcc.c
+CHIP_CSRCS += stm32l4_serial.c stm32l4_start.c stm32l4_waste.c stm32l4_uid.c
+CHIP_CSRCS += stm32l4_spi.c stm32l4_i2c.c stm32l4_lse.c stm32l4_lsi.c
+CHIP_CSRCS += stm32l4_pwr.c stm32l4_tim.c stm32l4_flash.c
+CHIP_CSRCS += stm32l4_dfumode.c
+
+ifneq ($(CONFIG_ARCH_IDLE_CUSTOM),y)
+CHIP_CSRCS += stm32l4_idle.c
+endif
+
+ifeq ($(CONFIG_TIMER),y)
+CHIP_CSRCS += stm32l4_tim_lowerhalf.c
+endif
+
+ifneq ($(CONFIG_SCHED_TICKLESS),y)
+CHIP_CSRCS += stm32l4_timerisr.c
+else
+CHIP_CSRCS += stm32l4_tickless.c
+endif
+
+ifeq ($(CONFIG_STM32L4_ONESHOT),y)
+CHIP_CSRCS += stm32l4_oneshot.c stm32l4_oneshot_lowerhalf.c
+endif
+
+ifeq ($(CONFIG_STM32L4_FREERUN),y)
+CHIP_CSRCS += stm32l4_freerun.c
+endif
+
+ifeq ($(CONFIG_BUILD_PROTECTED),y)
+CHIP_CSRCS += stm32l4_userspace.c stm32l4_mpuinit.c
+endif
+
+ifeq ($(CONFIG_STM32L4_HAVE_HSI48),y)
+CHIP_CSRCS += stm32l4_hsi48.c
+endif
+
+ifeq ($(CONFIG_STM32L4_ADC),y)
+CHIP_CSRCS += stm32l4_adc.c
+endif
+
+ifeq ($(CONFIG_STM32L4_DAC),y)
+CHIP_CSRCS += stm32l4_dac.c
+endif
+
+ifeq ($(CONFIG_STM32L4_DFSDM),y)
+CHIP_CSRCS += stm32l4_dfsdm.c
+endif
+
+ifeq ($(CONFIG_STM32L4_DMA),y)
+CHIP_CSRCS += stm32l4_dma.c
+endif
+
+ifeq ($(CONFIG_USBDEV),y)
+ifeq ($(CONFIG_STM32L4_USBFS),y)
+CHIP_CSRCS += stm32l4_usbdev.c
+endif
+ifeq ($(CONFIG_STM32L4_OTGFS),y)
+CHIP_CSRCS += stm32l4_otgfsdev.c
+endif
+endif
+
+ifeq ($(CONFIG_USBHOST),y)
+ifeq ($(CONFIG_STM32L4_OTGFS),y)
+CHIP_CSRCS += stm32l4_otgfshost.c
+endif
+endif
+
+ifeq ($(CONFIG_USBHOST),y)
+ifeq ($(CONFIG_USBHOST_TRACE),y)
+CHIP_CSRCS += stm32l4_usbhost_trace.c
+else
+ifeq ($(CONFIG_DEBUG_USB),y)
+CHIP_CSRCS += stm32l4_usbhost_trace.c
+endif
+endif
+endif
+
+ifeq ($(CONFIG_PM),y)
+CHIP_CSRCS += stm32l4_pmlpr.c stm32l4_pmsleep.c stm32l4_pmstandby.c
+CHIP_CSRCS += stm32l4_pmstop.c
+
+ifneq ($(CONFIG_ARCH_CUSTOM_PMINIT),y)
+CHIP_CSRCS += stm32l4_pminitialize.c
+endif
+endif
+
+ifeq ($(CONFIG_STM32L4_PWR),y)
+CHIP_CSRCS += stm32l4_exti_pwr.c
+endif
+
+ifeq ($(CONFIG_STM32L4_RTC),y)
+ifeq ($(CONFIG_RTC_ALARM),y)
+CHIP_CSRCS += stm32l4_exti_alarm.c
+endif
+ifeq ($(CONFIG_RTC_PERIODIC),y)
+CHIP_CSRCS += stm32l4_exti_wakeup.c
+endif
+ifeq ($(CONFIG_RTC_DRIVER),y)
+CHIP_CSRCS += stm32l4_rtc_lowerhalf.c
+CHIP_CSRCS += stm32l4_rtc.c
+endif
+endif
+
+ifeq ($(CONFIG_DEBUG_FEATURES),y)
+CHIP_CSRCS += stm32l4_dumpgpio.c
+endif
+
+ifeq ($(CONFIG_STM32L4_COMP),y)
+CHIP_CSRCS += stm32l4_comp.c stm32l4_exti_comp.c
+endif
+
+ifeq ($(CONFIG_STM32L4_RNG),y)
+CHIP_CSRCS += stm32l4_rng.c
+endif
+
+ifeq ($(CONFIG_STM32L4_SAI),y)
+CHIP_CSRCS += stm32l4_sai.c
+endif
+
+ifeq ($(CONFIG_STM32L4_LPTIM),y)
+CHIP_CSRCS += stm32l4_lptim.c
+endif
+
+ifeq ($(CONFIG_STM32L4_PWM),y)
+CHIP_CSRCS += stm32l4_pwm.c
+endif
+
+ifeq ($(CONFIG_SENSORS_QENCODER),y)
+CHIP_CSRCS += stm32l4_qencoder.c
+endif
+
+ifeq ($(CONFIG_STM32L4_QSPI),y)
+CHIP_CSRCS += stm32l4_qspi.c
+endif
+
+ifeq ($(CONFIG_STM32L4_CAN),y)
+CHIP_CSRCS += stm32l4_can.c
+endif
+
+ifeq ($(CONFIG_STM32L4_FIREWALL),y)
+CHIP_CSRCS += stm32l4_firewall.c
+endif
+
+ifeq ($(CONFIG_STM32L4_IWDG),y)
+CHIP_CSRCS += stm32l4_iwdg.c
+endif
+
+ifeq ($(CONFIG_STM32L4_SDMMC1),y)
+CHIP_CSRCS += stm32l4_sdmmc.c
+endif
+
+ifeq ($(CONFIG_STM32L4_1WIREDRIVER),y)
+CHIP_CSRCS += stm32l4_1wire.c
+endif

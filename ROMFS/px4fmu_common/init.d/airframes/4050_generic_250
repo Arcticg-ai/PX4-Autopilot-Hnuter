@@ -1,0 +1,52 @@
+#!/bin/sh
+#
+# @name Generic 250 Racer
+#
+# @type Quadrotor x
+# @class Copter
+#
+# @maintainer Lorenz Meier <lorenz@px4.io>
+#
+# @board bitcraze_crazyflie exclude
+#
+
+. ${R}etc/init.d/rc.mc_defaults
+
+param set-default MC_ROLL_P 8
+param set-default MC_ROLLRATE_P 0.08
+param set-default MC_ROLLRATE_I 0.25
+param set-default MC_ROLLRATE_D 0.001
+param set-default MC_PITCH_P 8
+param set-default MC_PITCHRATE_P 0.08
+param set-default MC_PITCHRATE_D 0.001
+param set-default MC_YAW_P 4
+
+param set-default MC_ROLLRATE_MAX 1600
+param set-default MC_PITCHRATE_MAX 1600
+param set-default MC_YAWRATE_MAX 1000
+
+param set-default MPC_MAN_TILT_MAX 60
+
+param set-default THR_MDL_FAC 0.3
+
+# enable high-rate logging profile (helps with tuning)
+param set-default SDLOG_PROFILE 19
+
+param set-default IMU_DGYRO_CUTOFF 50
+param set-default IMU_GYRO_CUTOFF 90
+
+# Square quadrotor X PX4 numbering
+param set-default CA_ROTOR_COUNT 4
+param set-default CA_ROTOR0_PX 1
+param set-default CA_ROTOR0_PY 1
+param set-default CA_ROTOR1_PX -1
+param set-default CA_ROTOR1_PY -1
+param set-default CA_ROTOR2_PX 1
+param set-default CA_ROTOR2_PY -1
+param set-default CA_ROTOR2_KM -0.05
+param set-default CA_ROTOR3_PX -1
+param set-default CA_ROTOR3_PY 1
+param set-default CA_ROTOR3_KM -0.05
+
+param set-default MPC_Z_VEL_MAX_UP 3.0
+param set-default MPC_Z_VEL_MAX_DN 3.0

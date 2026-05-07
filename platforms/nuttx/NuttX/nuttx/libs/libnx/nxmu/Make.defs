@@ -1,0 +1,50 @@
+############################################################################
+# libs/libnx/nxmu/Make.defs
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.  The
+# ASF licenses this file to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance with the
+# License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
+# License for the specific language governing permissions and limitations
+# under the License.
+#
+############################################################################
+
+# All of user-space hooks must be built in for the multi-user NX
+# implementation so that they are available to the application in the kernel
+# build (single use mode cannot be used with the kernel build)
+
+ifeq ($(CONFIG_NX),y)
+
+CSRCS += nxmu_sendserver.c nx_connect.c nx_disconnect.c
+CSRCS += nx_eventhandler.c nx_eventnotify.c nxmu_semtake.c
+CSRCS += nx_block.c nx_synch.c
+CSRCS += nx_kbdchin.c nx_kbdin.c nx_mousein.c
+CSRCS += nx_releasebkgd.c nx_requestbkgd.c nx_setbgcolor.c
+
+CSRCS += nxmu_sendwindow.c nx_closewindow.c nx_constructwindow.c
+CSRCS += nx_bitmap.c nx_fill.c nx_filltrapezoid.c nx_getposition.c
+CSRCS += nx_getrectangle.c nx_lower.c nx_modal.c nx_move.c nx_openwindow.c
+CSRCS += nx_raise.c nx_redrawreq.c nx_setpixel.c nx_setposition.c
+CSRCS += nx_setsize.c nx_setvisibility.c
+
+ifeq ($(CONFIG_NX_HWCURSOR),y)
+CSRCS += nx_cursor.c
+else ifeq ($(CONFIG_NX_SWCURSOR),y)
+CSRCS += nx_cursor.c
+endif
+
+# Add the nxmu/ directory to the build
+
+DEPPATH += --dep-path nxmu
+VPATH += :nxmu
+
+endif

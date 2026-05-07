@@ -1,0 +1,8 @@
+#
+# For a description of the syntax of this configuration file,
+# see the file kconfig-language.txt in the NuttX tools repository.
+#
+
+source "drivers/power/pm/Kconfig"
+source "drivers/power/battery/Kconfig"
+source "drivers/power/supply/Kconfig"

@@ -1,0 +1,158 @@
+############################################################################
+# drivers/mtd/Make.defs
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.  The
+# ASF licenses this file to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance with the
+# License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
+# License for the specific language governing permissions and limitations
+# under the License.
+############################################################################
+
+############################################################################
+# These driver supports various Memory Technology Devices (MTD) using the
+# NuttX MTD interface.
+#
+############################################################################
+
+# Include MTD drivers
+
+ifeq ($(CONFIG_MTD),y)
+
+CSRCS += ftl.c mtd_config.c
+
+ifeq ($(CONFIG_MTD_PARTITION),y)
+CSRCS += mtd_partition.c
+endif
+
+ifeq ($(CONFIG_MTD_SECT512),y)
+CSRCS += sector512.c
+endif
+
+ifeq ($(CONFIG_MTD_WRBUFFER),y)
+CSRCS += mtd_rwbuffer.c
+else
+ifeq ($(CONFIG_MTD_READAHEAD),y)
+CSRCS += mtd_rwbuffer.c
+endif
+endif
+
+ifeq ($(CONFIG_MTD_PROGMEM),y)
+CSRCS += mtd_progmem.c
+endif
+
+ifeq ($(CONFIG_MTD_NAND),y)
+CSRCS += mtd_nand.c mtd_onfi.c mtd_nandscheme.c mtd_nandmodel.c mtd_modeltab.c
+ifeq ($(CONFIG_MTD_NAND_SWECC),y)
+CSRCS += mtd_nandecc.c hamming.c
+endif
+endif
+
+ifeq ($(CONFIG_RAMMTD),y)
+CSRCS += rammtd.c
+endif
+
+ifeq ($(CONFIG_FILEMTD),y)
+CSRCS += filemtd.c
+endif
+
+ifeq ($(CONFIG_NULLMTD),y)
+CSRCS += nullmtd.c
+endif
+
+ifeq ($(CONFIG_MTD_AT24XX),y)
+CSRCS += at24xx.c
+endif
+
+ifeq ($(CONFIG_MTD_AT45DB),y)
+CSRCS += at45db.c
+endif
+
+ifeq ($(CONFIG_MTD_RAMTRON),y)
+CSRCS += ramtron.c
+endif
+
+ifeq ($(CONFIG_MTD_SST25),y)
+CSRCS += sst25.c
+endif
+
+ifeq ($(CONFIG_MTD_SST25XX),y)
+CSRCS += sst25xx.c
+endif
+
+ifeq ($(CONFIG_MTD_SST26),y)
+CSRCS += sst26.c
+endif
+
+ifeq ($(CONFIG_MTD_SST39FV),y)
+CSRCS += sst39vf.c
+endif
+
+ifeq ($(CONFIG_MTD_W25),y)
+CSRCS += w25.c
+endif
+
+ifeq ($(CONFIG_MTD_GD25),y)
+CSRCS += gd25.c
+endif
+
+ifeq ($(CONFIG_MTD_GD5F),y)
+CSRCS += gd5f.c
+endif
+
+ifeq ($(CONFIG_MTD_AT25),y)
+CSRCS += at25.c
+endif
+
+ifeq ($(CONFIG_MTD_M25P),y)
+CSRCS += m25px.c
+endif
+
+ifeq ($(CONFIG_MTD_MX25L),y)
+CSRCS += mx25lx.c
+endif
+
+ifeq ($(CONFIG_MTD_MX35),y)
+CSRCS += mx35.c
+endif
+
+ifeq ($(CONFIG_MTD_S25FL1),y)
+CSRCS += s25fl1.c
+endif
+
+ifeq ($(CONFIG_MTD_N25QXXX),y)
+CSRCS += n25qxxx.c
+endif
+
+ifeq ($(CONFIG_MTD_W25QXXXJV),y)
+CSRCS += w25qxxxjv.c
+endif
+
+ifeq ($(CONFIG_MTD_MX25RXX),y)
+CSRCS += mx25rxx.c
+endif
+
+ifeq ($(CONFIG_MTD_IS25XP),y)
+CSRCS += is25xp.c
+endif
+
+ifeq ($(CONFIG_MTD_SMART),y)
+ifeq ($(CONFIG_FS_SMARTFS),y)
+CSRCS += smart.c
+endif
+endif
+
+# Include MTD driver support
+
+DEPPATH += --dep-path mtd
+VPATH += :mtd
+
+endif

@@ -1,0 +1,56 @@
+############################################################################
+# wireless/ieee802154/Make.defs
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.  The
+# ASF licenses this file to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance with the
+# License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
+# License for the specific language governing permissions and limitations
+# under the License.
+#
+############################################################################
+
+ifeq ($(CONFIG_WIRELESS_IEEE802154),y)
+
+# Include IEEE 802.15.4 support
+
+CSRCS += ieee802154_primitive.c
+
+ifeq ($(CONFIG_IEEE802154_MAC),y)
+
+CSRCS += mac802154.c  mac802154_assoc.c mac802154_disassoc.c
+CSRCS += mac802154_bind.c mac802154_data.c mac802154_get_mhrlen.c
+CSRCS += mac802154_getset.c mac802154_gts.c mac802154_ioctl.c
+CSRCS += mac802154_orphan.c mac802154_poll.c mac802154_purge.c
+CSRCS += mac802154_reset.c mac802154_rxenable.c mac802154_scan.c
+CSRCS += mac802154_start.c mac802154_sync.c
+
+# Include wireless devices build support
+
+ifeq ($(CONFIG_IEEE802154_MACDEV),y)
+CSRCS += mac802154_device.c
+endif
+
+ifeq ($(CONFIG_IEEE802154_NETDEV),y)
+CSRCS += mac802154_netdev.c
+endif
+
+endif
+
+ifeq ($(CONFIG_IEEE802154_LOOPBACK),y)
+CSRCS += mac802154_loopback.c
+endif
+
+DEPPATH += --dep-path ieee802154
+VPATH += :ieee802154
+CFLAGS += ${shell $(INCDIR) "$(CC)" $(TOPDIR)$(DELIM)wireless$(DELIM)ieee802154}
+
+endif # CONFIG_WIRELESS_IEEE802154

@@ -1,0 +1,44 @@
+#!/bin/sh
+#
+# VTOL default parameters.
+#
+# NOTE: Script variables are declared/initialized/unset in the rcS script.
+#
+
+set VEHICLE_TYPE vtol
+
+# MAV_TYPE_VTOL_FIXEDROTOR 22
+param set-default MAV_TYPE 22
+
+param set-default COM_POS_LOW_EPH 50
+
+param set-default MIS_TAKEOFF_ALT 20
+param set-default MIS_YAW_TMT 10
+
+param set-default EKF2_ARSP_THR 10
+param set-default EKF2_FUSE_BETA 1
+
+param set-default HTE_VXY_THR 2
+
+param set-default MIS_TKO_LAND_REQ 2
+
+param set-default MPC_ACC_HOR_MAX 2
+param set-default MPC_VEL_MANUAL 5
+param set-default MPC_XY_ERR_MAX 5
+param set-default MPC_XY_VEL_MAX 8
+param set-default MPC_JERK_MAX 4.5
+param set-default MPC_YAW_MODE 4
+
+# reduce aggressiveness around roll and yaw axis,
+# as VTOLs usually have high intertia and lot af drag due to wings
+param set-default MC_ROLL_P 5
+param set-default MC_ROLLRATE_MAX 120
+param set-default MC_YAW_P 2
+param set-default MC_YAWRATE_MAX 120
+param set-default MPC_MAN_Y_MAX 90
+
+param set-default RTL_TYPE 1
+
+param set-default SYS_HAS_NUM_ASPD 1 # by default require an airspeed sensor
+
+param set-default WV_EN 1

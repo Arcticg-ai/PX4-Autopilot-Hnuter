@@ -1,0 +1,114 @@
+#!/bin/sh
+#
+# @name UVify IFO
+#
+# @type Quadrotor x
+# @class Copter
+#
+# @board px4_fmu-v2 exclude
+# @board px4_fmu-v3 exclude
+# @board px4_fmu-v4pro exclude
+# @board px4_fmu-v5 exclude
+# @board px4_fmu-v5x exclude
+# @board auterion_fmu-v6x exclude
+# @board px4_fmu-v6x exclude
+# @board bitcraze_crazyflie exclude
+# @board cuav_x7pro exclude
+#
+# @maintainer Hyon Lim <lim@uvify.com>
+#
+
+. ${R}etc/init.d/rc.mc_defaults
+
+# Attitude & rate gains
+param set-default MC_ROLLRATE_D 0.0013
+
+param set-default MC_PITCHRATE_D 0.0016
+
+# Filter settings
+param set-default IMU_GYRO_CUTOFF 100
+
+# Sensors
+param set-default SENS_BOARD_ROT 10
+# Yaw 180
+param set-default SENS_FLOW_ROT 4
+# TFMini on TELEM3
+param set-default SENS_TFMINI_CFG 103
+
+# Smart Battery
+param set-default SENS_EN_BATT 1
+
+# EKF2
+param set-default EKF2_GND_EFF_DZ 6
+param set-default EKF2_MIN_RNG 0.3
+
+# Flow
+param set-default EKF2_OF_CTRL 1
+param set-default EKF2_OF_QMIN 70
+
+# Position control
+param set-default MPC_Z_P 1.1
+param set-default MPC_Z_VEL_P_ACC 6
+param set-default MPC_Z_VEL_I_ACC 1
+
+param set-default MPC_THR_MIN 0.06
+param set-default MPC_THR_HOVER 0.44
+
+param set-default MIS_TAKEOFF_ALT 1.1
+param set-default MPC_XY_P 1.7
+param set-default MPC_XY_VEL_P_ACC 2.6
+param set-default MPC_XY_VEL_I_ACC 1.2
+param set-default MPC_TKO_RAMP_T 1
+param set-default MPC_VEL_MANUAL 3
+
+param set-default BAT1_SOURCE 0
+param set-default BAT1_N_CELLS 4
+param set-default BAT1_V_DIV 10.14
+param set-default BAT1_A_PER_V 18.18
+
+# Filter settings
+param set-default IMU_GYRO_CUTOFF 90
+
+# Don't try to be intelligent on RC loss: just cut the motors
+param set-default NAV_RCL_ACT 6
+
+# TELEM1 ttyS1 - Wifi module
+param set-default MAV_0_CONFIG 101
+param set-default MAV_0_RATE 0
+# onboard
+param set-default MAV_0_MODE 2
+param set-default SER_TEL1_BAUD 921600
+
+# TELEM2 ttyS2 - Sub 1-Ghz
+param set-default MAV_1_CONFIG 102
+# normal
+param set-default MAV_1_MODE 0
+param set-default SER_TEL2_BAUD 57600
+
+# EKF OF POSITION
+param set-default EKF2_OF_POS_X 0.06
+param set-default EKF2_OF_POS_Y 0.03
+param set-default EKF2_OF_POS_Z -0.07
+
+# Failsafe
+param set-default COM_LOW_BAT_ACT 3
+
+param set-default PWM_MAIN_TIM0 -3
+
+# Square quadrotor X PX4 numbering
+param set-default CA_ROTOR_COUNT 4
+param set-default CA_ROTOR0_PX 1
+param set-default CA_ROTOR0_PY 1
+param set-default CA_ROTOR1_PX -1
+param set-default CA_ROTOR1_PY -1
+param set-default CA_ROTOR2_PX 1
+param set-default CA_ROTOR2_PY -1
+param set-default CA_ROTOR2_KM -0.05
+param set-default CA_ROTOR3_PX -1
+param set-default CA_ROTOR3_PY 1
+param set-default CA_ROTOR3_KM -0.05
+
+param set-default PWM_MAIN_FUNC1 101
+param set-default PWM_MAIN_FUNC2 102
+param set-default PWM_MAIN_FUNC3 103
+param set-default PWM_MAIN_FUNC4 104

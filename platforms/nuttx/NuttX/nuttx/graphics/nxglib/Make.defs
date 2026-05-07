@@ -1,0 +1,101 @@
+############################################################################
+# graphics/nxglib/Make.defs
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.  The
+# ASF licenses this file to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance with the
+# License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
+# License for the specific language governing permissions and limitations
+# under the License.
+#
+############################################################################
+
+CSRCS += nxglib_setpixel_1bpp.c nxglib_setpixel_2bpp.c
+CSRCS += nxglib_setpixel_4bpp.c nxglib_setpixel_8bpp.c
+CSRCS += nxglib_setpixel_16bpp.c nxglib_setpixel_24bpp.c
+CSRCS += nxglib_setpixel_32bpp.c
+
+CSRCS += nxglib_fillrectangle_1bpp.c nxglib_fillrectangle_2bpp.c
+CSRCS += nxglib_fillrectangle_4bpp.c nxglib_fillrectangle_8bpp.c
+CSRCS += nxglib_fillrectangle_16bpp.c nxglib_fillrectangle_24bpp.c
+CSRCS += nxglib_fillrectangle_32bpp.c
+
+CSRCS += nxglib_getrectangle_1bpp.c nxglib_getrectangle_2bpp.c
+CSRCS += nxglib_getrectangle_4bpp.c nxglib_getrectangle_8bpp.c
+CSRCS += nxglib_getrectangle_16bpp.c nxglib_getrectangle_24bpp.c
+CSRCS += nxglib_getrectangle_32bpp.c
+
+CSRCS += nxglib_filltrapezoid_1bpp.c nxglib_filltrapezoid_2bpp.c
+CSRCS += nxglib_filltrapezoid_4bpp.c nxglib_filltrapezoid_8bpp.c
+CSRCS += nxglib_filltrapezoid_16bpp.c nxglib_filltrapezoid_24bpp.c
+CSRCS += nxglib_filltrapezoid_32bpp.c
+
+CSRCS += nxglib_moverectangle_1bpp.c nxglib_moverectangle_2bpp.c
+CSRCS += nxglib_moverectangle_4bpp.c nxglib_moverectangle_8bpp.c
+CSRCS += nxglib_moverectangle_16bpp.c nxglib_moverectangle_24bpp.c
+CSRCS += nxglib_moverectangle_32bpp.c
+
+CSRCS += nxglib_copyrectangle_1bpp.c nxglib_copyrectangle_2bpp.c
+CSRCS += nxglib_copyrectangle_4bpp.c nxglib_copyrectangle_8bpp.c
+CSRCS += nxglib_copyrectangle_16bpp.c nxglib_copyrectangle_24bpp.c
+CSRCS += nxglib_copyrectangle_32bpp.c
+
+ifeq ($(CONFIG_NX_RAMBACKED),y)
+
+CSRCS += pwfb_setpixel_1bpp.c pwfb_setpixel_2bpp.c
+CSRCS += pwfb_setpixel_4bpp.c pwfb_setpixel_8bpp.c
+CSRCS += pwfb_setpixel_16bpp.c pwfb_setpixel_24bpp.c
+CSRCS += pwfb_setpixel_32bpp.c
+
+CSRCS += pwfb_fillrectangle_1bpp.c pwfb_fillrectangle_2bpp.c
+CSRCS += pwfb_fillrectangle_4bpp.c pwfb_fillrectangle_8bpp.c
+CSRCS += pwfb_fillrectangle_16bpp.c pwfb_fillrectangle_24bpp.c
+CSRCS += pwfb_fillrectangle_32bpp.c
+
+CSRCS += pwfb_getrectangle_1bpp.c pwfb_getrectangle_2bpp.c
+CSRCS += pwfb_getrectangle_4bpp.c pwfb_getrectangle_8bpp.c
+CSRCS += pwfb_getrectangle_16bpp.c pwfb_getrectangle_24bpp.c
+CSRCS += pwfb_getrectangle_32bpp.c
+
+CSRCS += pwfb_filltrapezoid_1bpp.c pwfb_filltrapezoid_2bpp.c
+CSRCS += pwfb_filltrapezoid_4bpp.c pwfb_filltrapezoid_8bpp.c
+CSRCS += pwfb_filltrapezoid_16bpp.c pwfb_filltrapezoid_24bpp.c
+CSRCS += pwfb_filltrapezoid_32bpp.c
+
+CSRCS += pwfb_moverectangle_1bpp.c pwfb_moverectangle_2bpp.c
+CSRCS += pwfb_moverectangle_4bpp.c pwfb_moverectangle_8bpp.c
+CSRCS += pwfb_moverectangle_16bpp.c pwfb_moverectangle_24bpp.c
+CSRCS += pwfb_moverectangle_32bpp.c
+
+CSRCS += pwfb_copyrectangle_1bpp.c pwfb_copyrectangle_2bpp.c
+CSRCS += pwfb_copyrectangle_4bpp.c pwfb_copyrectangle_8bpp.c
+CSRCS += pwfb_copyrectangle_16bpp.c pwfb_copyrectangle_24bpp.c
+CSRCS += pwfb_copyrectangle_32bpp.c
+
+endif
+
+ifeq ($(CONFIG_NX_SWCURSOR),y)
+
+CSRCS += nxglib_cursor_draw_8bpp.c nxglib_cursor_draw_16bpp.c
+CSRCS += nxglib_cursor_draw_24bpp.c nxglib_cursor_draw_32bpp.c
+
+CSRCS += nxglib_cursor_erase_8bpp.c nxglib_cursor_erase_16bpp.c
+CSRCS += nxglib_cursor_erase_24bpp.c nxglib_cursor_erase_32bpp.c
+
+CSRCS += nxglib_cursor_backup_8bpp.c nxglib_cursor_backup_16bpp.c
+CSRCS += nxglib_cursor_backup_24bpp.c nxglib_cursor_backup_32bpp.c
+
+endif
+
+DEPPATH += --dep-path nxglib
+CFLAGS += ${shell $(INCDIR) "$(CC)" $(TOPDIR)/graphics/nxglib}
+#VPATH += :nxglib
+VPATH = nxglib

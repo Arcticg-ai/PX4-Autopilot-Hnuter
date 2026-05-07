@@ -1,0 +1,124 @@
+############################################################################
+# arch/arm/src/samd5e5/Make.defs
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.  The
+# ASF licenses this file to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance with the
+# License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
+# License for the specific language governing permissions and limitations
+# under the License.
+#
+############################################################################
+
+# The start-up, "head", file
+
+# Common ARM and Cortex-M4 files
+
+include armv7-m/Make.defs
+
+# Required SAMD5x/E5x files
+
+CHIP_CSRCS  = sam_clockconfig.c sam_gclk.c sam_irq.c sam_lowputc.c
+CHIP_CSRCS += sam_port.c sam_serial.c sam_start.c sam_usart.c
+
+# Configuration-dependent SAMD5x/E5x files
+
+ifneq ($(CONFIG_SCHED_TICKLESS),y)
+CHIP_CSRCS += sam_timerisr.c
+endif
+
+ifeq ($(CONFIG_SAMD5E5_SERCOM),y)
+CHIP_CSRCS += sam_sercom.c
+endif
+
+ifeq ($(CONFIG_SAMD5E5_TC),y)
+CHIP_CSRCS += sam_tc.c
+
+ifeq ($(CONFIG_SAMD5E5_ONESHOT),y)
+CHIP_CSRCS += sam_oneshot.c sam_oneshot_lowerhalf.c
+endif # CONFIG_SAMD5E5_ONESHOT
+
+ifeq ($(CONFIG_SAMD5E5_FREERUN),y)
+CHIP_CSRCS += sam_freerun.c
+endif # CONFIG_SAMD5E5_FREERUN
+
+ifeq ($(CONFIG_SCHED_TICKLESS),y)
+CHIP_CSRCS += sam_tickless.c
+endif # CONFIG_SCHED_TICKLESS
+endif # CONFIG_SAMD5E5_TC
+
+ifeq ($(CONFIG_BUILD_PROTECTED),y)
+CHIP_CSRCS += sam_userspace.c sam_mpuinit.c
+endif
+
+ifeq ($(CONFIG_SAMD5E5_EIC),y)
+CHIP_CSRCS += sam_eic.c
+endif
+
+ifeq ($(CONFIG_SAMD5E5_CMCC),y)
+CHIP_CSRCS += sam_cmcc.c
+endif
+
+ifeq ($(CONFIG_SAMD5E5_DMAC),y)
+CHIP_CSRCS += sam_dmac.c
+endif
+
+ifneq ($(CONFIG_ARCH_IDLE_CUSTOM),y)
+CHIP_CSRCS += sam_idle.c
+endif
+
+ifeq ($(CONFIG_SAMD5E5_HAVE_SPI),y)
+CHIP_CSRCS += sam_spi.c
+endif
+
+ifeq ($(CONFIG_SAMD5E5_HAVE_I2C_MASTER),y)
+CHIP_CSRCS += sam_i2c_master.c
+endif
+
+ifeq ($(CONFIG_SAMD5E5_WDT),y)
+CHIP_CSRCS += sam_wdt.c
+endif
+
+ifeq ($(CONFIG_SAMD5E5_GMAC),y)
+CHIP_CSRCS += sam_gmac.c
+CHIP_CSRCS += sam_ethernet.c
+endif
+
+ifeq ($(CONFIG_SAMD5E5_USB),y)
+CHIP_CSRCS += sam_usb.c
+ifeq ($(CONFIG_USBHOST),y)
+ifeq ($(CONFIG_USBHOST_TRACE),y)
+CHIP_CSRCS += sam_usbhost.c
+else
+ifeq ($(CONFIG_DEBUG_USB),y)
+CHIP_CSRCS += sam_usbhost.c
+endif
+endif
+endif
+endif
+
+ifeq ($(CONFIG_SAMD5E5_SDHC0),y)
+CHIP_CSRCS += sam_sdhc.c
+else ifeq ($(CONFIG_SAMD5E5_SDHC1),y)
+CHIP_CSRCS += sam_sdhc.c
+endif
+
+ifeq ($(CONFIG_SAMD5E5_AES),y)
+CHIP_CSRCS += sam_aes.c
+endif
+
+ifeq ($(CONFIG_SAMD5E5_RTC),y)
+CHIP_CSRCS += sam_rtc.c
+endif
+
+ifeq ($(CONFIG_SAMD5E5_PROGMEM),y)
+CHIP_CSRCS += sam_progmem.c
+endif

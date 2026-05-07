@@ -1,0 +1,71 @@
+############################################################################
+# drivers/wireless/Make.defs
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.  The
+# ASF licenses this file to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance with the
+# License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
+# License for the specific language governing permissions and limitations
+# under the License.
+#
+############################################################################
+
+ifeq ($(CONFIG_DRIVERS_WIRELESS),y)
+
+# Include IEEE 802.15.4 support
+
+ifeq ($(CONFIG_DRIVERS_IEEE802154),y)
+include wireless/ieee802154/Make.defs
+endif
+
+# Include IEEE 802.11 support
+
+ifeq ($(CONFIG_DRIVERS_IEEE80211),y)
+include wireless/ieee80211/Make.defs
+endif
+
+# Include Bluetooth support
+
+ifeq ($(CONFIG_DRIVERS_BLUETOOTH),y)
+include wireless/bluetooth/Make.defs
+endif
+
+# Include LPWAN support
+
+ifeq ($(CONFIG_DRIVERS_LPWAN),y)
+include wireless/lpwan/Make.defs
+endif
+
+# Include wireless drivers
+
+ifeq ($(CONFIG_WL_CC1101),y)
+CSRCS += cc1101.c ISM1_868MHzGFSK100kbps.c ISM2_905MHzGFSK250kbps.c
+CSRCS += ISM2_433MHzMSK500kbps.c
+endif
+
+ifeq ($(CONFIG_WL_GS2200M),y)
+CSRCS += gs2200m.c
+endif
+
+ifeq ($(CONFIG_WL_SPIRIT),y)
+include wireless/spirit/Make.defs
+endif
+
+ifeq ($(CONFIG_WL_NRF24L01),y)
+CSRCS += nrf24l01.c
+endif
+
+# Include wireless devices build support
+
+DEPPATH += --dep-path wireless
+VPATH += :wireless
+CFLAGS += ${shell $(INCDIR) "$(CC)" $(TOPDIR)$(DELIM)drivers$(DELIM)wireless}
+endif
