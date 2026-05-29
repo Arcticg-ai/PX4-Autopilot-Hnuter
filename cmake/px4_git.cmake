@@ -71,17 +71,36 @@ function(px4_add_git_submodule)
 	endif()
 
 	execute_process(
-		COMMAND Tools/check_submodules.sh ${REL_PATH}
+		COMMAND git ls-files -s -- ${REL_PATH}
+		OUTPUT_VARIABLE GIT_INDEX_STATUS
+		OUTPUT_STRIP_TRAILING_WHITESPACE
 		WORKING_DIRECTORY ${PX4_SOURCE_DIR}
 		)
+
+	string(REGEX MATCH "^160000 " IS_GIT_SUBMODULE "${GIT_INDEX_STATUS}")
+
+	if(IS_GIT_SUBMODULE)
+		execute_process(
+			COMMAND Tools/check_submodules.sh ${REL_PATH}
+			WORKING_DIRECTORY ${PX4_SOURCE_DIR}
+			)
+	endif()
 
 	string(REPLACE "/" "_" NAME ${PATH})
 	string(REPLACE "." "_" NAME ${NAME})
 
+	set(git_submodule_commands)
+	set(git_submodule_depends)
+
+	if(IS_GIT_SUBMODULE)
+		list(APPEND git_submodule_commands COMMAND Tools/check_submodules.sh ${REL_PATH})
+		list(APPEND git_submodule_depends ${PX4_SOURCE_DIR}/.gitmodules ${PATH}/.git)
+	endif()
+
 	add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/git_init_${NAME}.stamp
-		COMMAND Tools/check_submodules.sh ${REL_PATH}
+		${git_submodule_commands}
 		COMMAND ${CMAKE_COMMAND} -E touch ${CMAKE_CURRENT_BINARY_DIR}/git_init_${NAME}.stamp
-		DEPENDS ${PX4_SOURCE_DIR}/.gitmodules ${PATH}/.git
+		DEPENDS ${git_submodule_depends}
 		COMMENT "git submodule ${REL_PATH}"
 		WORKING_DIRECTORY ${PX4_SOURCE_DIR}
 		USES_TERMINAL

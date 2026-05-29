@@ -388,12 +388,14 @@ uint64_t px4_firmware_version_binary(void)
 }
 
 
-#ifdef MAVLINK_LIB_GIT_VERSION_BINARY
 uint64_t px4_mavlink_lib_version_binary(void)
 {
+#ifdef MAVLINK_LIB_GIT_VERSION_BINARY
 	return MAVLINK_LIB_GIT_VERSION_BINARY;
-}
+#else
+	return 0;
 #endif /* MAVLINK_LIB_GIT_VERSION_BINARY */
+}
 
 uint64_t px4_os_version_binary(void)
 {
