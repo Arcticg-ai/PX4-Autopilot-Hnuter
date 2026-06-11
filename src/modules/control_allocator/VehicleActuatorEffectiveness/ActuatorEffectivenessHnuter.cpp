@@ -62,16 +62,22 @@ static float thrustToNormalizedMotorControl(float thrust, float motor_constant, 
 	return math::constrain((velocity - min_velocity) / velocity_range, 0.f, 1.f);
 }
 
-static float thrustToNormalizedBidirectionalMotorControl(float thrust, float motor_constant, float max_velocity)
+static float signedThrustToNormalizedMotorControl(float thrust, float motor_constant, float min_velocity, float max_velocity)
 {
-	if (fabsf(thrust) <= FLT_EPSILON || motor_constant <= FLT_EPSILON || max_velocity <= FLT_EPSILON) {
-		return 0.f;
+	const float sign = (thrust < 0.f) ? -1.f : 1.f;
+	return sign * thrustToNormalizedMotorControl(fabsf(thrust), motor_constant, min_velocity, max_velocity);
+}
+
+static float normalizedThrustToForce(float normalized_thrust, float hover_thrust, float hover_force, float max_force)
+{
+	const float thrust = math::constrain(normalized_thrust, 0.f, 1.f);
+	const float hover = math::constrain(hover_thrust, 0.05f, 0.95f);
+
+	if (thrust <= hover) {
+		return hover_force * thrust / hover;
 	}
 
-	const float velocity = sqrtf(fabsf(thrust) / motor_constant);
-	const float control = velocity / max_velocity;
-
-	return (thrust > 0.f) ? math::constrain(control, 0.f, 1.f) : math::constrain(-control, -1.f, 0.f);
+	return hover_force + (max_force - hover_force) * (thrust - hover) / (1.f - hover);
 }
 
 ActuatorEffectivenessHnuter::ActuatorEffectivenessHnuter(ModuleParams *parent)
@@ -81,6 +87,7 @@ ActuatorEffectivenessHnuter::ActuatorEffectivenessHnuter(ModuleParams *parent)
 {
 	_param_sim_gz_ec_min1 = param_find("SIM_GZ_EC_MIN1");
 	_param_sim_gz_ec_max1 = param_find("SIM_GZ_EC_MAX1");
+	_param_mpc_thr_hover = param_find("MPC_THR_HOVER");
 
 	updateParams();
 	setFlightPhase(FlightPhase::HOVER_FLIGHT);
@@ -103,6 +110,14 @@ void ActuatorEffectivenessHnuter::updateParams()
 
 		if (param_get(_param_sim_gz_ec_max1, &max_v) == 0) {
 			_sim_max_velocity = (float)max_v;
+		}
+	}
+
+	if (_param_mpc_thr_hover != PARAM_INVALID) {
+		float hover_thrust = 0.f;
+
+		if (param_get(_param_mpc_thr_hover, &hover_thrust) == 0) {
+			_hover_thrust = hover_thrust;
 		}
 	}
 }
@@ -203,16 +218,17 @@ void ActuatorEffectivenessHnuter::updateSetpoint(const matrix::Vector<float, NUM
 
 	const float l1 = 0.33f;
 	const float l2 = 0.664f;
-	const float r_x = 0.105f;
 	const float r_z = -0.013f;
 	const float max_thrust_per_arm = 85.48f * 2.0f;
 	const float max_tail_thrust = 85.48f;
+	const float max_vertical_thrust = 2.0f * max_thrust_per_arm;
 	const float mass = 4.5f;
 	const float gravity = 9.81f;
+	const float hover_force = mass * gravity;
 
 	const float fx =  control_sp(3) * max_thrust_per_arm;
 	const float fy = -control_sp(4) * max_thrust_per_arm;
-	const float fz = -control_sp(5) * (mass * gravity * 2.0f);
+	const float fz = normalizedThrustToForce(-control_sp(5), _hover_thrust, hover_force, max_vertical_thrust);
 	const float tx =  control_sp(0) * (max_thrust_per_arm * l1);
 	const float ty =  control_sp(1) * (max_tail_thrust * l2);
 	const float tz = -control_sp(2) * (max_thrust_per_arm * l1);
@@ -227,11 +243,10 @@ void ActuatorEffectivenessHnuter::updateSetpoint(const matrix::Vector<float, NUM
 	float u1 = W[0] / 2.0f - W[5] / (2.0f * l1);
 	float u4 = W[0] / 2.0f + W[5] / (2.0f * l1);
 
-	float Ty_parasitic = r_z * W[0] - r_x * W[2];
-	float Ty_comp = W[4] - Ty_parasitic;
-	float F3 = Ty_comp / (r_x + l2);
-
-	float Fz_front = W[2] - F3;
+	// Motor 5 is behind the CG. Positive vertical tail thrust creates negative
+	// body-y torque, so the tail force sign is opposite to the pitch torque setpoint.
+	const float F3 = math::constrain(-W[4] / l2, -max_tail_thrust, max_tail_thrust);
+	const float Fz_front = W[2];
 
 	float Tx_parasitic = - r_z * W[1];
 	float Tx_comp = W[3] - Tx_parasitic;
@@ -253,10 +268,6 @@ void ActuatorEffectivenessHnuter::updateSetpoint(const matrix::Vector<float, NUM
 	float alpha2 = atan2f(u4, u5);
 	float theta1 = asinf(math::constrain(u3 / F1_safe, -0.99f, 0.99f));
 	float theta2 = asinf(math::constrain(u6 / F2_safe, -0.99f, 0.99f));
-
-	F1 = math::constrain(F1, 0.0f, 50.0f);
-	F2 = math::constrain(F2, 0.0f, 50.0f);
-	F3 = math::constrain(F3, -50.0f, 50.0f);
 
 	float alpha_limit = math::radians(60.0f);
 	float theta_limit = math::radians(45.0f);
@@ -284,7 +295,7 @@ void ActuatorEffectivenessHnuter::updateSetpoint(const matrix::Vector<float, NUM
 
 		const float norm_right = thrustToNormalizedMotorControl(right_single, _motor_constant, _sim_min_velocity, _sim_max_velocity);
 		const float norm_left = thrustToNormalizedMotorControl(left_single, _motor_constant, _sim_min_velocity, _sim_max_velocity);
-		const float norm_tail = thrustToNormalizedBidirectionalMotorControl(F3, _motor_constant, _sim_max_velocity);
+		const float norm_tail = signedThrustToNormalizedMotorControl(F3, _motor_constant, _sim_min_velocity, _sim_max_velocity);
 
 		actuator_sp(0) = norm_right;
 		actuator_sp(1) = norm_right;

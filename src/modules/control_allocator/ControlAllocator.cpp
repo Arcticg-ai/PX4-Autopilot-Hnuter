@@ -513,10 +513,7 @@ ControlAllocator::update_effectiveness_matrix_if_needed(EffectivenessUpdateReaso
 						break;
 					}
 
-					const bool hnuter_reversible_tail = (_effectiveness_source_id == EffectivenessSource::HNUTER_TILTROTOR)
-									     && (actuator_type_idx == 4);
-
-					if ((_param_r_rev.get() & (1u << actuator_type_idx)) || hnuter_reversible_tail) {
+					if (_param_r_rev.get() & (1u << actuator_type_idx)) {
 						minimum[selected_matrix](actuator_idx_matrix[selected_matrix]) = -1.f;
 
 					} else {
@@ -672,8 +669,7 @@ ControlAllocator::publish_actuator_controls()
 	actuator_servos.timestamp = actuator_motors.timestamp;
 	actuator_servos.timestamp_sample = _timestamp_sample;
 
-	actuator_motors.reversible_flags = (_effectiveness_source_id == EffectivenessSource::HNUTER_TILTROTOR) ? (1u << 4) :
-					   _param_r_rev.get();
+	actuator_motors.reversible_flags = _param_r_rev.get();
 
 	int actuator_idx = 0;
 	int actuator_idx_matrix[ActuatorEffectiveness::MAX_NUM_MATRICES] {};

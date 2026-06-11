@@ -72,15 +72,21 @@ bool check_battery_disconnected(orb_advert_t *mavlink_log_pub)
 	}
 }
 
-static void set_motor_actuators(uORB::Publication<actuator_test_s> &publisher, float value, bool release_control)
+static void set_motor_actuators(uORB::Publication<actuator_test_s> &publisher, float value, bool release_control,
+				uint32_t reversible_flags = 0)
 {
 	actuator_test_s actuator_test{};
 	actuator_test.timestamp = hrt_absolute_time();
-	actuator_test.value = value;
 	actuator_test.action = release_control ? actuator_test_s::ACTION_RELEASE_CONTROL : actuator_test_s::ACTION_DO_CONTROL;
 	actuator_test.timeout_ms = 0;
 
 	for (int i = 0; i < actuator_test_s::MAX_NUM_MOTORS; ++i) {
+		actuator_test.value = value;
+
+		if (!release_control && value <= 0.f && (reversible_flags & (1u << i))) {
+			actuator_test.value = -1.f;
+		}
+
 		actuator_test.function = actuator_test_s::FUNCTION_MOTOR1 + i;
 		publisher.publish(actuator_test);
 	}
@@ -90,6 +96,7 @@ int do_esc_calibration(orb_advert_t *mavlink_log_pub)
 {
 	// 1 Initialization
 	bool calibration_failed = false;
+	const char *failure_reason = "Timeout waiting for battery";
 
 	uORB::Publication<actuator_test_s> actuator_test_pub{ORB_ID(actuator_test)};
 	// since we publish multiple at once, make sure the output driver subscribes before we publish
@@ -97,8 +104,21 @@ int do_esc_calibration(orb_advert_t *mavlink_log_pub)
 
 	uORB::SubscriptionData<battery_status_s> battery_status_sub{ORB_ID(battery_status)};
 	battery_status_sub.update();
-	const bool battery_connected_before_calibration = battery_status_sub.get().connected;
+	const bool recent_battery_measurement_before_calibration =
+		hrt_absolute_time() < (battery_status_sub.get().timestamp + 1_s);
+	const bool battery_connected_before_calibration =
+		recent_battery_measurement_before_calibration && battery_status_sub.get().connected;
 	const float current_before_calibration = battery_status_sub.get().current_a;
+	uint32_t reversible_flags = 0;
+	param_t param_r_rev = param_find("CA_R_REV");
+
+	if (param_r_rev != PARAM_INVALID) {
+		int32_t value = 0;
+
+		if (param_get(param_r_rev, &value) == PX4_OK) {
+			reversible_flags = (uint32_t)value;
+		}
+	}
 
 	calibration_log_info(mavlink_log_pub, CAL_QGC_STARTED_MSG, "esc");
 
@@ -116,7 +136,13 @@ int do_esc_calibration(orb_advert_t *mavlink_log_pub)
 		battery_status_sub.update();
 
 		if (now > (timeout_start + 1_s) && (battery_status_sub.get().current_a > current_before_calibration + 1.f)) {
-			// Safety termination, current rises immediately, user didn't unplug power before
+			// A current rise can be the only reliable battery connection signal on some setups.
+			if (!battery_connected_before_calibration) {
+				break;
+			}
+
+			// Safety termination, current rises immediately, user didn't unplug power before.
+			failure_reason = "Disconnect battery and try again";
 			calibration_failed = true;
 			break;
 		}
@@ -144,7 +170,7 @@ int do_esc_calibration(orb_advert_t *mavlink_log_pub)
 
 	// 5 Set motors to low
 	if (!calibration_failed) {
-		set_motor_actuators(actuator_test_pub, 0.f, false);
+		set_motor_actuators(actuator_test_pub, 0.f, false, reversible_flags);
 	}
 
 	// 6 Wait for ESCs to measure low signal
@@ -157,7 +183,7 @@ int do_esc_calibration(orb_advert_t *mavlink_log_pub)
 
 	// 8 Report
 	if (calibration_failed) {
-		calibration_log_critical(mavlink_log_pub, CAL_QGC_FAILED_MSG, "Timeout waiting for battery");
+		calibration_log_critical(mavlink_log_pub, CAL_QGC_FAILED_MSG, failure_reason);
 		return PX4_ERROR;
 
 	} else {

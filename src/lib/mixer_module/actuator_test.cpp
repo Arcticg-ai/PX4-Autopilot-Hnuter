@@ -35,6 +35,8 @@
 
 #include "functions/FunctionMotors.hpp"
 
+#include <parameters/param.h>
+
 using namespace time_literals;
 
 ActuatorTest::ActuatorTest(const OutputFunction function_assignments[MAX_ACTUATORS])
@@ -78,7 +80,19 @@ void ActuatorTest::update(int num_outputs, float thrust_curve)
 					if ((int)OutputFunction::Motor1 <= actuator_test.function && actuator_test.function <= (int)OutputFunction::MotorMax) {
 						actuator_motors_s motors;
 						motors.reversible_flags = 0;
-						_actuator_motors_sub.copy(&motors);
+
+						if (!_actuator_motors_sub.copy(&motors) || motors.timestamp == 0) {
+							const param_t param_r_rev = param_find("CA_R_REV");
+
+							if (param_r_rev != PARAM_INVALID) {
+								int32_t reversible_flags = 0;
+
+								if (param_get(param_r_rev, &reversible_flags) == PX4_OK) {
+									motors.reversible_flags = (uint32_t)reversible_flags;
+								}
+							}
+						}
+
 						int motor_idx = actuator_test.function - (int)OutputFunction::Motor1;
 						FunctionMotors::updateValues(motors.reversible_flags >> motor_idx, thrust_curve, &value, 1);
 					}

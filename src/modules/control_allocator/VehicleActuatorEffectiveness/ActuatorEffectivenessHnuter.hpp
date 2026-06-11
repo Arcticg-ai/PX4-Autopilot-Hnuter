@@ -102,8 +102,10 @@ private:
 
 	param_t _param_sim_gz_ec_min1{PARAM_INVALID};
 	param_t _param_sim_gz_ec_max1{PARAM_INVALID};
+	param_t _param_mpc_thr_hover{PARAM_INVALID};
 	float _sim_min_velocity{10.f};
 	float _sim_max_velocity{1000.f};
+	float _hover_thrust{0.5f};
 	float _motor_constant{8.54858e-05f};
 
 	hrt_abstime _last_servo_update{0};

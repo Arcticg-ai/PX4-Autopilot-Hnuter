@@ -176,6 +176,8 @@ function(add_nuttx_dir nuttx_lib nuttx_lib_dir kernel extra target)
 
 	add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/nuttx/${nuttx_lib_dir}/lib${nuttx_lib}.a
 		COMMAND ${CMAKE_COMMAND} -E remove -f ${NUTTX_DIR}/${nuttx_lib_dir}/lib${nuttx_lib}.a
+		COMMAND ${CMAKE_COMMAND} -E make_directory ${NUTTX_DIR}/${nuttx_lib_dir}/bin
+		COMMAND ${CMAKE_COMMAND} -E make_directory ${NUTTX_DIR}/${nuttx_lib_dir}/kbin
 		COMMAND find ${nuttx_lib_dir} -type f -name \*.o -delete
 		COMMAND make -C ${nuttx_lib_dir} --no-print-directory --silent ${nuttx_lib_target} TOPDIR="${NUTTX_DIR}" KERNEL=${kernel} EXTRAFLAGS=${extra}
 		COMMAND ${CMAKE_COMMAND} -E copy_if_different ${NUTTX_DIR}/${nuttx_lib_dir}/lib${nuttx_lib}.a ${CMAKE_CURRENT_BINARY_DIR}/nuttx/${nuttx_lib_dir}/lib${nuttx_lib}.a

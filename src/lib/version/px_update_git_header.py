@@ -144,6 +144,12 @@ if (os.path.exists('platforms/nuttx/NuttX/nuttx/.git')):
 #define NUTTX_GIT_VERSION_BINARY 0x{nuttx_git_version_short}
 #define NUTTX_GIT_TAG_STR  "{nuttx_git_tag}"
 """
+elif (os.path.exists('platforms/nuttx/NuttX/nuttx')):
+    header += """
+#define NUTTX_GIT_VERSION_STR  ""
+#define NUTTX_GIT_VERSION_BINARY 0
+#define NUTTX_GIT_TAG_STR  "v0.0.0"
+"""
 
 
 if old_header != header:

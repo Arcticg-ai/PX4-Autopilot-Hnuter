@@ -696,6 +696,7 @@
       <rotorDragCoefficient>8.06428e-05</rotorDragCoefficient>
       <rollingMomentCoefficient>1e-06</rollingMomentCoefficient>
       <rotorVelocitySlowdownSim>10</rotorVelocitySlowdownSim>
+      <bidirectionalMotor>1</bidirectionalMotor>
       <motorType>velocity</motorType>
     </plugin>
 

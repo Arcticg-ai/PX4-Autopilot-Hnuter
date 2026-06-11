@@ -8,7 +8,7 @@
 # @output Motor2 xy2 right lower rotor
 # @output Motor3 xy3 left upper rotor
 # @output Motor4 xy4 left lower rotor
-# @output Motor5 xy5 rear bidirectional rotor
+# @output Motor5 xy5 rear reversible pitch rotor
 # @output Servo1 rj2 right primary tilt
 # @output Servo2 lj2 left primary tilt
 # @output Servo3 rj1 right secondary tilt
@@ -31,6 +31,12 @@ param set-default SIM_GZ_EN 1
 param set-default SIM_GZ_EN_GPS 1
 param set-default SIM_GZ_EN_BARO 1
 param set-default SIM_BAT_ENABLE 1
+
+# Hnuter's custom allocator maps MPC_THR_HOVER to vehicle weight and full
+# throttle to the four front motors. Motor 5 is a reversible pitch actuator.
+param set MPC_THR_HOVER 0.50
+param set MPC_THR_MIN 0.12
+param set MPC_USE_HTE 0
 
 # =============================================================================
 # Gazebo Actuator Mapping
@@ -55,6 +61,11 @@ param set-default SIM_GZ_EC_MAX3 1000
 param set-default SIM_GZ_EC_MAX4 1000
 param set-default SIM_GZ_EC_MAX5 1000
 
+# Tail motor is reversible. The GZ bridge maps Motor 5 signed setpoints
+# through this range, with 0 stopped.
+param set-default SIM_GZ_EC_DIS5 0
+param set-default SIM_GZ_EC_FAIL5 0
+
 # 4 servos: SIM_GZ_SV_FUNC -> Servo function (201-204)
 # servo_0 -> rj2, servo_1 -> lj2, servo_2 -> rj1, servo_3 -> lj1
 param set-default SIM_GZ_SV_FUNC1 201
@@ -74,8 +85,9 @@ param set-default SIM_GZ_SV_MAXA4 90
 param set-default SIM_GZ_SV_MINA4 -90
 
 
-# Tail motor is bidirectional. ActuatorEffectivenessHnuter publishes Motor 5 in [-1, 1].
-param set-default CA_R_REV 16
+# Motor 5 is reversible. This keeps the rear rotor centered/stopped at zero
+# and lets pitch torque command positive or negative thrust.
+param set CA_R_REV 16
 
 # =============================================================================
 # Control Allocator Configuration
@@ -114,6 +126,15 @@ param set-default CA_ROTOR4_PX -0.4
 param set-default CA_ROTOR4_PY 0.0
 param set-default CA_ROTOR4_PZ 0.0
 param set-default CA_ROTOR4_KM -0.05
+
+# QGC actuator geometry only has one CA_ROTORx_TILT slot per rotor.
+# Use the first-stage tilt here; QGC derives the second-stage mapping from
+# the 4-servo Hnuter layout: Tilt 1 -> Tilt 3, Tilt 2 -> Tilt 4.
+param set-default CA_ROTOR0_TILT 1
+param set-default CA_ROTOR1_TILT 1
+param set-default CA_ROTOR2_TILT 2
+param set-default CA_ROTOR3_TILT 2
+param set-default CA_ROTOR4_TILT 0
 
 # =============================================================================
 # Tilt Servo Configuration
@@ -155,12 +176,12 @@ param set-default CA_SV_TL3_CT 0
 # Position Control
 param set-default MPC_XY_P 1.875
 param set-default MPC_XY_VEL_P_ACC 8.0
-param set-default MPC_XY_VEL_I_ACC 0.0
-param set-default MPC_XY_VEL_D_ACC 0.0
+param set-default MPC_XY_VEL_I_ACC 0.5
+param set-default MPC_XY_VEL_D_ACC 4.0
 param set-default MPC_Z_P 2.5
 param set-default MPC_Z_VEL_P_ACC 12.0
-param set-default MPC_Z_VEL_I_ACC 0.0
-param set-default MPC_Z_VEL_D_ACC 0.0
+param set-default MPC_Z_VEL_I_ACC 0.5
+param set-default MPC_Z_VEL_D_ACC 6.0
 
 # Attitude Control
 param set-default MC_ROLL_P 5.0
@@ -170,13 +191,13 @@ param set-default MC_YAW_P 4.0
 # Rate Control
 param set-default MC_ROLLRATE_P 0.14
 param set-default MC_ROLLRATE_I 0.0
-param set-default MC_ROLLRATE_D 0.0
+param set-default MC_ROLLRATE_D 0.001
 param set-default MC_PITCHRATE_P 0.052
 param set-default MC_PITCHRATE_I 0.0
-param set-default MC_PITCHRATE_D 0.0
+param set-default MC_PITCHRATE_D 0.001
 param set-default MC_YAWRATE_P 0.117
 param set-default MC_YAWRATE_I 0.0
-param set-default MC_YAWRATE_D 0.0
+param set-default MC_YAWRATE_D 0.001
 
 param set-default MC_AIRMODE 1
 
@@ -198,6 +219,10 @@ param set-default CBRK_USB_CHK 197848
 param set-default COM_ARM_MAG_ANG 60
 param set-default COM_ARM_CHK_ESCS 0
 param set-default FD_ESCS_EN 0
+param set COM_DISARM_PRFLT 10
+param set COM_DISARM_LAND 1
+param set LNDMC_TRIG_TIME 0.5
+param set LNDMC_ROT_MAX 35
 
 # =============================================================================
 # RC & Flight Modes

@@ -9,7 +9,7 @@
 # @output Motor2 xy2 right lower rotor
 # @output Motor3 xy3 left upper rotor
 # @output Motor4 xy4 left lower rotor
-# @output Motor5 xy5 rear bidirectional rotor
+# @output Motor5 xy5 rear reversible pitch rotor
 # @output Servo1 rj2 right primary tilt
 # @output Servo2 lj2 left primary tilt
 # @output Servo3 rj1 right secondary tilt
@@ -57,6 +57,12 @@ param set-default MAV_TYPE 2
 # If your PX4 version has no SYS_CTRL_ALLOC parameter, this line can be removed.
 param set-default SYS_CTRL_ALLOC 1
 
+# Hnuter's custom allocator maps MPC_THR_HOVER to vehicle weight and full
+# throttle to the four front motors. Motor 5 is a reversible pitch actuator.
+param set MPC_THR_HOVER 0.50
+param set MPC_THR_MIN 0.12
+param set MPC_USE_HTE 0
+
 # =============================================================================
 # Real Hardware Actuator Mapping
 # =============================================================================
@@ -84,40 +90,47 @@ param set-default PWM_MAIN_FUNC6 0
 param set-default PWM_MAIN_FUNC7 0
 param set-default PWM_MAIN_FUNC8 0
 
+# Force the motor timer groups onto regular PWM. Saved timer values from other
+# airframes must not leave the ESC calibration path on an unexpected rate/protocol.
+param set PWM_MAIN_TIM0 400
+param set PWM_MAIN_TIM1 400
+
 # ESC PWM range.
-# MAIN1-4 are ordinary one-way ESCs. MAIN5 is a bidirectional tail ESC:
-#   1000 us full reverse, 1500 us neutral, 2000 us full forward.
+# MAIN1-4 are ordinary one-way ESCs:
+#   1000 us low throttle, 2000 us high throttle.
+# MAIN5 uses a reversible ESC with stop around 1450 us.
 # If your ESCs use OneShot/DShot/CAN, this section must be adjusted accordingly.
 param set-default PWM_MAIN_MIN1 1000
 param set-default PWM_MAIN_MIN2 1000
 param set-default PWM_MAIN_MIN3 1000
 param set-default PWM_MAIN_MIN4 1000
-param set-default PWM_MAIN_MIN5 1000
+param set PWM_MAIN_MIN5 900
 
 param set-default PWM_MAIN_MAX1 2000
 param set-default PWM_MAIN_MAX2 2000
 param set-default PWM_MAIN_MAX3 2000
 param set-default PWM_MAIN_MAX4 2000
-param set-default PWM_MAIN_MAX5 2000
+param set PWM_MAIN_MAX5 2000
 
 # Disarmed output.
-# MAIN1-4 use low PWM for one-way ESC stop. MAIN5 uses neutral for bidirectional stop.
+# MAIN1-4 use low PWM for one-way ESC stop. MAIN5 uses its reversible ESC stop point.
 param set-default PWM_MAIN_DIS1 900
 param set-default PWM_MAIN_DIS2 900
 param set-default PWM_MAIN_DIS3 900
 param set-default PWM_MAIN_DIS4 900
-param set-default PWM_MAIN_DIS5 1500
+param set PWM_MAIN_DIS5 1450
 
 # Failsafe output.
 param set-default PWM_MAIN_FAIL1 900
 param set-default PWM_MAIN_FAIL2 900
 param set-default PWM_MAIN_FAIL3 900
 param set-default PWM_MAIN_FAIL4 900
-param set-default PWM_MAIN_FAIL5 1500
+param set PWM_MAIN_FAIL5 1450
 
-# Leave PWM_MAIN_REV at 0 by default. If the tail motor direction is opposite
-# on the real ESC, reverse MAIN5 mechanically/ESC-side or set bit 4 (16) manually.
-param set-default PWM_MAIN_REV 0
+# Keep PX4's output-range reverse mask disabled for this airframe. The Hnuter
+# allocator owns the motor and tilt signs. Saved reverse bits from actuator
+# testing can otherwise invert individual tilt servos and destabilize attitude.
+param set PWM_MAIN_REV 0
 
 # -----------------------------
 # AUX PWM: Tilt Servos
@@ -175,8 +188,9 @@ param set-default CA_AIRFRAME 16
 # 5 rotors.
 param set-default CA_ROTOR_COUNT 5
 
-# Tail motor is bidirectional. ActuatorEffectivenessHnuter publishes Motor 5 in [-1, 1].
-param set-default CA_R_REV 16
+# Motor 5 is reversible. This makes actuator_motors[4] use signed [-1, 1]
+# semantics, so zero maps to the PWM center instead of low throttle.
+param set CA_R_REV 16
 
 # -----------------------------
 # Rotor Geometry
@@ -211,6 +225,15 @@ param set-default CA_ROTOR4_PX -0.4
 param set-default CA_ROTOR4_PY 0.0
 param set-default CA_ROTOR4_PZ 0.0
 param set-default CA_ROTOR4_KM -0.05
+
+# QGC actuator geometry only has one CA_ROTORx_TILT slot per rotor.
+# Use the first-stage tilt here; QGC derives the second-stage mapping from
+# the 4-servo Hnuter layout: Tilt 1 -> Tilt 3, Tilt 2 -> Tilt 4.
+param set-default CA_ROTOR0_TILT 1
+param set-default CA_ROTOR1_TILT 1
+param set-default CA_ROTOR2_TILT 2
+param set-default CA_ROTOR3_TILT 2
+param set-default CA_ROTOR4_TILT 0
 
 # =============================================================================
 # Tilt Servo Configuration
@@ -256,13 +279,13 @@ param set-default CA_SV_TL3_CT 0
 
 param set-default MPC_XY_P 1.875
 param set-default MPC_XY_VEL_P_ACC 8.0
-param set-default MPC_XY_VEL_I_ACC 0.0
-param set-default MPC_XY_VEL_D_ACC 0.0
+param set MPC_XY_VEL_I_ACC 0.5
+param set MPC_XY_VEL_D_ACC 4.0
 
 param set-default MPC_Z_P 2.5
 param set-default MPC_Z_VEL_P_ACC 12.0
-param set-default MPC_Z_VEL_I_ACC 0.0
-param set-default MPC_Z_VEL_D_ACC 0.0
+param set MPC_Z_VEL_I_ACC 0.5
+param set MPC_Z_VEL_D_ACC 6.0
 
 # =============================================================================
 # MC Attitude / Rate Controller Tuning
@@ -274,17 +297,24 @@ param set-default MC_YAW_P 4.0
 
 param set-default MC_ROLLRATE_P 0.14
 param set-default MC_ROLLRATE_I 0.0
-param set-default MC_ROLLRATE_D 0.0
+param set MC_ROLLRATE_D 0.001
 
 param set-default MC_PITCHRATE_P 0.052
 param set-default MC_PITCHRATE_I 0.0
-param set-default MC_PITCHRATE_D 0.0
+param set MC_PITCHRATE_D 0.001
 
 param set-default MC_YAWRATE_P 0.117
 param set-default MC_YAWRATE_I 0.0
-param set-default MC_YAWRATE_D 0.0
+param set MC_YAWRATE_D 0.001
 
 param set-default MC_AIRMODE 1
+
+# Land detector / auto-disarm. These are forced because stale bench-test
+# values can persist across airframe switches and keep the vehicle armed.
+param set COM_DISARM_PRFLT 10
+param set COM_DISARM_LAND 1
+param set LNDMC_TRIG_TIME 0.5
+param set LNDMC_ROT_MAX 35
 
 # =============================================================================
 # Sensor & EKF
