@@ -12,9 +12,9 @@
  *    notice, this list of conditions and the following disclaimer in
  *    the documentation and/or other materials provided with the
  *    distribution.
- * 3. Neither the name PX4 nor the names of its contributors may be
- *    used to endorse or promote products derived from this software
- *    without specific prior written permission.
+ * 3. Neither the name PX4 nor the names of its contributors may be used
+ *    to endorse or promote products derived from this software without
+ *    specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
@@ -22,8 +22,8 @@
  * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
  * COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
  * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
- * BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
+ * BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS
+ * OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
  * AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
  * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
@@ -218,13 +218,14 @@ void ActuatorEffectivenessHnuter::updateSetpoint(const matrix::Vector<float, NUM
 
 	const float l1 = 0.33f;
 	const float l2 = 0.664f;
+	const float r_x = 0.105f;
 	const float r_z = -0.013f;
 	const float max_thrust_per_arm = 85.48f * 2.0f;
 	const float max_tail_thrust = 85.48f;
-	const float max_vertical_thrust = 2.0f * max_thrust_per_arm;
 	const float mass = 4.5f;
 	const float gravity = 9.81f;
 	const float hover_force = mass * gravity;
+	const float max_vertical_thrust = 2.0f * hover_force;
 
 	const float fx =  control_sp(3) * max_thrust_per_arm;
 	const float fy = -control_sp(4) * max_thrust_per_arm;
@@ -243,10 +244,11 @@ void ActuatorEffectivenessHnuter::updateSetpoint(const matrix::Vector<float, NUM
 	float u1 = W[0] / 2.0f - W[5] / (2.0f * l1);
 	float u4 = W[0] / 2.0f + W[5] / (2.0f * l1);
 
-	// Motor 5 is behind the CG. Positive vertical tail thrust creates negative
-	// body-y torque, so the tail force sign is opposite to the pitch torque setpoint.
-	const float F3 = math::constrain(-W[4] / l2, -max_tail_thrust, max_tail_thrust);
-	const float Fz_front = W[2];
+	float Ty_parasitic = r_z * W[0] - r_x * W[2];
+	float Ty_comp = W[4] - Ty_parasitic;
+	float F3 = Ty_comp / (r_x + l2);
+
+	float Fz_front = W[2] - F3;
 
 	float Tx_parasitic = - r_z * W[1];
 	float Tx_comp = W[3] - Tx_parasitic;
