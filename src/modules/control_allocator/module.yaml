@@ -380,8 +380,8 @@ parameters:
             unit: 'deg'
             num_instances: *max_num_tilts
             instance_start: 0
-            min: -90.0
-            max: 90.0
+            min: -190.0
+            max: 190.0
             default: 0.0
         CA_SV_TL${i}_MAXA:
             description:
@@ -394,8 +394,8 @@ parameters:
             unit: 'deg'
             num_instances: *max_num_tilts
             instance_start: 0
-            min: -90.0
-            max: 90.0
+            min: -190.0
+            max: 190.0
             default: 90.0
         CA_SV_TL${i}_TD:
             description:

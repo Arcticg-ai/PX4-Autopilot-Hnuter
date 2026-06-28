@@ -271,7 +271,8 @@ void ActuatorEffectivenessHnuter::updateSetpoint(const matrix::Vector<float, NUM
 	float theta1 = asinf(math::constrain(u3 / F1_safe, -0.99f, 0.99f));
 	float theta2 = asinf(math::constrain(u6 / F2_safe, -0.99f, 0.99f));
 
-	float alpha_limit = math::radians(60.0f);
+	const float alpha_angle_max = math::radians(185.0f);
+	float alpha_limit = alpha_angle_max;
 	float theta_limit = math::radians(45.0f);
 
 	if (takeoff_tilt_suppress_active) {
@@ -283,8 +284,17 @@ void ActuatorEffectivenessHnuter::updateSetpoint(const matrix::Vector<float, NUM
 		theta_limit = math::radians(30.0f);
 	}
 
-	alpha1 = math::constrain(alpha1, -alpha_limit, alpha_limit);
-	alpha2 = math::constrain(alpha2, -alpha_limit, alpha_limit);
+	if (_last_servo_update != 0 && alpha_limit >= math::radians(179.0f)) {
+		// Keep the atan2 branch continuous near the primary tilt hard stops.
+		const float previous_alpha1 = _last_servo_sp(1) * alpha_angle_max;
+		const float previous_alpha2 = _last_servo_sp(0) * alpha_angle_max;
+		alpha1 = math::constrain(matrix::unwrap_pi(previous_alpha1, alpha1), -alpha_limit, alpha_limit);
+		alpha2 = math::constrain(matrix::unwrap_pi(previous_alpha2, alpha2), -alpha_limit, alpha_limit);
+
+	} else {
+		alpha1 = math::constrain(alpha1, -alpha_limit, alpha_limit);
+		alpha2 = math::constrain(alpha2, -alpha_limit, alpha_limit);
+	}
 	theta1 = math::constrain(theta1, -theta_limit, theta_limit);
 	theta2 = math::constrain(theta2, -theta_limit, theta_limit);
 
@@ -309,7 +319,7 @@ void ActuatorEffectivenessHnuter::updateSetpoint(const matrix::Vector<float, NUM
 		}
 	}
 
-	const float angle_max = M_PI_2_F;
+	const float theta_angle_max = M_PI_2_F;
 
 	const float servo_rate_limit_rad_s = 50.f;
 	float dt = 0.f;
@@ -320,17 +330,22 @@ void ActuatorEffectivenessHnuter::updateSetpoint(const matrix::Vector<float, NUM
 
 	if (num_tilts >= 4) {
 		matrix::Vector<float, 4> servo_sp;
-		servo_sp(0) = math::constrain(alpha2 / angle_max, -1.0f, 1.0f);
-		servo_sp(1) = math::constrain(alpha1 / angle_max, -1.0f, 1.0f);
-		servo_sp(2) = math::constrain(theta2 / angle_max, -1.0f, 1.0f);
-		servo_sp(3) = math::constrain(theta1 / angle_max, -1.0f, 1.0f);
+		servo_sp(0) = math::constrain(alpha2 / alpha_angle_max, -1.0f, 1.0f);
+		servo_sp(1) = math::constrain(alpha1 / alpha_angle_max, -1.0f, 1.0f);
+		servo_sp(2) = math::constrain(theta2 / theta_angle_max, -1.0f, 1.0f);
+		servo_sp(3) = math::constrain(theta1 / theta_angle_max, -1.0f, 1.0f);
 
 		if (_last_servo_update != 0 && dt > 0.f) {
-			const float max_delta = (servo_rate_limit_rad_s * dt) / angle_max;
-
-			for (int i = 0; i < 4; i++) {
-				servo_sp(i) = math::constrain(servo_sp(i), _last_servo_sp(i) - max_delta, _last_servo_sp(i) + max_delta);
-			}
+			const float alpha_max_delta = (servo_rate_limit_rad_s * dt) / alpha_angle_max;
+			const float theta_max_delta = (servo_rate_limit_rad_s * dt) / theta_angle_max;
+			servo_sp(0) = math::constrain(servo_sp(0), _last_servo_sp(0) - alpha_max_delta,
+						     _last_servo_sp(0) + alpha_max_delta);
+			servo_sp(1) = math::constrain(servo_sp(1), _last_servo_sp(1) - alpha_max_delta,
+						     _last_servo_sp(1) + alpha_max_delta);
+			servo_sp(2) = math::constrain(servo_sp(2), _last_servo_sp(2) - theta_max_delta,
+						     _last_servo_sp(2) + theta_max_delta);
+			servo_sp(3) = math::constrain(servo_sp(3), _last_servo_sp(3) - theta_max_delta,
+						     _last_servo_sp(3) + theta_max_delta);
 		}
 
 		actuator_sp(_first_tilt_idx + 0) = servo_sp(0);

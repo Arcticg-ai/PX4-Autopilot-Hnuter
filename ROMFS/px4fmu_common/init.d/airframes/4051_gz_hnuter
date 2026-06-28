@@ -250,14 +250,14 @@ param set-default CA_ROTOR4_TILT 0
 param set-default CA_SV_TL_COUNT 4
 
 # Tilt 0: rj2, right arm primary, yaw axis
-param set-default CA_SV_TL0_MAXA 90
-param set-default CA_SV_TL0_MINA -90
+param set-default CA_SV_TL0_MAXA 185
+param set-default CA_SV_TL0_MINA -185
 param set-default CA_SV_TL0_TD 0
 param set-default CA_SV_TL0_CT 0
 
 # Tilt 1: lj2, left arm primary, yaw axis
-param set-default CA_SV_TL1_MAXA 90
-param set-default CA_SV_TL1_MINA -90
+param set-default CA_SV_TL1_MAXA 185
+param set-default CA_SV_TL1_MINA -185
 param set-default CA_SV_TL1_TD 0
 param set-default CA_SV_TL1_CT 0
 

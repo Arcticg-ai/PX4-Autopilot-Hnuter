@@ -128,8 +128,8 @@
       <axis>
         <xyz>0 0 -1</xyz>
         <limit>
-          <lower>-1.5700000000000001</lower>
-          <upper>1.5700000000000001</upper>
+          <lower>-3.2288591161895095</lower>
+          <upper>3.2288591161895095</upper>
           <effort>500</effort> <velocity>10</velocity> </limit>
         <dynamics>
           <damping>0.5</damping>
@@ -349,8 +349,8 @@
       <axis>
         <xyz>0 0 -1</xyz>
         <limit>
-          <lower>-1.5700000000000001</lower>
-          <upper>1.5700000000000001</upper>
+          <lower>-3.2288591161895095</lower>
+          <upper>3.2288591161895095</upper>
           <effort>500</effort> <velocity>10</velocity> </limit>
         <dynamics>
           <damping>0.5</damping>
