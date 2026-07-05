@@ -268,12 +268,12 @@ void ActuatorEffectivenessHnuter::updateSetpoint(const matrix::Vector<float, NUM
 
 	float alpha1 = atan2f(u1, u2);
 	float alpha2 = atan2f(u4, u5);
-	float theta1 = asinf(math::constrain(u3 / F1_safe, -0.99f, 0.99f));
-	float theta2 = asinf(math::constrain(u6 / F2_safe, -0.99f, 0.99f));
+	float theta1 = asinf(math::constrain(u3 / F1_safe, -1.0f, 1.0f));
+	float theta2 = asinf(math::constrain(u6 / F2_safe, -1.0f, 1.0f));
 
 	const float alpha_angle_max = math::radians(185.0f);
 	float alpha_limit = alpha_angle_max;
-	float theta_limit = math::radians(45.0f);
+	float theta_limit = M_PI_F;
 
 	if (takeoff_tilt_suppress_active) {
 		alpha_limit = math::radians(20.0f);
@@ -282,6 +282,59 @@ void ActuatorEffectivenessHnuter::updateSetpoint(const matrix::Vector<float, NUM
 	} else if (takeoff_xy_lock_active) {
 		alpha_limit = math::radians(30.0f);
 		theta_limit = math::radians(30.0f);
+	}
+
+	if (_last_servo_update != 0
+	    && alpha_limit >= math::radians(179.0f)
+	    && theta_limit >= math::radians(179.0f)) {
+		auto select_continuous_gimbal_branch = [alpha_limit, theta_limit](
+				float &alpha, float &theta, float previous_alpha, float previous_theta) {
+			const float base_alpha = matrix::unwrap_pi(previous_alpha, alpha);
+			const float alternate_alpha = matrix::unwrap_pi(previous_alpha, alpha + M_PI_F);
+			const float alternate_positive_theta = M_PI_F - theta;
+			const float alternate_negative_theta = -M_PI_F - theta;
+			const bool base_valid = fabsf(base_alpha) <= alpha_limit && fabsf(theta) <= theta_limit;
+			const bool alternate_positive_valid = fabsf(alternate_alpha) <= alpha_limit
+							      && fabsf(alternate_positive_theta) <= theta_limit;
+			const bool alternate_negative_valid = fabsf(alternate_alpha) <= alpha_limit
+							      && fabsf(alternate_negative_theta) <= theta_limit;
+			const float base_alpha_delta = base_alpha - previous_alpha;
+			const float base_theta_delta = theta - previous_theta;
+			const float alternate_alpha_delta = alternate_alpha - previous_alpha;
+			const float alternate_positive_delta = alternate_positive_theta - previous_theta;
+			const float alternate_negative_delta = alternate_negative_theta - previous_theta;
+			const float base_cost = base_valid
+						? base_alpha_delta * base_alpha_delta + base_theta_delta * base_theta_delta
+						: 1e30f;
+			const float alternate_positive_cost = alternate_positive_valid
+							      ? alternate_alpha_delta * alternate_alpha_delta
+							      + alternate_positive_delta * alternate_positive_delta
+							      : 1e30f;
+			const float alternate_negative_cost = alternate_negative_valid
+							      ? alternate_alpha_delta * alternate_alpha_delta
+							      + alternate_negative_delta * alternate_negative_delta
+							      : 1e30f;
+
+			if (alternate_positive_cost < base_cost
+			    && alternate_positive_cost <= alternate_negative_cost) {
+				alpha = alternate_alpha;
+				theta = alternate_positive_theta;
+
+			} else if (alternate_negative_cost < base_cost) {
+				alpha = alternate_alpha;
+				theta = alternate_negative_theta;
+
+			} else {
+				alpha = base_alpha;
+			}
+		};
+
+		select_continuous_gimbal_branch(alpha1, theta1,
+					       _last_servo_sp(1) * alpha_angle_max,
+					       _last_servo_sp(3) * M_PI_F);
+		select_continuous_gimbal_branch(alpha2, theta2,
+					       _last_servo_sp(0) * alpha_angle_max,
+					       _last_servo_sp(2) * M_PI_F);
 	}
 
 	if (_last_servo_update != 0 && alpha_limit >= math::radians(179.0f)) {
@@ -319,7 +372,7 @@ void ActuatorEffectivenessHnuter::updateSetpoint(const matrix::Vector<float, NUM
 		}
 	}
 
-	const float theta_angle_max = M_PI_2_F;
+	const float theta_angle_max = M_PI_F;
 
 	const float servo_rate_limit_rad_s = 50.f;
 	float dt = 0.f;

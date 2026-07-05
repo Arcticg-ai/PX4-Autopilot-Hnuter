@@ -79,10 +79,10 @@ param set-default SIM_GZ_SV_MAXA1 185
 param set-default SIM_GZ_SV_MINA1 -185
 param set-default SIM_GZ_SV_MAXA2 185
 param set-default SIM_GZ_SV_MINA2 -185
-param set-default SIM_GZ_SV_MAXA3 90
-param set-default SIM_GZ_SV_MINA3 -90
-param set-default SIM_GZ_SV_MAXA4 90
-param set-default SIM_GZ_SV_MINA4 -90
+param set-default SIM_GZ_SV_MAXA3 180
+param set-default SIM_GZ_SV_MINA3 -180
+param set-default SIM_GZ_SV_MAXA4 180
+param set-default SIM_GZ_SV_MINA4 -180
 
 
 # Motor 5 is reversible. This keeps the rear rotor centered/stopped at zero
@@ -158,14 +158,14 @@ param set-default CA_SV_TL1_TD 0
 param set-default CA_SV_TL1_CT 0
 
 # Tilt 2: rj1 (right arm secondary, roll axis)
-param set-default CA_SV_TL2_MAXA 90
-param set-default CA_SV_TL2_MINA -90
+param set-default CA_SV_TL2_MAXA 180
+param set-default CA_SV_TL2_MINA -180
 param set-default CA_SV_TL2_TD 90
 param set-default CA_SV_TL2_CT 0
 
 # Tilt 3: lj1 (left arm secondary, roll axis)
-param set-default CA_SV_TL3_MAXA 90
-param set-default CA_SV_TL3_MINA -90
+param set-default CA_SV_TL3_MAXA 180
+param set-default CA_SV_TL3_MINA -180
 param set-default CA_SV_TL3_TD 90
 param set-default CA_SV_TL3_CT 0
 
