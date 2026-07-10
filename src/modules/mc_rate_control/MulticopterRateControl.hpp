@@ -33,6 +33,8 @@
 
 #pragma once
 
+#include "HnuterControl.hpp"
+
 #include <lib/rate_control/rate_control.hpp>
 #include <lib/mathlib/math/filter/AlphaFilter.hpp>
 #include <lib/matrix/matrix/math.hpp>
@@ -93,9 +95,9 @@ private:
 	void parameters_updated();
 
 	void updateActuatorControlsStatus(const vehicle_torque_setpoint_s &vehicle_torque_setpoint, float dt);
-	bool runHnuterControl(const vehicle_angular_velocity_s &angular_velocity, float dt, const matrix::Vector3f &rates);
 
 	RateControl _rate_control; ///< class for rate control calculations
+	HnuterControl _hnuter_control;
 
 	uORB::Subscription _battery_status_sub{ORB_ID(battery_status)};
 	uORB::Subscription _control_allocator_status_sub{ORB_ID(control_allocator_status)};
@@ -104,10 +106,6 @@ private:
 	uORB::Subscription _vehicle_land_detected_sub{ORB_ID(vehicle_land_detected)};
 	uORB::Subscription _vehicle_rates_setpoint_sub{ORB_ID(vehicle_rates_setpoint)};
 	uORB::Subscription _vehicle_status_sub{ORB_ID(vehicle_status)};
-	uORB::Subscription _vehicle_odometry_sub{ORB_ID(vehicle_odometry)};
-	uORB::Subscription _vehicle_attitude_sub{ORB_ID(vehicle_attitude)};
-	uORB::Subscription _vehicle_attitude_setpoint_sub{ORB_ID(vehicle_attitude_setpoint)};
-	uORB::Subscription _trajectory_setpoint_sub{ORB_ID(trajectory_setpoint)};
 
 	uORB::SubscriptionInterval _parameter_update_sub{ORB_ID(parameter_update), 1_s};
 
@@ -143,14 +141,6 @@ private:
 
 	param_t _param_ca_airframe{PARAM_INVALID};
 	int32_t _ca_airframe{0};
-
-	matrix::Vector3f _hnuter_integral_pos_error{};
-	matrix::Vector3f _hnuter_integral_e_R{};
-	matrix::Vector2f _hnuter_xy_lock_position{};
-	bool _hnuter_xy_lock_initialized{false};
-	bool _hnuter_prev_armed{false};
-	bool _hnuter_prev_landed{true};
-	hrt_abstime _hnuter_armed_time{0};
 
 	DEFINE_PARAMETERS(
 		(ParamFloat<px4::params::MC_ROLLRATE_P>) _param_mc_rollrate_p,

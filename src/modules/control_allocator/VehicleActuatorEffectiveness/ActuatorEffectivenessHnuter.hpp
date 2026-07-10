@@ -102,10 +102,20 @@ private:
 
 	param_t _param_sim_gz_ec_min1{PARAM_INVALID};
 	param_t _param_sim_gz_ec_max1{PARAM_INVALID};
-	param_t _param_mpc_thr_hover{PARAM_INVALID};
+	param_t _param_hntr_hov_thr{PARAM_INVALID};
+	param_t _param_hntr_mass{PARAM_INVALID};
+	param_t _param_hntr_max_arm_t{PARAM_INVALID};
+	param_t _param_hntr_max_tail_t{PARAM_INVALID};
+	param_t _param_hntr_l1{PARAM_INVALID};
+	param_t _param_hntr_l2{PARAM_INVALID};
 	float _sim_min_velocity{10.f};
 	float _sim_max_velocity{1000.f};
 	float _hover_thrust{0.5f};
+	float _mass{4.5f};
+	float _max_thrust_per_arm{85.48f * 2.0f};
+	float _max_tail_thrust{85.48f};
+	float _l1{0.33f};
+	float _l2{0.664f};
 	float _motor_constant{8.54858e-05f};
 
 	hrt_abstime _last_servo_update{0};

@@ -40,8 +40,12 @@
 #   Servo 4 -> lj1
 #
 # Physical output mapping:
-#   MAIN1-5 -> Motor 1-5
-#   AUX1-4  -> Servo 1-4
+#   MAIN1-5  -> Motor 1-5
+#   MAIN8-11 -> Servo 1-4
+#
+# CUAV 7-Nano / Pixhawk 6X expose the tested Hnuter servo outputs as MAIN8-11
+# in PX4. Keep the airframe on those channels so actuator_servos[0..3] reaches
+# the same physical pins used by the validated external direct controller.
 #
 
 # =============================================================================
@@ -57,11 +61,11 @@ param set-default MAV_TYPE 2
 # If your PX4 version has no SYS_CTRL_ALLOC parameter, this line can be removed.
 param set-default SYS_CTRL_ALLOC 1
 
-# Hnuter's custom allocator maps MPC_THR_HOVER to vehicle weight and full
-# throttle to the four front motors. Motor 5 is a reversible pitch actuator.
-param set MPC_THR_HOVER 0.50
-param set MPC_THR_MIN 0.12
-param set MPC_USE_HTE 0
+# Hnuter's custom controller/allocator maps HNTR_HOV_THR to vehicle weight and
+# full throttle to the four front motors. Motor 5 is a reversible pitch actuator.
+param set-default MPC_THR_HOVER 0.50
+param set-default MPC_THR_MIN 0.12
+param set-default MPC_USE_HTE 0
 
 # =============================================================================
 # Real Hardware Actuator Mapping
@@ -71,85 +75,107 @@ param set MPC_USE_HTE 0
 #   101-108 -> Motor 1-8
 #   201-208 -> Servo 1-8
 #
-# MAIN outputs are used for ESCs.
-# AUX outputs are used for tilt servos.
+# MAIN1-5 are used for ESCs.
+# MAIN8-11 are used for tilt servos on the tested real aircraft.
 #
 
 # -----------------------------
 # MAIN PWM: Motors
 # -----------------------------
 
-param set-default PWM_MAIN_FUNC1 101  # MAIN1 -> Motor 1 -> xy1, right upper
-param set-default PWM_MAIN_FUNC2 102  # MAIN2 -> Motor 2 -> xy2, right lower
-param set-default PWM_MAIN_FUNC3 103  # MAIN3 -> Motor 3 -> xy3, left upper
-param set-default PWM_MAIN_FUNC4 104  # MAIN4 -> Motor 4 -> xy4, left lower
-param set-default PWM_MAIN_FUNC5 105  # MAIN5 -> Motor 5 -> xy5, rear
+param set PWM_MAIN_FUNC1 101  # MAIN1 -> Motor 1 -> xy1, right upper
+param set PWM_MAIN_FUNC2 102  # MAIN2 -> Motor 2 -> xy2, right lower
+param set PWM_MAIN_FUNC3 103  # MAIN3 -> Motor 3 -> xy3, left upper
+param set PWM_MAIN_FUNC4 104  # MAIN4 -> Motor 4 -> xy4, left lower
+param set PWM_MAIN_FUNC5 105  # MAIN5 -> Motor 5 -> xy5, rear
 
-# Disable unused MAIN outputs.
-param set-default PWM_MAIN_FUNC6 0
-param set-default PWM_MAIN_FUNC7 0
-param set-default PWM_MAIN_FUNC8 0
+# MAIN8-11 are the tested physical tilt-servo outputs on the real aircraft.
+param set PWM_MAIN_FUNC6 0
+param set PWM_MAIN_FUNC7 0
+param set PWM_MAIN_FUNC8 201   # MAIN8  -> Servo 1 -> rj2
+param set PWM_MAIN_FUNC9 202   # MAIN9  -> Servo 2 -> lj2
+param set PWM_MAIN_FUNC10 203  # MAIN10 -> Servo 3 -> rj1
+param set PWM_MAIN_FUNC11 204  # MAIN11 -> Servo 4 -> lj1
+param set PWM_MAIN_FUNC12 0
+param set PWM_MAIN_FUNC13 0
+param set PWM_MAIN_FUNC14 0
 
 # Force the motor timer groups onto regular PWM. Saved timer values from other
 # airframes must not leave the ESC calibration path on an unexpected rate/protocol.
 param set PWM_MAIN_TIM0 400
 param set PWM_MAIN_TIM1 400
+param set PWM_MAIN_TIM2 50
+param set PWM_MAIN_TIM3 50
 
 # ESC PWM range.
 # MAIN1-4 are ordinary one-way ESCs:
 #   1000 us low throttle, 2000 us high throttle.
 # MAIN5 uses a reversible ESC with stop around 1450 us.
 # If your ESCs use OneShot/DShot/CAN, this section must be adjusted accordingly.
-param set-default PWM_MAIN_MIN1 1000
-param set-default PWM_MAIN_MIN2 1000
-param set-default PWM_MAIN_MIN3 1000
-param set-default PWM_MAIN_MIN4 1000
+param set PWM_MAIN_MIN1 1000
+param set PWM_MAIN_MIN2 1000
+param set PWM_MAIN_MIN3 1000
+param set PWM_MAIN_MIN4 1000
 param set PWM_MAIN_MIN5 900
 
-param set-default PWM_MAIN_MAX1 2000
-param set-default PWM_MAIN_MAX2 2000
-param set-default PWM_MAIN_MAX3 2000
-param set-default PWM_MAIN_MAX4 2000
+param set PWM_MAIN_MAX1 2000
+param set PWM_MAIN_MAX2 2000
+param set PWM_MAIN_MAX3 2000
+param set PWM_MAIN_MAX4 2000
 param set PWM_MAIN_MAX5 2000
+
+param set-default PWM_MAIN_MIN8 1000
+param set-default PWM_MAIN_MIN9 1000
+param set-default PWM_MAIN_MIN10 1000
+param set-default PWM_MAIN_MIN11 1000
+
+param set-default PWM_MAIN_MAX8 2000
+param set-default PWM_MAIN_MAX9 2000
+param set-default PWM_MAIN_MAX10 2000
+param set-default PWM_MAIN_MAX11 2000
 
 # Disarmed output.
 # MAIN1-4 use low PWM for one-way ESC stop. MAIN5 uses its reversible ESC stop point.
-param set-default PWM_MAIN_DIS1 900
-param set-default PWM_MAIN_DIS2 900
-param set-default PWM_MAIN_DIS3 900
-param set-default PWM_MAIN_DIS4 900
+param set PWM_MAIN_DIS1 900
+param set PWM_MAIN_DIS2 900
+param set PWM_MAIN_DIS3 900
+param set PWM_MAIN_DIS4 900
 param set PWM_MAIN_DIS5 1450
+param set-default PWM_MAIN_DIS8 1500
+param set-default PWM_MAIN_DIS9 1500
+param set-default PWM_MAIN_DIS10 1500
+param set-default PWM_MAIN_DIS11 1500
 
 # Failsafe output.
-param set-default PWM_MAIN_FAIL1 900
-param set-default PWM_MAIN_FAIL2 900
-param set-default PWM_MAIN_FAIL3 900
-param set-default PWM_MAIN_FAIL4 900
+param set PWM_MAIN_FAIL1 900
+param set PWM_MAIN_FAIL2 900
+param set PWM_MAIN_FAIL3 900
+param set PWM_MAIN_FAIL4 900
 param set PWM_MAIN_FAIL5 1450
+param set-default PWM_MAIN_FAIL8 1500
+param set-default PWM_MAIN_FAIL9 1500
+param set-default PWM_MAIN_FAIL10 1500
+param set-default PWM_MAIN_FAIL11 1500
 
-# Keep PX4's output-range reverse mask disabled for this airframe. The Hnuter
-# allocator owns the motor and tilt signs. Saved reverse bits from actuator
-# testing can otherwise invert individual tilt servos and destabilize attitude.
-param set PWM_MAIN_REV 0
+# Default to no PWM output reversal. Keep this as a default so QGC actuator
+# calibration can persist servo reverse settings across reboot.
+param set-default PWM_MAIN_REV 0
 
 # -----------------------------
-# AUX PWM: Tilt Servos
+# AUX PWM: unused for the tested hardware wiring
 # -----------------------------
 
-param set-default PWM_AUX_FUNC1 201  # AUX1 -> Servo 1 -> rj2
-param set-default PWM_AUX_FUNC2 202  # AUX2 -> Servo 2 -> lj2
-param set-default PWM_AUX_FUNC3 203  # AUX3 -> Servo 3 -> rj1
-param set-default PWM_AUX_FUNC4 204  # AUX4 -> Servo 4 -> lj1
-
-# Disable unused AUX outputs.
+param set-default PWM_AUX_FUNC1 0
+param set-default PWM_AUX_FUNC2 0
+param set-default PWM_AUX_FUNC3 0
+param set-default PWM_AUX_FUNC4 0
 param set-default PWM_AUX_FUNC5 0
 param set-default PWM_AUX_FUNC6 0
 param set-default PWM_AUX_FUNC7 0
 param set-default PWM_AUX_FUNC8 0
 
-# Servo PWM range.
-# Start conservatively with 1000-2000 us.
-# If the mechanical tilt mechanism has limited travel, use 1100-1900 or 1200-1800.
+# AUX servo PWM range is left at neutral defaults in case AUX outputs are
+# manually repurposed later. The Hnuter tilt servos are mapped on MAIN8-11 above.
 param set-default PWM_AUX_MIN1 1000
 param set-default PWM_AUX_MIN2 1000
 param set-default PWM_AUX_MIN3 1000
@@ -277,15 +303,47 @@ param set-default CA_SV_TL3_CT 0
 # MC Position Controller Tuning
 # =============================================================================
 
+param set-default HNTR_CTRL_MODE 0
+param set-default HNTR_MASS 4.5
+param set-default HNTR_MAX_ARM_T 170.96
+param set-default HNTR_MAX_TAIL_T 85.48
+param set-default HNTR_L1 0.33
+param set-default HNTR_L2 0.664
+param set-default HNTR_HOV_THR 0.65
+param set-default HNTR_XY_P 2.5
+param set-default HNTR_Z_P 8.0
+param set-default HNTR_XY_D 1.8
+param set-default HNTR_Z_D 4.0
+param set-default HNTR_XY_I 0.0
+param set-default HNTR_Z_I 3.0
+param set-default HNTR_ACC_XY 20.0
+param set-default HNTR_ACC_Z 65.0
+param set-default HNTR_TILT_MAX 185.0
+param set-default HNTR_TO_SUP_T 1.0
+param set-default HNTR_TO_LOCK_T 3.0
+param set-default HNTR_TO_TILT 20.0
+param set-default HNTR_LOCK_TILT 30.0
+param set-default HNTR_LOCK_ACC 3.0
+param set-default HNTR_LOCK_KP 0.8
+param set-default HNTR_ATT_KR_R 8.0
+param set-default HNTR_ATT_KR_P 8.0
+param set-default HNTR_ATT_KR_Y 1.5
+param set-default HNTR_ATT_D_R 2.0
+param set-default HNTR_ATT_D_P 2.0
+param set-default HNTR_ATT_D_Y 1.2
+param set-default HNTR_TAU_R 0.9
+param set-default HNTR_TAU_P 0.9
+param set-default HNTR_TAU_Y 1.8
+
 param set-default MPC_XY_P 1.875
 param set-default MPC_XY_VEL_P_ACC 8.0
-param set MPC_XY_VEL_I_ACC 0.5
-param set MPC_XY_VEL_D_ACC 4.0
+param set-default MPC_XY_VEL_I_ACC 0.5
+param set-default MPC_XY_VEL_D_ACC 4.0
 
 param set-default MPC_Z_P 2.5
 param set-default MPC_Z_VEL_P_ACC 12.0
-param set MPC_Z_VEL_I_ACC 0.5
-param set MPC_Z_VEL_D_ACC 6.0
+param set-default MPC_Z_VEL_I_ACC 0.5
+param set-default MPC_Z_VEL_D_ACC 6.0
 
 # =============================================================================
 # MC Attitude / Rate Controller Tuning
@@ -297,15 +355,15 @@ param set-default MC_YAW_P 4.0
 
 param set-default MC_ROLLRATE_P 0.14
 param set-default MC_ROLLRATE_I 0.0
-param set MC_ROLLRATE_D 0.001
+param set-default MC_ROLLRATE_D 0.001
 
 param set-default MC_PITCHRATE_P 0.052
 param set-default MC_PITCHRATE_I 0.0
-param set MC_PITCHRATE_D 0.001
+param set-default MC_PITCHRATE_D 0.001
 
 param set-default MC_YAWRATE_P 0.117
 param set-default MC_YAWRATE_I 0.0
-param set MC_YAWRATE_D 0.001
+param set-default MC_YAWRATE_D 0.001
 
 param set-default MC_AIRMODE 1
 

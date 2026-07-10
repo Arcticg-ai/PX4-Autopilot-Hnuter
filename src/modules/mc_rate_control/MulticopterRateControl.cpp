@@ -46,6 +46,7 @@ using math::radians;
 MulticopterRateControl::MulticopterRateControl(bool vtol) :
 	ModuleParams(nullptr),
 	WorkItem(MODULE_NAME, px4::wq_configurations::rate_ctrl),
+	_hnuter_control(this),
 	_vehicle_thrust_setpoint_pub(vtol ? ORB_ID(vehicle_thrust_setpoint_virtual_mc) : ORB_ID(vehicle_thrust_setpoint)),
 	_vehicle_torque_setpoint_pub(vtol ? ORB_ID(vehicle_torque_setpoint_virtual_mc) : ORB_ID(vehicle_torque_setpoint)),
 	_loop_perf(perf_alloc(PC_ELAPSED, MODULE_NAME": cycle"))
@@ -102,6 +103,7 @@ MulticopterRateControl::parameters_updated()
 				  radians(_param_mc_acro_y_max.get()));
 
 	_output_lpf_yaw.setCutoffFreq(_param_mc_yaw_tq_cutoff.get());
+	_hnuter_control.parametersUpdated();
 }
 
 void
@@ -156,7 +158,18 @@ MulticopterRateControl::Run()
 		if (_ca_airframe == 16 && _vehicle_control_mode.flag_control_rates_enabled
 		    && (_vehicle_control_mode.flag_control_position_enabled
 			|| _vehicle_control_mode.flag_control_offboard_enabled)) {
-			if (runHnuterControl(angular_velocity, dt, rates)) {
+			HnuterControl::Output hnuter_output{};
+
+			if (_hnuter_control.update(angular_velocity, _vehicle_control_mode, _landed, _maybe_landed,
+						   _rate_control, _output_lpf_yaw, dt, rates, hnuter_output)) {
+				_vehicle_thrust_setpoint_pub.publish(hnuter_output.thrust_setpoint);
+				_vehicle_torque_setpoint_pub.publish(hnuter_output.torque_setpoint);
+
+				if (hnuter_output.rate_ctrl_status_updated) {
+					_controller_status_pub.publish(hnuter_output.rate_ctrl_status);
+				}
+
+				updateActuatorControlsStatus(hnuter_output.torque_setpoint, dt);
 				perf_end(_loop_perf);
 				return;
 			}
@@ -285,262 +298,6 @@ MulticopterRateControl::Run()
 	perf_end(_loop_perf);
 }
 
-bool MulticopterRateControl::runHnuterControl(const vehicle_angular_velocity_s &angular_velocity, float dt,
-		const matrix::Vector3f &rates)
-{
-	if (_ca_airframe != 16) {
-		return false;
-	}
-
-	const hrt_abstime now = angular_velocity.timestamp_sample;
-
-	vehicle_odometry_s odom{};
-	vehicle_attitude_s att{};
-	trajectory_setpoint_s traj_sp{};
-	vehicle_attitude_setpoint_s att_sp{};
-
-	const bool have_odom = _vehicle_odometry_sub.copy(&odom);
-	const bool have_att = _vehicle_attitude_sub.copy(&att);
-	const bool have_traj = _trajectory_setpoint_sub.copy(&traj_sp);
-	const bool have_att_sp = _vehicle_attitude_setpoint_sub.copy(&att_sp);
-
-	if (!_vehicle_control_mode.flag_armed || !have_odom || !have_att || !have_traj) {
-		_hnuter_integral_pos_error.setZero();
-		_hnuter_integral_e_R.setZero();
-		_hnuter_xy_lock_initialized = false;
-		_hnuter_prev_armed = false;
-		_hnuter_prev_landed = _landed;
-		_hnuter_armed_time = 0;
-
-		vehicle_thrust_setpoint_s vehicle_thrust_setpoint{};
-		vehicle_torque_setpoint_s vehicle_torque_setpoint{};
-
-		vehicle_thrust_setpoint.xyz[0] = 0.f;
-		vehicle_thrust_setpoint.xyz[1] = 0.f;
-		vehicle_thrust_setpoint.xyz[2] = 0.f;
-		vehicle_torque_setpoint.xyz[0] = 0.f;
-		vehicle_torque_setpoint.xyz[1] = 0.f;
-		vehicle_torque_setpoint.xyz[2] = 0.f;
-
-		vehicle_thrust_setpoint.timestamp_sample = angular_velocity.timestamp_sample;
-		vehicle_thrust_setpoint.timestamp = hrt_absolute_time();
-		_vehicle_thrust_setpoint_pub.publish(vehicle_thrust_setpoint);
-
-		vehicle_torque_setpoint.timestamp_sample = angular_velocity.timestamp_sample;
-		vehicle_torque_setpoint.timestamp = vehicle_thrust_setpoint.timestamp;
-		_vehicle_torque_setpoint_pub.publish(vehicle_torque_setpoint);
-
-		updateActuatorControlsStatus(vehicle_torque_setpoint, dt);
-		return true;
-	}
-
-	if (_vehicle_control_mode.flag_armed && !_hnuter_prev_armed) {
-		_hnuter_armed_time = now;
-		_hnuter_xy_lock_initialized = false;
-		_hnuter_integral_pos_error.setZero();
-		_hnuter_integral_e_R.setZero();
-	}
-
-	if (_hnuter_armed_time == 0) {
-		_hnuter_armed_time = now;
-	}
-
-	_hnuter_prev_armed = _vehicle_control_mode.flag_armed;
-	_hnuter_prev_landed = _landed;
-
-	const float mass = 4.5f;
-	const float gravity = 9.81f;
-
-	const matrix::Vector3f pos{odom.position};
-	const matrix::Vector3f vel{odom.velocity};
-
-	matrix::Vector3f pos_sp{pos};
-	matrix::Vector3f vel_sp{};
-	matrix::Vector3f acc_ff{};
-
-	for (int i = 0; i < 3; i++) {
-		if (PX4_ISFINITE(traj_sp.position[i])) {
-			pos_sp(i) = traj_sp.position[i];
-		}
-
-		if (PX4_ISFINITE(traj_sp.velocity[i])) {
-			vel_sp(i) = traj_sp.velocity[i];
-		}
-
-		if (PX4_ISFINITE(traj_sp.acceleration[i])) {
-			acc_ff(i) = traj_sp.acceleration[i];
-		}
-	}
-
-	const float takeoff_tilt_suppress_time_s = 1.f;
-	const float takeoff_xy_lock_time_s = 3.f;
-	const float xy_lock_kp_scale = 0.8f;
-	const float max_acc_xy_default = 20.f;
-	const float max_acc_z = 20.f;
-	const float xy_lock_max_acc_xy = 3.f;
-	const float takeoff_tilt_limit_rad = math::radians(20.f);
-	const float xy_lock_tilt_limit_rad = math::radians(30.f);
-	const float default_tilt_limit_rad = math::radians(45.f);
-
-	const float time_since_armed_s = (_hnuter_armed_time != 0) ? math::constrain(((now - _hnuter_armed_time) * 1e-6f), 0.f,
-					    100.f) : 100.f;
-
-	const bool tilt_suppress_active = time_since_armed_s < takeoff_tilt_suppress_time_s;
-	const bool xy_lock_active = (time_since_armed_s >= takeoff_tilt_suppress_time_s) && (time_since_armed_s < takeoff_xy_lock_time_s);
-
-	if (xy_lock_active) {
-		if (!_hnuter_xy_lock_initialized) {
-			_hnuter_xy_lock_position = pos.xy();
-			_hnuter_xy_lock_initialized = true;
-		}
-
-		pos_sp(0) = _hnuter_xy_lock_position(0);
-		pos_sp(1) = _hnuter_xy_lock_position(1);
-	}
-
-	const matrix::Vector3f pos_error = pos_sp - pos;
-	const matrix::Vector3f vel_error = vel_sp - vel;
-
-	_hnuter_integral_pos_error += pos_error * dt;
-	_hnuter_integral_pos_error(0) = math::constrain(_hnuter_integral_pos_error(0), -1.f, 1.f);
-	_hnuter_integral_pos_error(1) = math::constrain(_hnuter_integral_pos_error(1), -1.f, 1.f);
-	_hnuter_integral_pos_error(2) = math::constrain(_hnuter_integral_pos_error(2), -2.f, 2.f);
-
-	matrix::SquareMatrix<float, 3> Kp;
-	Kp.setZero();
-	Kp(0, 0) = 2.5f;
-	Kp(1, 1) = 2.5f;
-	Kp(2, 2) = 8.f;
-
-	if (xy_lock_active) {
-		Kp(0, 0) *= xy_lock_kp_scale;
-		Kp(1, 1) *= xy_lock_kp_scale;
-	}
-
-	matrix::SquareMatrix<float, 3> Dp;
-	Dp.setZero();
-	Dp(0, 0) = 1.8f;
-	Dp(1, 1) = 1.8f;
-	Dp(2, 2) = 4.f;
-
-	const matrix::Vector3f K_pos_I{0.f, 0.f, 3.f};
-
-	matrix::Vector3f acc_des = acc_ff + Kp * pos_error + Dp * vel_error + K_pos_I.emult(_hnuter_integral_pos_error);
-
-	const float max_acc_xy = xy_lock_active ? xy_lock_max_acc_xy : max_acc_xy_default;
-	acc_des(0) = math::constrain(acc_des(0), -max_acc_xy, max_acc_xy);
-	acc_des(1) = math::constrain(acc_des(1), -max_acc_xy, max_acc_xy);
-	acc_des(2) = math::constrain(acc_des(2), -max_acc_z, max_acc_z);
-
-	const Dcmf R{Quatf(att.q)};
-	const matrix::Vector3f gravity_vec{0.f, 0.f, gravity};
-	const matrix::Vector3f f_world = mass * (acc_des - gravity_vec);
-	matrix::Vector3f f_body = R.transpose() * f_world;
-
-	if (tilt_suppress_active) {
-		f_body(0) = 0.f;
-		f_body(1) = 0.f;
-	}
-
-	const float tilt_limit = tilt_suppress_active ? takeoff_tilt_limit_rad : (xy_lock_active ? xy_lock_tilt_limit_rad : default_tilt_limit_rad);
-	const float fz_abs = fabsf(f_body(2));
-
-	if (fz_abs > 1e-3f) {
-		const float max_xy = fz_abs * tanf(tilt_limit);
-		const float fxy_norm = f_body.xy().norm();
-
-		if (fxy_norm > max_xy && fxy_norm > 1e-5f) {
-			f_body(0) *= max_xy / fxy_norm;
-			f_body(1) *= max_xy / fxy_norm;
-		}
-
-	} else {
-		f_body(0) = 0.f;
-		f_body(1) = 0.f;
-	}
-
-	Dcmf R_des{};
-	bool r_des_valid = false;
-	float yaw_rate_sp = 0.f;
-
-	const bool use_external_attitude_sp = _vehicle_control_mode.flag_control_offboard_enabled
-					      && !_vehicle_control_mode.flag_control_position_enabled
-					      && !_vehicle_control_mode.flag_control_velocity_enabled
-					      && !_vehicle_control_mode.flag_control_altitude_enabled;
-
-	if (have_att_sp && use_external_attitude_sp) {
-		const Quatf q_d{att_sp.q_d};
-
-		if (q_d.isAllFinite()) {
-			R_des = Dcmf{q_d};
-			r_des_valid = true;
-		}
-
-		if (PX4_ISFINITE(att_sp.yaw_sp_move_rate)) {
-			yaw_rate_sp = att_sp.yaw_sp_move_rate;
-		}
-	}
-
-	if (!r_des_valid) {
-		const Eulerf euler_cur{R};
-		float yaw_sp = euler_cur.psi();
-
-		if (PX4_ISFINITE(traj_sp.yaw)) {
-			yaw_sp = traj_sp.yaw;
-		}
-
-		R_des = Dcmf{Eulerf{0.f, 0.f, yaw_sp}};
-		r_des_valid = true;
-
-		if (PX4_ISFINITE(traj_sp.yawspeed)) {
-			yaw_rate_sp = traj_sp.yawspeed;
-		}
-	}
-
-	const matrix::Matrix3f e_rm = 0.5f * (R_des.transpose() * R - R.transpose() * R_des);
-	const matrix::Vector3f e_R{e_rm(2, 1), e_rm(0, 2), e_rm(1, 0)};
-
-	_hnuter_integral_e_R += e_R * dt;
-	_hnuter_integral_e_R(0) = math::constrain(_hnuter_integral_e_R(0), -1.5f, 1.5f);
-	_hnuter_integral_e_R(1) = math::constrain(_hnuter_integral_e_R(1), -1.5f, 1.5f);
-	_hnuter_integral_e_R(2) = math::constrain(_hnuter_integral_e_R(2), -1.5f, 1.5f);
-
-	const matrix::Vector3f KR{1.5f, 1.5f, 1.5f};
-	const matrix::Vector3f Domega{1.2f, 1.2f, 1.2f};
-	const matrix::Vector3f KI{0.f, 0.f, 0.f};
-
-	const matrix::Vector3f target_attitude_rate{0.f, 0.f, yaw_rate_sp};
-	const matrix::Vector3f omega_error = rates - R.transpose() * R_des * target_attitude_rate;
-
-	matrix::Vector3f tau_c = -KR.emult(e_R) - KI.emult(_hnuter_integral_e_R) - Domega.emult(omega_error);
-	tau_c(2) = math::constrain(tau_c(2), -0.5f, 0.5f);
-
-	vehicle_thrust_setpoint_s vehicle_thrust_setpoint{};
-	vehicle_torque_setpoint_s vehicle_torque_setpoint{};
-
-	const float max_thrust_per_arm = 85.48f * 2.0f;
-	const float max_tail_thrust = 85.48f;
-	const float l1 = 0.33f;
-	const float l2 = 0.664f;
-
-	vehicle_thrust_setpoint.xyz[0] = f_body(0) / max_thrust_per_arm;
-	vehicle_thrust_setpoint.xyz[1] = f_body(1) / max_thrust_per_arm;
-	vehicle_thrust_setpoint.xyz[2] = f_body(2) / (mass * gravity * 2.0f);
-	vehicle_torque_setpoint.xyz[0] = tau_c(0) / (max_thrust_per_arm * l1);
-	vehicle_torque_setpoint.xyz[1] = -tau_c(1) / (max_tail_thrust * l2);
-	vehicle_torque_setpoint.xyz[2] = tau_c(2) / (max_thrust_per_arm * l1);
-
-	vehicle_thrust_setpoint.timestamp_sample = angular_velocity.timestamp_sample;
-	vehicle_thrust_setpoint.timestamp = hrt_absolute_time();
-	_vehicle_thrust_setpoint_pub.publish(vehicle_thrust_setpoint);
-
-	vehicle_torque_setpoint.timestamp_sample = angular_velocity.timestamp_sample;
-	vehicle_torque_setpoint.timestamp = vehicle_thrust_setpoint.timestamp;
-	_vehicle_torque_setpoint_pub.publish(vehicle_torque_setpoint);
-
-	updateActuatorControlsStatus(vehicle_torque_setpoint, dt);
-	return true;
-}
 
 void MulticopterRateControl::updateActuatorControlsStatus(const vehicle_torque_setpoint_s &vehicle_torque_setpoint,
 		float dt)

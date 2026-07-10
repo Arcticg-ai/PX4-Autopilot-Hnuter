@@ -37,6 +37,8 @@ px4_add_module(
 	COMPILE_FLAGS
 		${MAX_CUSTOM_OPT_LEVEL}
 	SRCS
+		HnuterControl.cpp
+		HnuterControl.hpp
 		MulticopterRateControl.cpp
 		MulticopterRateControl.hpp
 	DEPENDS
