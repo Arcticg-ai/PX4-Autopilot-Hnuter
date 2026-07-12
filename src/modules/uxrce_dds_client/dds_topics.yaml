@@ -64,6 +64,14 @@ publications:
     type: px4_msgs::msg::VehicleAttitude
     rate_limit: 250.
 
+  - topic: /fmu/out/vehicle_attitude_setpoint
+    type: px4_msgs::msg::VehicleAttitudeSetpoint
+    rate_limit: 100.
+
+  - topic: /fmu/out/vehicle_torque_setpoint
+    type: px4_msgs::msg::VehicleTorqueSetpoint
+    rate_limit: 100.
+
   - topic: /fmu/out/vehicle_control_mode
     type: px4_msgs::msg::VehicleControlMode
     rate_limit: 50.
@@ -81,6 +89,10 @@ publications:
 
   - topic: /fmu/out/vehicle_local_position
     type: px4_msgs::msg::VehicleLocalPosition
+    rate_limit: 50.
+
+  - topic: /fmu/out/vehicle_local_position_setpoint
+    type: px4_msgs::msg::VehicleLocalPositionSetpoint
     rate_limit: 50.
 
   - topic: /fmu/out/vehicle_odometry
