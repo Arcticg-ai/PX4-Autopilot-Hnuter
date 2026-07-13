@@ -77,11 +77,59 @@ PARAM_DEFINE_FLOAT(HNTR_L1, 0.33f);
 PARAM_DEFINE_FLOAT(HNTR_L2, 0.664f);
 
 /**
- * Hnuter hover thrust
+ * Hnuter roll torque direction
  *
- * Normalized collective thrust corresponding to vehicle weight in the Hnuter
- * force-to-thrust map. Raising this value makes Position mode command higher
- * PWM for the same physical hover force.
+ * Sign used by the custom Hnuter allocator to map normalized roll torque to
+ * left/right front-arm thrust. Keep +1 for the real aircraft unless roll
+ * correction is physically reversed; use -1 for simulation models whose left
+ * and right arm convention is opposite to the hardware convention.
+ *
+ * @value -1 Reversed
+ * @value 1 Normal
+ * @min -1
+ * @max 1
+ * @decimal 0
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_ROLL_SIGN, 1.0f);
+
+/**
+ * Hnuter tail pitch torque direction
+ *
+ * Sign used by the custom Hnuter allocator to map normalized pitch torque to
+ * Motor5 reversible thrust. Keep +1 for the real aircraft unless Motor5 pitch
+ * correction is physically reversed; use -1 for simulation models whose tail
+ * motor thrust axis is opposite to the hardware convention.
+ *
+ * @value -1 Reversed
+ * @value 1 Normal
+ * @min -1
+ * @max 1
+ * @decimal 0
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_TAIL_SIGN, 1.0f);
+
+/**
+ * Hnuter tail collective pitch compensation
+ *
+ * Blends in the old Motor5 compensation for pitch moment caused by collective
+ * vertical front thrust and model center-of-mass offset. Keep this at 0 on the
+ * real aircraft so Motor5 does not follow throttle. Set to 1 in SITL when the
+ * Gazebo model still needs tail thrust to cancel collective pitch moment.
+ *
+ * @min 0.0
+ * @max 1.0
+ * @decimal 2
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_TAIL_COMP, 0.0f);
+
+/**
+ * Hnuter legacy hover thrust
+ *
+ * Retained so existing parameter files still load. The cascaded controller
+ * uses HNTR_MOT_HOV for real motor calibration and does not use this value.
  *
  * @min 0.05
  * @max 0.95
@@ -91,8 +139,37 @@ PARAM_DEFINE_FLOAT(HNTR_L2, 0.664f);
 PARAM_DEFINE_FLOAT(HNTR_HOV_THR, 0.65f);
 
 /**
- * Hnuter XY position P gain
+ * Hnuter real-motor hover control
  *
+ * Normalized command at which the four front motors together hover the
+ * aircraft. With a 1000 to 2000 us PWM range, 0.40 corresponds to 1400 us.
+ * This parameter is only used on hardware; SITL uses the Gazebo motor model.
+ *
+ * @min 0.05
+ * @max 0.95
+ * @decimal 3
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_MOT_HOV, 0.40f);
+
+/**
+ * Hnuter real-motor thrust exponent
+ *
+ * Exponent in command = hover_command * (force / hover_force)^exponent.
+ * A value of 0.5 models thrust proportional to motor speed squared. This
+ * parameter is only used on hardware.
+ *
+ * @min 0.2
+ * @max 1.5
+ * @decimal 2
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_MOT_EXPO, 0.50f);
+
+/**
+ * Hnuter legacy XY position P gain
+ *
+ * Retained for parameter-file compatibility. Use HNTR_POS_P_XY.
  * @min 0.0
  * @max 20.0
  * @decimal 2
@@ -101,8 +178,9 @@ PARAM_DEFINE_FLOAT(HNTR_HOV_THR, 0.65f);
 PARAM_DEFINE_FLOAT(HNTR_XY_P, 2.5f);
 
 /**
- * Hnuter Z position P gain
+ * Hnuter legacy Z position P gain
  *
+ * Retained for parameter-file compatibility. Use HNTR_POS_P_Z.
  * @min 0.0
  * @max 30.0
  * @decimal 2
@@ -111,8 +189,9 @@ PARAM_DEFINE_FLOAT(HNTR_XY_P, 2.5f);
 PARAM_DEFINE_FLOAT(HNTR_Z_P, 8.0f);
 
 /**
- * Hnuter XY velocity D gain
+ * Hnuter legacy XY velocity gain
  *
+ * Retained for parameter-file compatibility. Use HNTR_VEL_P_XY.
  * @min 0.0
  * @max 30.0
  * @decimal 2
@@ -121,8 +200,9 @@ PARAM_DEFINE_FLOAT(HNTR_Z_P, 8.0f);
 PARAM_DEFINE_FLOAT(HNTR_XY_D, 1.8f);
 
 /**
- * Hnuter Z velocity D gain
+ * Hnuter legacy Z velocity gain
  *
+ * Retained for parameter-file compatibility. Use HNTR_VEL_P_Z.
  * @min 0.0
  * @max 30.0
  * @decimal 2
@@ -131,8 +211,10 @@ PARAM_DEFINE_FLOAT(HNTR_XY_D, 1.8f);
 PARAM_DEFINE_FLOAT(HNTR_Z_D, 4.0f);
 
 /**
- * Hnuter XY position I gain
+ * Hnuter legacy XY position I gain
  *
+ * Retained for parameter-file compatibility. The cascaded controller does not
+ * integrate position error; use HNTR_VEL_I_XY for velocity integral action.
  * @min 0.0
  * @max 10.0
  * @decimal 2
@@ -141,14 +223,159 @@ PARAM_DEFINE_FLOAT(HNTR_Z_D, 4.0f);
 PARAM_DEFINE_FLOAT(HNTR_XY_I, 0.0f);
 
 /**
- * Hnuter Z position I gain
+ * Hnuter legacy Z position I gain
  *
+ * Retained for parameter-file compatibility. The cascaded controller does not
+ * integrate position error; use HNTR_VEL_I_Z for velocity integral action.
  * @min 0.0
  * @max 20.0
  * @decimal 2
  * @group Hnuter Control
  */
 PARAM_DEFINE_FLOAT(HNTR_Z_I, 3.0f);
+
+/**
+ * Hnuter XY position-loop P gain
+ *
+ * Converts horizontal position error to a velocity correction.
+ *
+ * @min 0.0
+ * @max 10.0
+ * @decimal 2
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_POS_P_XY, 1.0f);
+
+/**
+ * Hnuter Z position-loop P gain
+ *
+ * Converts vertical position error to a velocity correction.
+ *
+ * @min 0.0
+ * @max 10.0
+ * @decimal 2
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_POS_P_Z, 1.5f);
+
+/**
+ * Hnuter XY velocity-loop P gain
+ *
+ * @min 0.0
+ * @max 30.0
+ * @decimal 2
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_VEL_P_XY, 2.5f);
+
+/**
+ * Hnuter Z velocity-loop P gain
+ *
+ * @min 0.0
+ * @max 30.0
+ * @decimal 2
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_VEL_P_Z, 3.0f);
+
+/**
+ * Hnuter XY velocity-loop I gain
+ *
+ * @min 0.0
+ * @max 10.0
+ * @decimal 2
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_VEL_I_XY, 0.20f);
+
+/**
+ * Hnuter Z velocity-loop I gain
+ *
+ * @min 0.0
+ * @max 10.0
+ * @decimal 2
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_VEL_I_Z, 0.50f);
+
+/**
+ * Hnuter XY velocity-loop acceleration damping
+ *
+ * Feedback gain on measured horizontal acceleration.
+ *
+ * @min 0.0
+ * @max 10.0
+ * @decimal 2
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_VEL_D_XY, 0.20f);
+
+/**
+ * Hnuter Z velocity-loop acceleration damping
+ *
+ * Feedback gain on measured vertical acceleration.
+ *
+ * @min 0.0
+ * @max 10.0
+ * @decimal 2
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_VEL_D_Z, 0.30f);
+
+/**
+ * Hnuter XY velocity integrator limit
+ *
+ * @unit m/s^2
+ * @min 0.0
+ * @max 30.0
+ * @decimal 1
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_VEL_ILIM_XY, 2.0f);
+
+/**
+ * Hnuter Z velocity integrator limit
+ *
+ * @unit m/s^2
+ * @min 0.0
+ * @max 30.0
+ * @decimal 1
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_VEL_ILIM_Z, 3.0f);
+
+/**
+ * Hnuter maximum horizontal velocity setpoint
+ *
+ * @unit m/s
+ * @min 0.0
+ * @max 30.0
+ * @decimal 1
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_VEL_XY, 5.0f);
+
+/**
+ * Hnuter maximum upward velocity setpoint
+ *
+ * @unit m/s
+ * @min 0.0
+ * @max 20.0
+ * @decimal 1
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_VEL_UP, 3.0f);
+
+/**
+ * Hnuter maximum downward velocity setpoint
+ *
+ * @unit m/s
+ * @min 0.0
+ * @max 20.0
+ * @decimal 1
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_VEL_DN, 1.5f);
 
 /**
  * Hnuter XY acceleration limit
@@ -171,6 +398,74 @@ PARAM_DEFINE_FLOAT(HNTR_ACC_XY, 20.0f);
  * @group Hnuter Control
  */
 PARAM_DEFINE_FLOAT(HNTR_ACC_Z, 65.0f);
+
+/**
+ * Hnuter Stabilized altitude P gain
+ *
+ * Used only by Hnuter manual attitude-altitude mode. Stabilized mode does not
+ * use XY position control; this gain holds the current height.
+ *
+ * @min 0.0
+ * @max 30.0
+ * @decimal 2
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_STAB_Z_P, 3.0f);
+
+/**
+ * Hnuter Stabilized altitude velocity damping
+ *
+ * @min 0.0
+ * @max 30.0
+ * @decimal 2
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_STAB_Z_D, 2.0f);
+
+/**
+ * Hnuter Stabilized altitude I gain
+ *
+ * @min 0.0
+ * @max 10.0
+ * @decimal 2
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_STAB_Z_I, 0.5f);
+
+/**
+ * Hnuter Stabilized vertical acceleration limit
+ *
+ * @unit m/s^2
+ * @min 0.1
+ * @max 100.0
+ * @decimal 1
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_STAB_ACC_Z, 8.0f);
+
+/**
+ * Hnuter Stabilized maximum altitude setpoint slew rate
+ *
+ * Positive throttle stick raises the altitude setpoint. Center stick holds
+ * the current altitude.
+ *
+ * @unit m/s
+ * @min 0.0
+ * @max 10.0
+ * @decimal 2
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_STAB_Z_VEL, 0.8f);
+
+/**
+ * Hnuter Stabilized throttle center deadband
+ *
+ * @min 0.0
+ * @max 0.8
+ * @decimal 2
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_STAB_THR_DB, 0.15f);
 
 /**
  * Hnuter normal tilt force limit
@@ -309,6 +604,32 @@ PARAM_DEFINE_FLOAT(HNTR_ATT_D_P, 1.2f);
 PARAM_DEFINE_FLOAT(HNTR_ATT_D_Y, 1.2f);
 
 /**
+ * Hnuter geometric pitch attitude integral gain
+ *
+ * Integral pitch attitude gain used to remove steady pitch error from CG offset
+ * or tail rotor trim mismatch. Keep this low during bench tuning.
+ *
+ * @min 0.0
+ * @max 20.0
+ * @decimal 2
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_ATT_I_P, 0.0f);
+
+/**
+ * Hnuter geometric pitch integral torque limit
+ *
+ * Maximum pitch torque contribution from the pitch attitude integral term.
+ *
+ * @unit Nm
+ * @min 0.0
+ * @max 50.0
+ * @decimal 2
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_ATT_ILIM_P, 3.0f);
+
+/**
  * Hnuter geometric roll torque limit
  *
  * @min 0.0
@@ -337,3 +658,19 @@ PARAM_DEFINE_FLOAT(HNTR_TAU_P, 0.9f);
  * @group Hnuter Control
  */
 PARAM_DEFINE_FLOAT(HNTR_TAU_Y, 1.8f);
+
+/**
+ * Hnuter pitch torque bias
+ *
+ * Constant normalized pitch torque added after the pitch attitude controller.
+ * This is used to trim a rear/front CG offset so Motor5 does not have to sit at
+ * the bidirectional ESC neutral point in level attitude. Positive values move
+ * Motor5 toward the positive pitch-torque direction; use the opposite sign if
+ * pitch trim moves the vehicle the wrong way.
+ *
+ * @min -1.0
+ * @max 1.0
+ * @decimal 3
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_PITCH_BIAS, 0.0f);

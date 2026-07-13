@@ -155,9 +155,22 @@ MulticopterRateControl::Run()
 
 		_vehicle_status_sub.update(&_vehicle_status);
 
-		if (_ca_airframe == 16 && _vehicle_control_mode.flag_control_rates_enabled
-		    && (_vehicle_control_mode.flag_control_position_enabled
-			|| _vehicle_control_mode.flag_control_offboard_enabled)) {
+		const bool hnuter_manual_attitude_altitude = _vehicle_status.nav_state == vehicle_status_s::NAVIGATION_STATE_STAB
+				&& _vehicle_control_mode.flag_control_manual_enabled
+				&& _vehicle_control_mode.flag_control_attitude_enabled
+				&& !_vehicle_control_mode.flag_control_position_enabled
+				&& !_vehicle_control_mode.flag_control_velocity_enabled
+				&& !_vehicle_control_mode.flag_control_altitude_enabled
+				&& !_vehicle_control_mode.flag_control_climb_rate_enabled
+				&& !_vehicle_control_mode.flag_control_offboard_enabled;
+
+			if (_ca_airframe == 16 && _vehicle_control_mode.flag_control_rates_enabled
+			    && (_vehicle_control_mode.flag_control_position_enabled
+				|| _vehicle_control_mode.flag_control_velocity_enabled
+				|| _vehicle_control_mode.flag_control_altitude_enabled
+				|| _vehicle_control_mode.flag_control_climb_rate_enabled
+				|| _vehicle_control_mode.flag_control_offboard_enabled
+				|| hnuter_manual_attitude_altitude)) {
 			HnuterControl::Output hnuter_output{};
 
 			if (_hnuter_control.update(angular_velocity, _vehicle_control_mode, _landed, _maybe_landed,

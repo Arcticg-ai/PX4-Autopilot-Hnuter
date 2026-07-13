@@ -32,8 +32,8 @@ param set-default SIM_GZ_EN_GPS 1
 param set-default SIM_GZ_EN_BARO 1
 param set-default SIM_BAT_ENABLE 1
 
-# Hnuter's custom controller/allocator maps HNTR_HOV_THR to vehicle weight and
-# full throttle to the four front motors. Motor 5 is a reversible pitch actuator.
+# The Hnuter controller outputs physical-force fractions. SITL keeps the exact
+# Gazebo motor-speed model instead of using the hardware hover calibration.
 param set-default MPC_THR_HOVER 0.50
 param set-default MPC_THR_MIN 0.12
 param set-default MPC_USE_HTE 0
@@ -179,15 +179,26 @@ param set-default HNTR_MAX_ARM_T 170.96
 param set-default HNTR_MAX_TAIL_T 85.48
 param set-default HNTR_L1 0.33
 param set-default HNTR_L2 0.664
-param set-default HNTR_HOV_THR 0.65
-param set-default HNTR_XY_P 2.5
-param set-default HNTR_Z_P 8.0
-param set-default HNTR_XY_D 1.8
-param set-default HNTR_Z_D 4.0
-param set-default HNTR_XY_I 0.0
-param set-default HNTR_Z_I 3.0
-param set-default HNTR_ACC_XY 20.0
-param set-default HNTR_ACC_Z 65.0
+param set-default HNTR_ROLL_SIGN 1.0
+param set-default HNTR_TAIL_SIGN 1.0
+param set-default HNTR_TAIL_COMP 1.0
+param set-default HNTR_MOT_HOV 0.40
+param set-default HNTR_MOT_EXPO 0.50
+param set-default HNTR_POS_P_XY 1.0
+param set-default HNTR_POS_P_Z 1.5
+param set-default HNTR_VEL_P_XY 2.5
+param set-default HNTR_VEL_P_Z 3.0
+param set-default HNTR_VEL_I_XY 0.20
+param set-default HNTR_VEL_I_Z 0.50
+param set-default HNTR_VEL_D_XY 0.20
+param set-default HNTR_VEL_D_Z 0.30
+param set-default HNTR_VEL_ILIM_XY 2.0
+param set-default HNTR_VEL_ILIM_Z 3.0
+param set-default HNTR_VEL_XY 5.0
+param set-default HNTR_VEL_UP 3.0
+param set-default HNTR_VEL_DN 1.5
+param set-default HNTR_ACC_XY 12.0
+param set-default HNTR_ACC_Z 20.0
 param set-default HNTR_TILT_MAX 185.0
 param set-default HNTR_TO_SUP_T 1.0
 param set-default HNTR_TO_LOCK_T 3.0
@@ -201,9 +212,12 @@ param set-default HNTR_ATT_KR_Y 1.5
 param set-default HNTR_ATT_D_R 2.0
 param set-default HNTR_ATT_D_P 2.0
 param set-default HNTR_ATT_D_Y 1.2
+param set-default HNTR_ATT_I_P 0.0
+param set-default HNTR_ATT_ILIM_P 0.0
 param set-default HNTR_TAU_R 0.9
 param set-default HNTR_TAU_P 0.9
 param set-default HNTR_TAU_Y 1.8
+param set-default HNTR_PITCH_BIAS 0.0
 
 # Position Control
 param set-default MPC_XY_P 1.875
