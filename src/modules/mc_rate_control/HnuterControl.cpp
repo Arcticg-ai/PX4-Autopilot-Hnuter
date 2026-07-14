@@ -35,15 +35,43 @@ void HnuterControl::constrainXY(Vector3f &vector, float limit)
 	}
 }
 
+float HnuterControl::applyDeadband(float input, float deadband)
+{
+	const float constrained_deadband = math::constrain(deadband, 0.f, 0.9f);
+	const float magnitude = fabsf(input);
+
+	if (magnitude <= constrained_deadband) {
+		return 0.f;
+	}
+
+	return math::signNoZero(input) * (magnitude - constrained_deadband) / (1.f - constrained_deadband);
+}
+
+float HnuterControl::slewToZero(float value, float rate_limit, float dt, float &applied_rate)
+{
+	const float max_step = math::max(rate_limit, 0.f) * dt;
+	const float step = math::constrain(-value, -max_step, max_step);
+	applied_rate = dt > FLT_EPSILON ? step / dt : 0.f;
+	return value + step;
+}
+
 void HnuterControl::reset()
 {
 	_velocity_integral.setZero();
 	_integral_e_R.setZero();
 	_xy_lock_initialized = false;
 	_manual_altitude_initialized = false;
+	_rc_attitude_initialized = false;
+	_rc_level_return_active = false;
+	_rc_level_switch_previous = false;
+	_rc_roll_input_previous = false;
+	_rc_pitch_input_previous = false;
+	_rc_yaw_input_previous = false;
 	_prev_armed = false;
 	_armed_time = 0;
 	_manual_altitude_sp = 0.f;
+	_rc_yaw_sp = 0.f;
+	_rc_attitude_sp.setZero();
 }
 
 bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
@@ -328,6 +356,7 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 	Dcmf R_des{};
 	bool r_des_valid = false;
 	float yaw_rate_sp = 0.f;
+	Vector2f rc_attitude_rate_sp{};
 
 	const bool use_attitude_sp = vehicle_control_mode.flag_control_attitude_enabled
 				     && have_att_sp
@@ -363,14 +392,109 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 			}
 		}
 
-		// In Hnuter position/offboard-position control, horizontal translation is
-		// produced by the tilting thrust vector. Keep the body level and use only
-		// yaw from PX4's attitude setpoint; otherwise mc_pos_control roll/pitch and
-		// Hnuter thrust-vector control fight each other.
-		R_des = Dcmf{Eulerf{0.f, 0.f, yaw_sp}};
+		Vector2f attitude_sp_rp{};
+		const bool manual_sp_fresh = have_manual_sp && manual_sp.valid && manual_sp.timestamp > 0
+					     && now >= manual_sp.timestamp && (now - manual_sp.timestamp) < 500_ms;
+		const bool rc_attitude_control_active = _param_hntr_rc_att_en.get()
+						&& hnuter_translation_control_active
+						&& vehicle_control_mode.flag_control_manual_enabled
+						&& manual_sp_fresh;
+
+		if (rc_attitude_control_active) {
+			if (!_rc_attitude_initialized) {
+				// Enter position mode at the measured attitude, then use the same
+				// bounded slew as AUX3 to establish the level-flight target.
+				_rc_attitude_sp = Vector2f{euler_cur.phi(), euler_cur.theta()};
+				_rc_yaw_sp = euler_cur.psi();
+				_rc_attitude_initialized = true;
+				_rc_level_return_active = true;
+				_rc_level_switch_previous = PX4_ISFINITE(manual_sp.aux3) && manual_sp.aux3 > 0.5f;
+				_rc_roll_input_previous = false;
+				_rc_pitch_input_previous = false;
+				_rc_yaw_input_previous = false;
+			}
+
+			const float deadband = _param_hntr_rc_db.get();
+			const float roll_input = PX4_ISFINITE(manual_sp.aux1) ? applyDeadband(manual_sp.aux1, deadband) : 0.f;
+			const float pitch_input = PX4_ISFINITE(manual_sp.aux2) ? applyDeadband(manual_sp.aux2, deadband) : 0.f;
+			const float yaw_input = PX4_ISFINITE(manual_sp.yaw) ? applyDeadband(manual_sp.yaw, deadband) : 0.f;
+			const bool level_switch = PX4_ISFINITE(manual_sp.aux3) && manual_sp.aux3 > 0.5f;
+
+			if (level_switch && !_rc_level_switch_previous) {
+				_rc_level_return_active = true;
+			}
+
+			_rc_level_switch_previous = level_switch;
+			const bool roll_input_active = fabsf(roll_input) > FLT_EPSILON;
+			const bool pitch_input_active = fabsf(pitch_input) > FLT_EPSILON;
+			const bool yaw_input_active = fabsf(yaw_input) > FLT_EPSILON;
+			const bool attitude_input_active = roll_input_active || pitch_input_active;
+
+			if (attitude_input_active) {
+				_rc_level_return_active = false;
+			}
+
+			// AUX1/AUX2 are rate commands. Latch the angle actually reached on
+			// release instead of continuing toward an integrated target that may be
+			// far ahead of a slow tilt mechanism.
+			if (!roll_input_active && _rc_roll_input_previous) {
+				_rc_attitude_sp(0) = euler_cur.phi();
+			}
+
+			if (!pitch_input_active && _rc_pitch_input_previous) {
+				_rc_attitude_sp(1) = euler_cur.theta();
+			}
+
+			if (!yaw_input_active && _rc_yaw_input_previous) {
+				_rc_yaw_sp = euler_cur.psi();
+			}
+
+			if (_rc_level_return_active) {
+				const float level_rate = math::radians(math::max(_param_hntr_rc_lvl_r.get(), 0.f));
+				_rc_attitude_sp(0) = slewToZero(_rc_attitude_sp(0), level_rate, dt, rc_attitude_rate_sp(0));
+				_rc_attitude_sp(1) = slewToZero(_rc_attitude_sp(1), level_rate, dt, rc_attitude_rate_sp(1));
+
+				if (fabsf(_rc_attitude_sp(0)) < 1e-4f && fabsf(_rc_attitude_sp(1)) < 1e-4f) {
+					_rc_attitude_sp.setZero();
+					rc_attitude_rate_sp.setZero();
+					_rc_level_return_active = false;
+				}
+
+			} else {
+				rc_attitude_rate_sp(0) = roll_input_active
+							? roll_input * math::radians(math::max(_param_hntr_rc_rate_r.get(), 0.f)) : 0.f;
+				rc_attitude_rate_sp(1) = pitch_input_active
+							? pitch_input * math::radians(math::max(_param_hntr_rc_rate_p.get(), 0.f)) : 0.f;
+				_rc_attitude_sp += rc_attitude_rate_sp * dt;
+			}
+
+			const float attitude_limit = math::radians(math::constrain(_param_hntr_rc_ang_max.get(), 0.f, 180.f));
+			_rc_attitude_sp(0) = math::constrain(_rc_attitude_sp(0), -attitude_limit, attitude_limit);
+			_rc_attitude_sp(1) = math::constrain(_rc_attitude_sp(1), -attitude_limit, attitude_limit);
+			yaw_rate_sp = yaw_input_active
+					? yaw_input * math::radians(math::max(_param_hntr_rc_rate_y.get(), 0.f)) : 0.f;
+			_rc_yaw_sp = atan2f(sinf(_rc_yaw_sp + yaw_rate_sp * dt), cosf(_rc_yaw_sp + yaw_rate_sp * dt));
+			_rc_roll_input_previous = roll_input_active;
+			_rc_pitch_input_previous = pitch_input_active;
+			_rc_yaw_input_previous = yaw_input_active;
+			yaw_sp = _rc_yaw_sp;
+			attitude_sp_rp = _rc_attitude_sp;
+
+		} else {
+			_rc_attitude_initialized = false;
+			_rc_level_return_active = false;
+			_rc_level_switch_previous = false;
+			_rc_roll_input_previous = false;
+			_rc_pitch_input_previous = false;
+			_rc_yaw_input_previous = false;
+		}
+
+		// Translation is generated by thrust-vectoring, so body roll and pitch can
+		// be commanded independently without using mc_pos_control's tilt setpoint.
+		R_des = Dcmf{Eulerf{attitude_sp_rp(0), attitude_sp_rp(1), yaw_sp}};
 		r_des_valid = true;
 
-		if (have_traj && PX4_ISFINITE(traj_sp.yawspeed)) {
+		if (!rc_attitude_control_active && have_traj && PX4_ISFINITE(traj_sp.yawspeed)) {
 			yaw_rate_sp = traj_sp.yawspeed;
 		}
 	}
@@ -378,23 +502,52 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 	const Matrix3f e_rm = 0.5f * (R_des.transpose() * R - R.transpose() * R_des);
 	const Vector3f e_R{e_rm(2, 1), e_rm(0, 2), e_rm(1, 0)};
 
-	_integral_e_R += e_R * dt;
-	_integral_e_R(0) = math::constrain(_integral_e_R(0), -1.5f, 1.5f);
-	_integral_e_R(1) = math::constrain(_integral_e_R(1), -1.5f, 1.5f);
-	_integral_e_R(2) = math::constrain(_integral_e_R(2), -1.5f, 1.5f);
-
 	const Vector3f KR{_param_hntr_att_kr_r.get(), _param_hntr_att_kr_p.get(), _param_hntr_att_kr_y.get()};
 	const Vector3f Domega{_param_hntr_att_d_r.get(), _param_hntr_att_d_p.get(), _param_hntr_att_d_y.get()};
-	const Vector3f target_attitude_rate{0.f, 0.f, yaw_rate_sp};
+	const Vector3f Ki{_param_hntr_att_i_r.get(), _param_hntr_att_i_p.get(), _param_hntr_att_i_y.get()};
+	const Vector3f integral_torque_limit{_param_hntr_att_ilim_r.get(), _param_hntr_att_ilim_p.get(),
+			_param_hntr_att_ilim_y.get()};
+	const Eulerf euler_des{R_des};
+	const float roll_des = euler_des.phi();
+	const float pitch_des = euler_des.theta();
+	const Vector3f target_attitude_rate{
+		rc_attitude_rate_sp(0) - yaw_rate_sp * sinf(pitch_des),
+		rc_attitude_rate_sp(1) * cosf(roll_des) + yaw_rate_sp * sinf(roll_des) * cosf(pitch_des),
+		-rc_attitude_rate_sp(1) * sinf(roll_des) + yaw_rate_sp * cosf(roll_des) * cosf(pitch_des)
+	};
 	const Vector3f omega_error = rates - R.transpose() * R_des * target_attitude_rate;
-
-	Vector3f tau_c = -KR.emult(e_R) - Domega.emult(omega_error);
-	const float pitch_integral_torque = math::constrain(-_param_hntr_att_i_p.get() * _integral_e_R(1),
-					      -math::max(_param_hntr_att_ilim_p.get(), 0.f),
-					      math::max(_param_hntr_att_ilim_p.get(), 0.f));
-	tau_c(1) += pitch_integral_torque;
-
+	const Vector3f attitude_torque = -KR.emult(e_R) - Domega.emult(omega_error);
 	const Vector3f tau_limit{_param_hntr_tau_r.get(), _param_hntr_tau_p.get(), _param_hntr_tau_y.get()};
+
+	if (landed || maybe_landed) {
+		_integral_e_R.setZero();
+
+	} else {
+		for (int i = 0; i < 3; i++) {
+			const float integral_gain = math::max(Ki(i), 0.f);
+			const float torque_limit = math::max(tau_limit(i), 0.f);
+			const float integral_limit = math::max(integral_torque_limit(i), 0.f);
+
+			if (integral_gain <= FLT_EPSILON || integral_limit <= FLT_EPSILON) {
+				_integral_e_R(i) = 0.f;
+				continue;
+			}
+
+			const float candidate_integral = math::constrain(_integral_e_R(i) + e_R(i) * dt,
+								   -integral_limit / integral_gain,
+								   integral_limit / integral_gain);
+			const float candidate_torque = attitude_torque(i) - integral_gain * candidate_integral;
+			const float integral_torque_step = -integral_gain * (candidate_integral - _integral_e_R(i));
+			const bool saturated = fabsf(candidate_torque) > torque_limit;
+			const bool drives_further_into_saturation = saturated && candidate_torque * integral_torque_step > 0.f;
+
+			if (!drives_further_into_saturation) {
+				_integral_e_R(i) = candidate_integral;
+			}
+		}
+	}
+
+	Vector3f tau_c = attitude_torque - Ki.emult(_integral_e_R);
 	tau_c(0) = math::constrain(tau_c(0), -tau_limit(0), tau_limit(0));
 	tau_c(1) = math::constrain(tau_c(1), -tau_limit(1), tau_limit(1));
 	tau_c(2) = math::constrain(tau_c(2), -tau_limit(2), tau_limit(2));

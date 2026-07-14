@@ -111,6 +111,7 @@ include(px4_parse_function_args)
 # git
 #
 include(px4_git)
+include(${PX4_SOURCE_DIR}/cmake/hnuter_version.cmake)
 
 execute_process(
 	COMMAND git describe --exclude ext/* --tags --match "v[0-9]*"
@@ -120,9 +121,11 @@ execute_process(
 	WORKING_DIRECTORY ${PX4_SOURCE_DIR}
 	)
 
-# if proper git tag unavilable default to v0.0.0
+# The initial Hnuter source import did not retain the upstream PX4 tags. Use
+# the recorded PX4 base and Hnuter vendor version instead of reporting v0.0.0.
+# A valid Git tag still takes precedence for an intentional tagged release.
 if(NOT ${GIT_DESCRIBE_RESULT} MATCHES "0")
-	set(PX4_GIT_TAG "v0.0.0")
+	set(PX4_GIT_TAG "${HNUTER_FIRMWARE_VERSION}")
 endif()
 
 message(STATUS "PX4_GIT_TAG: ${PX4_GIT_TAG}")

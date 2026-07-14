@@ -47,6 +47,8 @@ public:
 private:
 	static float forceToNormalizedThrust(float force, float max_force);
 	static void constrainXY(matrix::Vector3f &vector, float limit);
+	static float applyDeadband(float input, float deadband);
+	static float slewToZero(float value, float rate_limit, float dt, float &applied_rate);
 
 	uORB::Subscription _vehicle_odometry_sub{ORB_ID(vehicle_odometry)};
 	uORB::Subscription _vehicle_attitude_sub{ORB_ID(vehicle_attitude)};
@@ -61,9 +63,17 @@ private:
 	matrix::Vector2f _xy_lock_position{};
 	bool _xy_lock_initialized{false};
 	bool _manual_altitude_initialized{false};
+	bool _rc_attitude_initialized{false};
+	bool _rc_level_return_active{false};
+	bool _rc_level_switch_previous{false};
+	bool _rc_roll_input_previous{false};
+	bool _rc_pitch_input_previous{false};
+	bool _rc_yaw_input_previous{false};
 	bool _prev_armed{false};
 	hrt_abstime _armed_time{0};
 	float _manual_altitude_sp{0.f};
+	float _rc_yaw_sp{0.f};
+	matrix::Vector2f _rc_attitude_sp{};
 
 	DEFINE_PARAMETERS(
 		(ParamInt<px4::params::HNTR_CTRL_MODE>) _param_hntr_ctrl_mode,
@@ -106,11 +116,22 @@ private:
 		(ParamFloat<px4::params::HNTR_ATT_D_R>) _param_hntr_att_d_r,
 		(ParamFloat<px4::params::HNTR_ATT_D_P>) _param_hntr_att_d_p,
 		(ParamFloat<px4::params::HNTR_ATT_D_Y>) _param_hntr_att_d_y,
+		(ParamFloat<px4::params::HNTR_ATT_I_R>) _param_hntr_att_i_r,
 		(ParamFloat<px4::params::HNTR_ATT_I_P>) _param_hntr_att_i_p,
+		(ParamFloat<px4::params::HNTR_ATT_I_Y>) _param_hntr_att_i_y,
+		(ParamFloat<px4::params::HNTR_ATT_ILIM_R>) _param_hntr_att_ilim_r,
 		(ParamFloat<px4::params::HNTR_ATT_ILIM_P>) _param_hntr_att_ilim_p,
+		(ParamFloat<px4::params::HNTR_ATT_ILIM_Y>) _param_hntr_att_ilim_y,
 		(ParamFloat<px4::params::HNTR_TAU_R>) _param_hntr_tau_r,
 		(ParamFloat<px4::params::HNTR_TAU_P>) _param_hntr_tau_p,
 		(ParamFloat<px4::params::HNTR_TAU_Y>) _param_hntr_tau_y,
-		(ParamFloat<px4::params::HNTR_PITCH_BIAS>) _param_hntr_pitch_bias
+		(ParamFloat<px4::params::HNTR_PITCH_BIAS>) _param_hntr_pitch_bias,
+		(ParamBool<px4::params::HNTR_RC_ATT_EN>) _param_hntr_rc_att_en,
+		(ParamFloat<px4::params::HNTR_RC_RATE_R>) _param_hntr_rc_rate_r,
+		(ParamFloat<px4::params::HNTR_RC_RATE_P>) _param_hntr_rc_rate_p,
+		(ParamFloat<px4::params::HNTR_RC_RATE_Y>) _param_hntr_rc_rate_y,
+		(ParamFloat<px4::params::HNTR_RC_DB>) _param_hntr_rc_db,
+		(ParamFloat<px4::params::HNTR_RC_ANG_MAX>) _param_hntr_rc_ang_max,
+		(ParamFloat<px4::params::HNTR_RC_LVL_R>) _param_hntr_rc_lvl_r
 	)
 };

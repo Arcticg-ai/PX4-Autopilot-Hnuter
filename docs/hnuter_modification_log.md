@@ -646,3 +646,61 @@ param save
 
 完整参数、实机标定流程和验证数据见
 `docs/hnuter_cascaded_position_control_2026-07-13.md`。
+# 2026-07-14：遥控辅助姿态保持与渐进回平
+
+- Hnuter Position/Velocity 手动模式新增 AUX1 roll 角速度和 AUX2 pitch 角速度积分设定；
+- AUX 通道回中后保持当前姿态期望，不再自动返回水平；
+- AUX3 上升沿锁存渐进回平，回平速度由 `HNTR_RC_LVL_R` 限制；
+- 手动 Position 偏航改为内部角速度积分和航向保持，避免上游 yaw 期望随实际值漂移；
+- 新增 `HNTR_RC_ATT_EN`、`HNTR_RC_RATE_R/P`、`HNTR_RC_DB`、
+  `HNTR_RC_RATE_Y`、`HNTR_RC_ANG_MAX`、`HNTR_RC_LVL_R` 参数；
+- 实机默认最大辅助姿态 45°，参数范围保留到 180°；
+- `RC_MAP_AUX1/2/3` 默认映射到物理通道 6/7/8；
+- `make px4_sitl_default` 编译通过，`gz_hnuter` Position 闭环测试通过；
+- 详细设计、映射和结果见 `docs/hnuter_rc_attitude_hold_2026-07-14.md`。
+
+## 17. 2026-07-14 实机日志分析与空中误着陆修复
+
+- 分析 2026-07-13 两次 Position 实机日志，第二架次定高误差 RMS 为 `2.7 cm`，
+  最终参数段 RMS 为 `1.1 cm`，控制分配无饱和。
+- 确认一级倾转约 `1 deg` 标准差的慢动作主要来自 Body-X 位置保持力，不是姿态
+  环高频自激。
+- 确认低油门停转是飞行高度约 `1.1 m` 时误判 landed，随后
+  `COM_DISARM_LAND` 自动上锁造成，并非电机 PWM 再次被限幅。
+- Hnuter 着陆检测改用 Motor1--4 allocator 后平均控制量，新增
+  `HNTR_LND_GC_R`、`HNTR_LND_MIN_R` 两个 QGC 可调阈值。
+- 实机和 SITL 的 `LNDMC_TRIG_TIME` 从 `0.5 s` 调整为 `2.0 s`，保留真正落地后的
+  自动上锁。
+- 完整报告和图表见 `logs/analyze/2026-07-13_flight_analysis.md`。
+
+## 18. 2026-07-14 固件版本标识修复
+
+- 确认初始源码快照来自 2025 年 7 月 PX4 `main`，属于 PX4 v1.17 开发周期，
+  早于正式 `v1.17.0` release。
+- 初始导入丢失上游 Git tag，导致构建回退为 `v0.0.0`，QGC 主要显示
+  Git 哈希。
+- 新增 `cmake/hnuter_version.cmake`，按 PX4 标准厂商版本格式设置
+  `v1.17.0-1.0.0-dev`。
+- QGC 主固件版本为 PX4 `1.17.0 dev`，Hnuter 厂商版本为 `1.0.0 dev`；
+  Git 提交仍保留在 MAVLink 自定义版本字段中用于追溯。
+
+## 19. 2026-07-14 日志 9 姿态漂移与一级倾转振荡修复
+
+- 分析 `log_9_2026-7-14-20-40-28.ulg`，排除 EKF 跳变、飞行故障和 active
+  actuator 饱和。
+- 确认 roll rate、roll torque、一级倾转左右差动和左右电机差动存在共同的
+  `3.3-3.7 Hz` 峰值；pitch 增大后 allocator 的 `atan2(Fx,Fz)` 几何关系会放大
+  该横滚振荡在一级倾转上的表现。
+- AUX1/AUX2/yaw 回中沿改为锁存当前实测姿态，修复机构滞后时继续追赶积分期望、
+  回中后仍明显转动的问题。
+- 进入 Position 模式时从实测姿态开始，并按 `HNTR_RC_LVL_R` 渐进建立水平目标。
+- 修复手动 Hnuter yaw rate 前馈被 `trajectory_setpoint.yawspeed` 覆盖的问题。
+- 几何姿态积分扩展为 roll/pitch/yaw 三轴，新增 `HNTR_ATT_I_R/Y` 和
+  `HNTR_ATT_ILIM_R/Y`；积分力矩按 `HNTR_ATT_ILIM_*` 正确限幅，并加入落地清零和
+  力矩饱和抗积分累积。
+- 旧 pitch 积分硬限制下，本次参数最多只能产生 `0.09 Nm`；修复后
+  `HNTR_ATT_ILIM_P=0.8 Nm` 可以真正生效，实机不可直接恢复过大的 I 增益。
+- 实机 airframe 的 `HNTR_ATT_I_P` 默认值由旧的 `0.8` 改为 `0`，先稳定 P/D
+  和分配器后再从小值启用积分。
+- 完整报告和图表见
+  `logs/analyze/log_9_2026-7-14-20-40-28_analysis.md`。

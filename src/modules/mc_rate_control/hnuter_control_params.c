@@ -167,6 +167,33 @@ PARAM_DEFINE_FLOAT(HNTR_MOT_HOV, 0.40f);
 PARAM_DEFINE_FLOAT(HNTR_MOT_EXPO, 0.50f);
 
 /**
+ * Hnuter ground-contact motor ratio
+ *
+ * Mean front-motor command below this fraction of HNTR_MOT_HOV is treated as
+ * low thrust by the ground-contact detector. Ground contact additionally
+ * requires a commanded descent and no measured vehicle motion.
+ *
+ * @min 0.5
+ * @max 1.0
+ * @decimal 2
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_LND_GC_R, 0.90f);
+
+/**
+ * Hnuter landed motor ratio
+ *
+ * Mean front-motor command below this fraction of HNTR_MOT_HOV satisfies the
+ * tighter maybe-landed thrust condition. Keep this below HNTR_LND_GC_R.
+ *
+ * @min 0.4
+ * @max 1.0
+ * @decimal 2
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_LND_MIN_R, 0.85f);
+
+/**
  * Hnuter legacy XY position P gain
  *
  * Retained for parameter-file compatibility. Use HNTR_POS_P_XY.
@@ -604,6 +631,16 @@ PARAM_DEFINE_FLOAT(HNTR_ATT_D_P, 1.2f);
 PARAM_DEFINE_FLOAT(HNTR_ATT_D_Y, 1.2f);
 
 /**
+ * Hnuter geometric roll attitude integral gain
+ *
+ * @min 0.0
+ * @max 20.0
+ * @decimal 2
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_ATT_I_R, 0.0f);
+
+/**
  * Hnuter geometric pitch attitude integral gain
  *
  * Integral pitch attitude gain used to remove steady pitch error from CG offset
@@ -617,6 +654,27 @@ PARAM_DEFINE_FLOAT(HNTR_ATT_D_Y, 1.2f);
 PARAM_DEFINE_FLOAT(HNTR_ATT_I_P, 0.0f);
 
 /**
+ * Hnuter geometric yaw attitude integral gain
+ *
+ * @min 0.0
+ * @max 20.0
+ * @decimal 2
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_ATT_I_Y, 0.0f);
+
+/**
+ * Hnuter geometric roll integral torque limit
+ *
+ * @unit Nm
+ * @min 0.0
+ * @max 50.0
+ * @decimal 2
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_ATT_ILIM_R, 1.0f);
+
+/**
  * Hnuter geometric pitch integral torque limit
  *
  * Maximum pitch torque contribution from the pitch attitude integral term.
@@ -628,6 +686,17 @@ PARAM_DEFINE_FLOAT(HNTR_ATT_I_P, 0.0f);
  * @group Hnuter Control
  */
 PARAM_DEFINE_FLOAT(HNTR_ATT_ILIM_P, 3.0f);
+
+/**
+ * Hnuter geometric yaw integral torque limit
+ *
+ * @unit Nm
+ * @min 0.0
+ * @max 50.0
+ * @decimal 2
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_ATT_ILIM_Y, 1.0f);
 
 /**
  * Hnuter geometric roll torque limit
@@ -674,3 +743,89 @@ PARAM_DEFINE_FLOAT(HNTR_TAU_Y, 1.8f);
  * @group Hnuter Control
  */
 PARAM_DEFINE_FLOAT(HNTR_PITCH_BIAS, 0.0f);
+
+/**
+ * Enable Hnuter RC attitude hold channels
+ *
+ * Uses AUX1 as roll-rate command, AUX2 as pitch-rate command and the rising
+ * edge of AUX3 to start a gradual return to level. This is active only in
+ * manual position/velocity control modes; Offboard and Stabilized are not
+ * overridden.
+ *
+ * @boolean
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_INT32(HNTR_RC_ATT_EN, 0);
+
+/**
+ * Hnuter AUX1 maximum roll command rate
+ *
+ * @unit deg/s
+ * @min 0.0
+ * @max 360.0
+ * @decimal 1
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_RC_RATE_R, 30.0f);
+
+/**
+ * Hnuter AUX2 maximum pitch command rate
+ *
+ * @unit deg/s
+ * @min 0.0
+ * @max 360.0
+ * @decimal 1
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_RC_RATE_P, 30.0f);
+
+/**
+ * Hnuter yaw stick maximum command rate
+ *
+ * In manual position modes the yaw stick integrates an internal heading
+ * setpoint. Centering the stick holds the current heading setpoint instead of
+ * accepting a trajectory yaw value that follows estimator drift.
+ *
+ * @unit deg/s
+ * @min 0.0
+ * @max 360.0
+ * @decimal 1
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_RC_RATE_Y, 30.0f);
+
+/**
+ * Hnuter auxiliary attitude channel deadband
+ *
+ * @min 0.0
+ * @max 0.5
+ * @decimal 2
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_RC_DB, 0.08f);
+
+/**
+ * Hnuter RC held attitude limit
+ *
+ * Maximum absolute roll and pitch setpoint accumulated from AUX1 and AUX2.
+ *
+ * @unit deg
+ * @min 0.0
+ * @max 180.0
+ * @decimal 1
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_RC_ANG_MAX, 90.0f);
+
+/**
+ * Hnuter gradual return-to-level rate
+ *
+ * Maximum roll and pitch setpoint slew rate after an AUX3 rising edge.
+ *
+ * @unit deg/s
+ * @min 1.0
+ * @max 180.0
+ * @decimal 1
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_RC_LVL_R, 20.0f);

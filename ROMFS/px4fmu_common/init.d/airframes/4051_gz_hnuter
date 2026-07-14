@@ -311,6 +311,8 @@ param set-default HNTR_L1 0.33
 param set-default HNTR_L2 0.664
 param set-default HNTR_MOT_HOV 0.40
 param set-default HNTR_MOT_EXPO 0.50
+param set-default HNTR_LND_GC_R 0.90
+param set-default HNTR_LND_MIN_R 0.85
 param set-default HNTR_POS_P_XY 0.6
 param set-default HNTR_POS_P_Z 1.0
 param set-default HNTR_VEL_P_XY 1.5
@@ -345,12 +347,23 @@ param set-default HNTR_ATT_KR_Y 1.5
 param set-default HNTR_ATT_D_R 0.8
 param set-default HNTR_ATT_D_P 0.8
 param set-default HNTR_ATT_D_Y 1.2
-param set-default HNTR_ATT_I_P 0.8
+param set-default HNTR_ATT_I_R 0.0
+param set-default HNTR_ATT_I_P 0.0
+param set-default HNTR_ATT_I_Y 0.0
+param set-default HNTR_ATT_ILIM_R 1.0
 param set-default HNTR_ATT_ILIM_P 3.0
+param set-default HNTR_ATT_ILIM_Y 1.0
 param set-default HNTR_TAU_R 0.25
 param set-default HNTR_TAU_P 0.25
 param set-default HNTR_TAU_Y 1.8
 param set-default HNTR_PITCH_BIAS 0.0
+param set-default HNTR_RC_ATT_EN 1
+param set-default HNTR_RC_RATE_R 20.0
+param set-default HNTR_RC_RATE_P 20.0
+param set-default HNTR_RC_RATE_Y 25.0
+param set-default HNTR_RC_DB 0.08
+param set-default HNTR_RC_ANG_MAX 45.0
+param set-default HNTR_RC_LVL_R 15.0
 
 param set-default MPC_XY_P 1.875
 param set-default MPC_XY_VEL_P_ACC 8.0
@@ -388,7 +401,7 @@ param set-default MC_AIRMODE 1
 # values can persist across airframe switches and keep the vehicle armed.
 param set COM_DISARM_PRFLT 10
 param set COM_DISARM_LAND 1
-param set LNDMC_TRIG_TIME 0.5
+param set LNDMC_TRIG_TIME 2.0
 param set LNDMC_ROT_MAX 35
 
 # =============================================================================
@@ -446,6 +459,7 @@ param set-default COM_RC_IN_MODE 1
 param set-default RC_MAP_FLTMODE 5
 param set-default RC_MAP_AUX1 6
 param set-default RC_MAP_AUX2 7
+param set-default RC_MAP_AUX3 8
 
 # Flight mode switch positions.
 param set-default COM_FLTMODE1 0

@@ -43,6 +43,7 @@
 #pragma once
 
 #include <uORB/topics/hover_thrust_estimate.h>
+#include <uORB/topics/actuator_motors.h>
 #include <uORB/topics/trajectory_setpoint.h>
 #include <uORB/topics/vehicle_control_mode.h>
 #include <uORB/topics/vehicle_thrust_setpoint.h>
@@ -106,6 +107,7 @@ private:
 	} _params{};
 
 	uORB::Subscription _vehicle_thrust_setpoint_sub{ORB_ID(vehicle_thrust_setpoint)};
+	uORB::Subscription _actuator_motors_sub{ORB_ID(actuator_motors)};
 	uORB::Subscription _hover_thrust_estimate_sub{ORB_ID(hover_thrust_estimate)};
 	uORB::Subscription _trajectory_setpoint_sub{ORB_ID(trajectory_setpoint)};
 
@@ -119,6 +121,8 @@ private:
 	bool _hover_thrust_initialized{false};
 
 	float _vehicle_thrust_setpoint_throttle{0.f};
+	float _hnuter_motor_throttle{0.f};
+	hrt_abstime _hnuter_motor_timestamp{0};
 
 	uint8_t _takeoff_state{takeoff_status_s::TAKEOFF_STATE_DISARMED};
 
@@ -134,6 +138,10 @@ private:
 
 	DEFINE_PARAMETERS_CUSTOM_PARENT(
 		LandDetector,
+		(ParamInt<px4::params::CA_AIRFRAME>)          _param_ca_airframe,
+		(ParamFloat<px4::params::HNTR_MOT_HOV>)       _param_hntr_mot_hov,
+		(ParamFloat<px4::params::HNTR_LND_GC_R>)      _param_hntr_lnd_gc_r,
+		(ParamFloat<px4::params::HNTR_LND_MIN_R>)     _param_hntr_lnd_min_r,
 		(ParamFloat<px4::params::LNDMC_TRIG_TIME>)   _param_lndmc_trig_time,
 		(ParamFloat<px4::params::LNDMC_ROT_MAX>)    _param_lndmc_rot_max,
 		(ParamFloat<px4::params::LNDMC_XY_VEL_MAX>) _param_lndmc_xy_vel_max,
