@@ -337,16 +337,16 @@ param set-default HNTR_STAB_THR_DB 0.20
 param set-default HNTR_TILT_MAX 185.0
 # Use commanded geometry directly. The identified lag model remains optional.
 param set-default HNTR_TDYN_EN 0
-param set-default HNTR_T1_GAIN 1.40
+param set-default HNTR_T1_GAIN 1.0
 param set-default HNTR_T1_ZERO 0.0
-param set-default HNTR_T1_TAU 0.10
-param set-default HNTR_T1_DLY 0.11
-param set-default HNTR_T1_RATE 200.0
-param set-default HNTR_T2_GAIN 0.71
+param set-default HNTR_T1_TAU 0.0
+param set-default HNTR_T1_DLY 0.0
+param set-default HNTR_T1_RATE 720.0
+param set-default HNTR_T2_GAIN 1.0
 param set-default HNTR_T2_ZERO 0.0
-param set-default HNTR_T2_TAU 0.15
-param set-default HNTR_T2_DLY 0.15
-param set-default HNTR_T2_RATE 100.0
+param set-default HNTR_T2_TAU 0.0
+param set-default HNTR_T2_DLY 0.0
+param set-default HNTR_T2_RATE 720.0
 param set-default HNTR_SYNC_ERR 5.0
 param set-default HNTR_TO_SUP_T 1.0
 param set-default HNTR_TO_LOCK_T 4.0
