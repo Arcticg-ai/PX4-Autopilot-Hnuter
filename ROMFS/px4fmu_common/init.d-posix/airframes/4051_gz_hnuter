@@ -173,7 +173,7 @@ param set-default CA_SV_TL3_CT 0
 # MC Controller Tuning (Ported from hnuter104.py)
 # =============================================================================
 
-param set-default HNTR_CTRL_MODE 0
+param set-default HNTR_CTRL_MODE 1
 param set-default HNTR_MASS 4.5
 param set-default HNTR_MAX_ARM_T 170.96
 param set-default HNTR_MAX_TAIL_T 85.48
@@ -182,15 +182,17 @@ param set-default HNTR_L2 0.664
 param set-default HNTR_ROLL_SIGN 1.0
 param set-default HNTR_TAIL_SIGN 1.0
 param set-default HNTR_TAIL_COMP 1.0
-param set-default HNTR_MOT_HOV 0.40
+# Gazebo's post-allocation front-motor mean is about 0.33 at hover. Keep this
+# simulation-only anchor separate from the hardware PWM hover command.
+param set-default HNTR_MOT_HOV 0.33
 param set-default HNTR_LND_GC_R 0.90
 param set-default HNTR_LND_MIN_R 0.85
 param set-default HNTR_MOT_EXPO 0.50
-param set-default HNTR_POS_P_XY 1.0
+param set-default HNTR_POS_P_XY 0.55
 param set-default HNTR_POS_P_Z 1.5
-param set-default HNTR_VEL_P_XY 2.5
+param set-default HNTR_VEL_P_XY 1.8
 param set-default HNTR_VEL_P_Z 3.0
-param set-default HNTR_VEL_I_XY 0.20
+param set-default HNTR_VEL_I_XY 0.05
 param set-default HNTR_VEL_I_Z 0.50
 param set-default HNTR_VEL_D_XY 0.20
 param set-default HNTR_VEL_D_Z 0.30
@@ -202,24 +204,36 @@ param set-default HNTR_VEL_DN 1.5
 param set-default HNTR_ACC_XY 12.0
 param set-default HNTR_ACC_Z 20.0
 param set-default HNTR_TILT_MAX 185.0
+param set-default HNTR_TDYN_EN 1
+param set-default HNTR_T1_GAIN 1.414
+param set-default HNTR_T1_ZERO 0.0
+param set-default HNTR_T1_TAU 0.071
+param set-default HNTR_T1_DLY 0.108
+param set-default HNTR_T1_RATE 310.4
+param set-default HNTR_T2_GAIN 0.700
+param set-default HNTR_T2_ZERO 0.0
+param set-default HNTR_T2_TAU 0.151
+param set-default HNTR_T2_DLY 0.147
+param set-default HNTR_T2_RATE 165.3
+param set-default HNTR_SYNC_ERR 45.0
 param set-default HNTR_TO_SUP_T 1.0
 param set-default HNTR_TO_LOCK_T 3.0
 param set-default HNTR_TO_TILT 20.0
 param set-default HNTR_LOCK_TILT 30.0
 param set-default HNTR_LOCK_ACC 3.0
 param set-default HNTR_LOCK_KP 0.8
-param set-default HNTR_ATT_KR_R 8.0
-param set-default HNTR_ATT_KR_P 8.0
-param set-default HNTR_ATT_KR_Y 3.2
+param set-default HNTR_ATT_KR_R 4.0
+param set-default HNTR_ATT_KR_P 4.0
+param set-default HNTR_ATT_KR_Y 1.2
 param set-default HNTR_ATT_D_R 2.0
 param set-default HNTR_ATT_D_P 2.0
-param set-default HNTR_ATT_D_Y 2.2
-param set-default HNTR_ATT_I_R 0.0
-param set-default HNTR_ATT_I_P 0.0
-param set-default HNTR_ATT_I_Y 0.0
-param set-default HNTR_ATT_ILIM_R 0.0
-param set-default HNTR_ATT_ILIM_P 0.0
-param set-default HNTR_ATT_ILIM_Y 0.0
+param set-default HNTR_ATT_D_Y 1.2
+param set-default HNTR_ATT_I_R 0.15
+param set-default HNTR_ATT_I_P 0.40
+param set-default HNTR_ATT_I_Y 0.08
+param set-default HNTR_ATT_ILIM_R 0.20
+param set-default HNTR_ATT_ILIM_P 0.40
+param set-default HNTR_ATT_ILIM_Y 0.30
 param set-default HNTR_TAU_R 0.9
 param set-default HNTR_TAU_P 0.9
 param set-default HNTR_TAU_Y 1.8
@@ -231,6 +245,10 @@ param set-default HNTR_RC_RATE_Y 25.0
 param set-default HNTR_RC_DB 0.08
 param set-default HNTR_RC_ANG_MAX 90.0
 param set-default HNTR_RC_LVL_R 20.0
+
+# Full-circle Hnuter attitudes are intentional, not a multicopter failure.
+param set-default FD_FAIL_R 180
+param set-default FD_FAIL_P 180
 
 # Position Control
 param set-default MPC_XY_P 1.875

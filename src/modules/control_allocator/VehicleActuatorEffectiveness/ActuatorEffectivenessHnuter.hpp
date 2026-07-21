@@ -72,15 +72,25 @@ public:
 	void allocateAuxilaryControls(const float dt, int matrix_index, ActuatorVector &actuator_sp) override;
 
 	void updateSetpoint(const matrix::Vector<float, NUM_AXES> &control_sp, int matrix_index, ActuatorVector &actuator_sp,
-			const ActuatorVector &actuator_min, const ActuatorVector &actuator_max) override;
+			    const ActuatorVector &actuator_min, const ActuatorVector &actuator_max) override;
 
 	void getUnallocatedControl(int matrix_index, control_allocator_status_s &status) override;
 
 	const char *name() const override;
 
 private:
+	static constexpr int TILT_COMMAND_HISTORY_LENGTH = 96;
+
+	struct TiltCommandSample {
+		hrt_abstime timestamp{0};
+		matrix::Vector<float, 4> command_angle{};
+	};
 
 	void updateParams() override;
+	void resetTiltDynamics();
+	void updateTiltCommandHistory(hrt_abstime now, const matrix::Vector<float, 4> &command_angle);
+	matrix::Vector<float, 4> delayedTiltCommand(hrt_abstime now) const;
+	void updateTiltAngleEstimate(hrt_abstime now, float dt, const matrix::Vector<float, 4> &command_angle);
 
 	bool _collective_tilt_updated{true};
 	ActuatorEffectivenessRotors _mc_rotors;
@@ -95,7 +105,7 @@ private:
 	bool _armed{false};
 	bool _offboard_enabled{false};
 	bool _prev_armed{false};
-	hrt_abstime _armed_time{0};
+	hrt_abstime _takeoff_time{0};
 
 	uORB::Subscription _vehicle_land_detected_sub{ORB_ID(vehicle_land_detected)};
 	bool _landed{true};
@@ -116,6 +126,17 @@ private:
 	param_t _param_hntr_to_lock_t{PARAM_INVALID};
 	param_t _param_hntr_to_tilt{PARAM_INVALID};
 	param_t _param_hntr_lock_tilt{PARAM_INVALID};
+	param_t _param_hntr_tdyn_en{PARAM_INVALID};
+	param_t _param_hntr_t1_gain{PARAM_INVALID};
+	param_t _param_hntr_t1_zero{PARAM_INVALID};
+	param_t _param_hntr_t1_tau{PARAM_INVALID};
+	param_t _param_hntr_t1_dly{PARAM_INVALID};
+	param_t _param_hntr_t1_rate{PARAM_INVALID};
+	param_t _param_hntr_t2_gain{PARAM_INVALID};
+	param_t _param_hntr_t2_zero{PARAM_INVALID};
+	param_t _param_hntr_t2_tau{PARAM_INVALID};
+	param_t _param_hntr_t2_dly{PARAM_INVALID};
+	param_t _param_hntr_t2_rate{PARAM_INVALID};
 	float _sim_min_velocity{10.f};
 	float _sim_max_velocity{1000.f};
 	float _motor_hover_control{0.4f};
@@ -133,8 +154,25 @@ private:
 	float _takeoff_xy_lock_time_s{3.f};
 	float _takeoff_tilt_limit{0.349066f};
 	float _xy_lock_tilt_limit{0.523599f};
+	bool _tilt_dynamics_enabled{false};
+	float _tilt1_gain{1.f};
+	float _tilt1_zero{0.f};
+	float _tilt1_tau_s{0.f};
+	float _tilt1_delay_s{0.f};
+	float _tilt1_rate_rad_s{math::radians(1000.f)};
+	float _tilt2_gain{1.f};
+	float _tilt2_zero{0.f};
+	float _tilt2_tau_s{0.f};
+	float _tilt2_delay_s{0.f};
+	float _tilt2_rate_rad_s{math::radians(1000.f)};
 	float _motor_constant{8.54858e-05f};
 
 	hrt_abstime _last_servo_update{0};
 	matrix::Vector<float, 4> _last_servo_sp{};
+	matrix::Vector<float, 4> _estimated_tilt_angle{};
+	TiltCommandSample _tilt_command_history[TILT_COMMAND_HISTORY_LENGTH] {};
+	int _tilt_command_history_head{-1};
+	int _tilt_command_history_count{0};
+	hrt_abstime _last_tilt_history_sample{0};
+	matrix::Vector<float, NUM_AXES> _unallocated_control{};
 };

@@ -266,6 +266,33 @@ bool MulticopterLandDetector::_get_ground_contact_state()
 			ground_contact &= _in_descend;
 		}
 
+	} else if (hnuter_airframe) {
+		trajectory_setpoint_s trajectory_setpoint{};
+		const bool trajectory_fresh = _trajectory_setpoint_sub.copy(&trajectory_setpoint)
+					      && trajectory_setpoint.timestamp > 0
+					      && time_now_us >= trajectory_setpoint.timestamp
+					      && time_now_us - trajectory_setpoint.timestamp < 1_s;
+
+		if (trajectory_fresh) {
+			const bool velocity_descent = PX4_ISFINITE(trajectory_setpoint.velocity[2])
+					      && trajectory_setpoint.velocity[2] >= 1.1f * _param_lndmc_z_vel_max.get();
+			const bool position_descent = lpos_available && _vehicle_local_position.z_valid
+					      && PX4_ISFINITE(trajectory_setpoint.position[2])
+					      && trajectory_setpoint.position[2] > _vehicle_local_position.z
+					      + _param_lndmc_z_vel_max.get();
+			_in_descend = velocity_descent || position_descent;
+
+			// Hnuter can run its own translation loop while PX4 exposes only the
+			// Offboard attitude flag. A fresh hover trajectory must not be mistaken
+			// for ground contact merely because motor output is below its anchor.
+			if (!_maybe_landed_hysteresis.get_state() && !_landed_hysteresis.get_state()) {
+				ground_contact &= _in_descend;
+			}
+
+		} else {
+			_in_descend = false;
+		}
+
 	} else {
 		_in_descend = false;
 	}

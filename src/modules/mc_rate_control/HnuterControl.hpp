@@ -11,6 +11,7 @@
 #include <matrix/matrix/math.hpp>
 #include <px4_platform_common/module_params.h>
 #include <uORB/Subscription.hpp>
+#include <uORB/topics/control_allocator_status.h>
 #include <uORB/topics/rate_ctrl_status.h>
 #include <uORB/topics/manual_control_setpoint.h>
 #include <uORB/topics/trajectory_setpoint.h>
@@ -49,6 +50,10 @@ private:
 	static void constrainXY(matrix::Vector3f &vector, float limit);
 	static float applyDeadband(float input, float deadband);
 	static float slewToZero(float value, float rate_limit, float dt, float &applied_rate);
+	static float synchronizedAttitudeRate(float requested_rate_deg_s, float actuator_rate_deg_s,
+					      float actuator_tau_s, float actuator_delay_s, float allowed_error_deg);
+	static matrix::Vector3f continuousEulerFromRotation(const matrix::Dcmf &rotation,
+			const matrix::Vector3f &reference);
 
 	uORB::Subscription _vehicle_odometry_sub{ORB_ID(vehicle_odometry)};
 	uORB::Subscription _vehicle_attitude_sub{ORB_ID(vehicle_attitude)};
@@ -57,6 +62,7 @@ private:
 	uORB::Subscription _trajectory_setpoint_sub{ORB_ID(trajectory_setpoint)};
 	uORB::Subscription _vehicle_rates_setpoint_sub{ORB_ID(vehicle_rates_setpoint)};
 	uORB::Subscription _manual_control_setpoint_sub{ORB_ID(manual_control_setpoint)};
+	uORB::Subscription _control_allocator_status_sub{ORB_ID(control_allocator_status)};
 
 	matrix::Vector3f _velocity_integral{};
 	matrix::Vector3f _integral_e_R{};
@@ -70,7 +76,7 @@ private:
 	bool _rc_pitch_input_previous{false};
 	bool _rc_yaw_input_previous{false};
 	bool _prev_armed{false};
-	hrt_abstime _armed_time{0};
+	hrt_abstime _takeoff_time{0};
 	float _manual_altitude_sp{0.f};
 	float _rc_yaw_sp{0.f};
 	matrix::Vector2f _rc_attitude_sp{};
@@ -104,6 +110,14 @@ private:
 		(ParamFloat<px4::params::HNTR_STAB_Z_VEL>) _param_hntr_stab_z_vel,
 		(ParamFloat<px4::params::HNTR_STAB_THR_DB>) _param_hntr_stab_thr_db,
 		(ParamFloat<px4::params::HNTR_TILT_MAX>) _param_hntr_tilt_max,
+		(ParamBool<px4::params::HNTR_TDYN_EN>) _param_hntr_tdyn_en,
+		(ParamFloat<px4::params::HNTR_T1_TAU>) _param_hntr_t1_tau,
+		(ParamFloat<px4::params::HNTR_T1_DLY>) _param_hntr_t1_dly,
+		(ParamFloat<px4::params::HNTR_T1_RATE>) _param_hntr_t1_rate,
+		(ParamFloat<px4::params::HNTR_T2_TAU>) _param_hntr_t2_tau,
+		(ParamFloat<px4::params::HNTR_T2_DLY>) _param_hntr_t2_dly,
+		(ParamFloat<px4::params::HNTR_T2_RATE>) _param_hntr_t2_rate,
+		(ParamFloat<px4::params::HNTR_SYNC_ERR>) _param_hntr_sync_err,
 		(ParamFloat<px4::params::HNTR_TO_SUP_T>) _param_hntr_to_sup_t,
 		(ParamFloat<px4::params::HNTR_TO_LOCK_T>) _param_hntr_to_lock_t,
 		(ParamFloat<px4::params::HNTR_TO_TILT>) _param_hntr_to_tilt,

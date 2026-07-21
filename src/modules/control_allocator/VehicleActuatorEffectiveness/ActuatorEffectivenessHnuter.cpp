@@ -70,7 +70,9 @@ static float signedThrustToNormalizedMotorControl(float thrust, float motor_cons
 
 static float normalizedThrustToForce(float normalized_thrust, float max_force)
 {
-	return math::constrain(normalized_thrust, 0.f, 1.f) * math::max(max_force, 1.f);
+	// The sign describes the requested body-Z force direction. Motor thrust is
+	// still non-negative; the gimbal inverse selects the corresponding direction.
+	return math::constrain(normalized_thrust, -1.f, 1.f) * math::max(max_force, 1.f);
 }
 
 static float thrustToHoverAnchoredMotorControl(float thrust, float hover_force, float hover_control, float exponent)
@@ -121,6 +123,20 @@ static float tiltAngleToNormalizedServo(float angle, const ActuatorEffectiveness
 	return math::constrain(angle / negative_limit, -1.f, 0.f);
 }
 
+static float normalizedServoToTiltAngle(float normalized, const ActuatorEffectivenessTilts &tilts, int tilt_index,
+					float fallback)
+{
+	if (tilt_index < 0 || tilt_index >= tilts.count()) {
+		return math::constrain(normalized, -1.f, 1.f) * fallback;
+	}
+
+	const auto &config = tilts.config(tilt_index);
+	const float positive_limit = (config.max_angle > math::radians(1.f)) ? config.max_angle : fallback;
+	const float negative_limit = (config.min_angle < -math::radians(1.f)) ? -config.min_angle : fallback;
+
+	return math::constrain(normalized, -1.f, 1.f) * (normalized >= 0.f ? positive_limit : negative_limit);
+}
+
 ActuatorEffectivenessHnuter::ActuatorEffectivenessHnuter(ModuleParams *parent)
 	: ModuleParams(parent),
 	  _mc_rotors(this, ActuatorEffectivenessRotors::AxisConfiguration::Configurable, true),
@@ -143,6 +159,17 @@ ActuatorEffectivenessHnuter::ActuatorEffectivenessHnuter(ModuleParams *parent)
 	_param_hntr_to_lock_t = param_find("HNTR_TO_LOCK_T");
 	_param_hntr_to_tilt = param_find("HNTR_TO_TILT");
 	_param_hntr_lock_tilt = param_find("HNTR_LOCK_TILT");
+	_param_hntr_tdyn_en = param_find("HNTR_TDYN_EN");
+	_param_hntr_t1_gain = param_find("HNTR_T1_GAIN");
+	_param_hntr_t1_zero = param_find("HNTR_T1_ZERO");
+	_param_hntr_t1_tau = param_find("HNTR_T1_TAU");
+	_param_hntr_t1_dly = param_find("HNTR_T1_DLY");
+	_param_hntr_t1_rate = param_find("HNTR_T1_RATE");
+	_param_hntr_t2_gain = param_find("HNTR_T2_GAIN");
+	_param_hntr_t2_zero = param_find("HNTR_T2_ZERO");
+	_param_hntr_t2_tau = param_find("HNTR_T2_TAU");
+	_param_hntr_t2_dly = param_find("HNTR_T2_DLY");
+	_param_hntr_t2_rate = param_find("HNTR_T2_RATE");
 
 	updateParams();
 	setFlightPhase(FlightPhase::HOVER_FLIGHT);
@@ -279,10 +306,193 @@ void ActuatorEffectivenessHnuter::updateParams()
 			_xy_lock_tilt_limit = math::radians(math::constrain(value, 0.f, 185.f));
 		}
 	}
+
+	if (_param_hntr_tdyn_en != PARAM_INVALID) {
+		int32_t value = 0;
+
+		if (param_get(_param_hntr_tdyn_en, &value) == 0) {
+			const bool enabled = value != 0;
+
+			if (enabled != _tilt_dynamics_enabled) {
+				_tilt_dynamics_enabled = enabled;
+				resetTiltDynamics();
+			}
+		}
+	}
+
+	if (_param_hntr_t1_gain != PARAM_INVALID) {
+		float value = 0.f;
+
+		if (param_get(_param_hntr_t1_gain, &value) == 0) {
+			_tilt1_gain = math::constrain(value, 0.1f, 3.f);
+		}
+	}
+
+	if (_param_hntr_t1_zero != PARAM_INVALID) {
+		float value = 0.f;
+
+		if (param_get(_param_hntr_t1_zero, &value) == 0) {
+			_tilt1_zero = math::radians(math::constrain(value, -45.f, 45.f));
+		}
+	}
+
+	if (_param_hntr_t1_tau != PARAM_INVALID) {
+		float value = 0.f;
+
+		if (param_get(_param_hntr_t1_tau, &value) == 0) {
+			_tilt1_tau_s = math::constrain(value, 0.f, 2.f);
+		}
+	}
+
+	if (_param_hntr_t1_dly != PARAM_INVALID) {
+		float value = 0.f;
+
+		if (param_get(_param_hntr_t1_dly, &value) == 0) {
+			_tilt1_delay_s = math::constrain(value, 0.f, 0.4f);
+		}
+	}
+
+	if (_param_hntr_t1_rate != PARAM_INVALID) {
+		float value = 0.f;
+
+		if (param_get(_param_hntr_t1_rate, &value) == 0) {
+			_tilt1_rate_rad_s = math::radians(math::constrain(value, 1.f, 2000.f));
+		}
+	}
+
+	if (_param_hntr_t2_gain != PARAM_INVALID) {
+		float value = 0.f;
+
+		if (param_get(_param_hntr_t2_gain, &value) == 0) {
+			_tilt2_gain = math::constrain(value, 0.1f, 3.f);
+		}
+	}
+
+	if (_param_hntr_t2_zero != PARAM_INVALID) {
+		float value = 0.f;
+
+		if (param_get(_param_hntr_t2_zero, &value) == 0) {
+			_tilt2_zero = math::radians(math::constrain(value, -45.f, 45.f));
+		}
+	}
+
+	if (_param_hntr_t2_tau != PARAM_INVALID) {
+		float value = 0.f;
+
+		if (param_get(_param_hntr_t2_tau, &value) == 0) {
+			_tilt2_tau_s = math::constrain(value, 0.f, 2.f);
+		}
+	}
+
+	if (_param_hntr_t2_dly != PARAM_INVALID) {
+		float value = 0.f;
+
+		if (param_get(_param_hntr_t2_dly, &value) == 0) {
+			_tilt2_delay_s = math::constrain(value, 0.f, 0.4f);
+		}
+	}
+
+	if (_param_hntr_t2_rate != PARAM_INVALID) {
+		float value = 0.f;
+
+		if (param_get(_param_hntr_t2_rate, &value) == 0) {
+			_tilt2_rate_rad_s = math::radians(math::constrain(value, 1.f, 2000.f));
+		}
+	}
+}
+
+void ActuatorEffectivenessHnuter::resetTiltDynamics()
+{
+	_last_servo_update = 0;
+	_last_servo_sp.setZero();
+	_estimated_tilt_angle.setZero();
+	_estimated_tilt_angle(0) = _tilt1_zero;
+	_estimated_tilt_angle(1) = _tilt1_zero;
+	_estimated_tilt_angle(2) = _tilt2_zero;
+	_estimated_tilt_angle(3) = _tilt2_zero;
+	_tilt_command_history_head = -1;
+	_tilt_command_history_count = 0;
+	_last_tilt_history_sample = 0;
+	_unallocated_control.setZero();
+}
+
+void ActuatorEffectivenessHnuter::updateTiltCommandHistory(hrt_abstime now,
+		const matrix::Vector<float, 4> &command_angle)
+{
+	static constexpr hrt_abstime history_interval_us = 5000;
+
+	if (_tilt_command_history_count == 0 || now - _last_tilt_history_sample >= history_interval_us) {
+		_tilt_command_history_head = (_tilt_command_history_head + 1) % TILT_COMMAND_HISTORY_LENGTH;
+		_tilt_command_history[_tilt_command_history_head].timestamp = now;
+		_tilt_command_history[_tilt_command_history_head].command_angle = command_angle;
+		_tilt_command_history_count = math::min(_tilt_command_history_count + 1, TILT_COMMAND_HISTORY_LENGTH);
+		_last_tilt_history_sample = now;
+	}
+}
+
+matrix::Vector<float, 4> ActuatorEffectivenessHnuter::delayedTiltCommand(hrt_abstime now) const
+{
+	matrix::Vector<float, 4> delayed_command{};
+
+	if (_tilt_command_history_count == 0) {
+		return delayed_command;
+	}
+
+	for (int axis = 0; axis < 4; axis++) {
+		const float delay_s = axis < 2 ? _tilt1_delay_s : _tilt2_delay_s;
+		const hrt_abstime delay_us = (hrt_abstime)(delay_s * 1e6f);
+		const hrt_abstime target_time = now > delay_us ? now - delay_us : 0;
+		int selected_index = (_tilt_command_history_head - _tilt_command_history_count + 1
+				      + TILT_COMMAND_HISTORY_LENGTH) % TILT_COMMAND_HISTORY_LENGTH;
+
+		for (int sample = 0; sample < _tilt_command_history_count; sample++) {
+			const int index = (_tilt_command_history_head - sample + TILT_COMMAND_HISTORY_LENGTH)
+					  % TILT_COMMAND_HISTORY_LENGTH;
+
+			if (_tilt_command_history[index].timestamp <= target_time) {
+				selected_index = index;
+				break;
+			}
+		}
+
+		delayed_command(axis) = _tilt_command_history[selected_index].command_angle(axis);
+	}
+
+	return delayed_command;
+}
+
+void ActuatorEffectivenessHnuter::updateTiltAngleEstimate(hrt_abstime now, float dt,
+		const matrix::Vector<float, 4> &command_angle)
+{
+	if (!_tilt_dynamics_enabled) {
+		for (int axis = 0; axis < 4; ++axis) {
+			const float gain = axis < 2 ? _tilt1_gain : _tilt2_gain;
+			const float zero = axis < 2 ? _tilt1_zero : _tilt2_zero;
+			_estimated_tilt_angle(axis) = zero + gain * command_angle(axis);
+		}
+
+		return;
+	}
+
+	updateTiltCommandHistory(now, command_angle);
+	const matrix::Vector<float, 4> delayed_command = delayedTiltCommand(now);
+
+	for (int axis = 0; axis < 4; axis++) {
+		const float gain = axis < 2 ? _tilt1_gain : _tilt2_gain;
+		const float tau_s = axis < 2 ? _tilt1_tau_s : _tilt2_tau_s;
+		const float rate_rad_s = axis < 2 ? _tilt1_rate_rad_s : _tilt2_rate_rad_s;
+		const float zero_angle = axis < 2 ? _tilt1_zero : _tilt2_zero;
+		const float target_angle = zero_angle + gain * delayed_command(axis);
+		const float error = target_angle - _estimated_tilt_angle(axis);
+		float delta = tau_s > 1e-4f ? error * (1.f - expf(-dt / tau_s)) : error;
+		const float max_delta = rate_rad_s * dt;
+		delta = math::constrain(delta, -max_delta, max_delta);
+		_estimated_tilt_angle(axis) += delta;
+	}
 }
 
 bool ActuatorEffectivenessHnuter::getEffectivenessMatrix(Configuration &configuration,
-			EffectivenessUpdateReason external_update)
+		EffectivenessUpdateReason external_update)
 {
 	if (!_collective_tilt_updated && external_update == EffectivenessUpdateReason::NO_EXTERNAL_UPDATE) {
 		return false;
@@ -316,7 +526,7 @@ void ActuatorEffectivenessHnuter::allocateAuxilaryControls(const float dt, int m
 }
 
 void ActuatorEffectivenessHnuter::updateSetpoint(const matrix::Vector<float, NUM_AXES> &control_sp,
-			int matrix_index, ActuatorVector &actuator_sp, const ActuatorVector &actuator_min, const ActuatorVector &actuator_max)
+		int matrix_index, ActuatorVector &actuator_sp, const ActuatorVector &actuator_min, const ActuatorVector &actuator_max)
 {
 	if (matrix_index != 0) {
 		return;
@@ -332,7 +542,7 @@ void ActuatorEffectivenessHnuter::updateSetpoint(const matrix::Vector<float, NUM
 	const hrt_abstime now = hrt_absolute_time();
 
 	if (_armed && !_prev_armed) {
-		_armed_time = now;
+		_takeoff_time = 0;
 	}
 
 	_prev_armed = _armed;
@@ -340,8 +550,10 @@ void ActuatorEffectivenessHnuter::updateSetpoint(const matrix::Vector<float, NUM
 	vehicle_land_detected_s land_detected{};
 
 	if (_vehicle_land_detected_sub.update(&land_detected)) {
-		_landed = land_detected.landed;
+		_landed = land_detected.landed || land_detected.maybe_landed;
 	}
+
+	updateParams();
 
 	if (!_armed) {
 		const int num_tilts = _tilts.count();
@@ -359,19 +571,25 @@ void ActuatorEffectivenessHnuter::updateSetpoint(const matrix::Vector<float, NUM
 			actuator_sp(_first_tilt_idx + 3) = 0.0f;
 		}
 
-		_last_servo_update = 0;
-		_last_servo_sp.setZero();
-		_armed_time = 0;
+		resetTiltDynamics();
+		_takeoff_time = 0;
 		_prev_armed = false;
 		return;
 	}
 
-	updateParams();
+	if (_landed) {
+		_takeoff_time = 0;
 
-	const float time_since_armed_s = (_armed_time != 0) ? math::constrain(((now - _armed_time) * 1e-6f), 0.f, 100.f) : 100.f;
-	const bool takeoff_tilt_suppress_active = time_since_armed_s < _takeoff_tilt_suppress_time_s;
-	const bool takeoff_xy_lock_active = (time_since_armed_s >= _takeoff_tilt_suppress_time_s)
-					    && (time_since_armed_s < _takeoff_xy_lock_time_s);
+	} else if (_takeoff_time == 0) {
+		_takeoff_time = now;
+	}
+
+	const float time_since_takeoff_s = (_takeoff_time != 0)
+					   ? math::constrain((now - _takeoff_time) * 1e-6f, 0.f, 100.f) : 0.f;
+	const float horizontal_authority = _landed ? 0.f
+					   : (_takeoff_tilt_suppress_time_s > FLT_EPSILON
+					      ? math::constrain(time_since_takeoff_s / _takeoff_tilt_suppress_time_s, 0.f, 1.f) : 1.f);
+	const bool takeoff_xy_lock_active = !_landed && time_since_takeoff_s < _takeoff_xy_lock_time_s;
 
 	const float l1 = _l1;
 	const float l2 = _l2;
@@ -393,19 +611,18 @@ void ActuatorEffectivenessHnuter::updateSetpoint(const matrix::Vector<float, NUM
 
 	float W[6] {fx, fy, fz, tx, ty, tz};
 
-	if (takeoff_tilt_suppress_active) {
+	if (_landed) {
 		W[0] = 0.f;
 		W[1] = 0.f;
 	}
-
-	float u1 = W[0] / 2.0f - W[5] / (2.0f * l1);
-	float u4 = W[0] / 2.0f + W[5] / (2.0f * l1);
 
 	// Hardware keeps Motor5 dedicated to pitch torque. SITL can enable the
 	// collective compensation term because the Gazebo model still has a pitch
 	// moment from vertical front thrust and its center-of-mass placement.
 	const float Ty_parasitic = r_z * W[0] - r_x * W[2];
 	float F3 = (W[4] - _tail_collective_comp * Ty_parasitic) / (r_x + l2);
+	float u1 = W[0] / 2.0f - W[5] / (2.0f * l1);
+	float u4 = W[0] / 2.0f + W[5] / (2.0f * l1);
 
 	float Fz_front = W[2] - F3;
 
@@ -418,8 +635,8 @@ void ActuatorEffectivenessHnuter::updateSetpoint(const matrix::Vector<float, NUM
 	float u3 = -W[1] / 2.0f;
 	float u6 = -W[1] / 2.0f;
 
-	float F1 = sqrtf(u1*u1 + u2*u2 + u3*u3);
-	float F2 = sqrtf(u4*u4 + u5*u5 + u6*u6);
+	float F1 = sqrtf(u1 * u1 + u2 * u2 + u3 * u3);
+	float F2 = sqrtf(u4 * u4 + u5 * u5 + u6 * u6);
 
 	const float eps = 1e-8f;
 	float F1_safe = fmaxf(F1, eps);
@@ -430,29 +647,39 @@ void ActuatorEffectivenessHnuter::updateSetpoint(const matrix::Vector<float, NUM
 	float theta1 = asinf(math::constrain(u3 / F1_safe, -1.0f, 1.0f));
 	float theta2 = asinf(math::constrain(u6 / F2_safe, -1.0f, 1.0f));
 
-	const float alpha2_angle_max = tiltAngleAbsLimit(_tilts, 0, math::radians(185.0f));
-	const float alpha1_angle_max = tiltAngleAbsLimit(_tilts, 1, math::radians(185.0f));
-	const float theta2_angle_max = tiltAngleAbsLimit(_tilts, 2, math::radians(180.0f));
-	const float theta1_angle_max = tiltAngleAbsLimit(_tilts, 3, math::radians(180.0f));
-	const float alpha_angle_max = math::min(alpha1_angle_max, alpha2_angle_max);
-	const float theta_angle_max = math::min(theta1_angle_max, theta2_angle_max);
+	const float alpha2_command_max = tiltAngleAbsLimit(_tilts, 0, math::radians(185.0f));
+	const float alpha1_command_max = tiltAngleAbsLimit(_tilts, 1, math::radians(185.0f));
+	const float theta2_command_max = tiltAngleAbsLimit(_tilts, 2, math::radians(180.0f));
+	const float theta1_command_max = tiltAngleAbsLimit(_tilts, 3, math::radians(180.0f));
+	const float alpha_command_max = math::min(alpha1_command_max, alpha2_command_max);
+	const float theta_command_max = math::min(theta1_command_max, theta2_command_max);
+	// CA_SV_TL limits bound the equivalent servo command. Identified gains and
+	// zero offsets can make the physical joint range smaller, especially T2
+	// where K=0.71. Do not select an equivalent gimbal branch the mechanism
+	// cannot actually reach.
+	const float alpha_reachable_max = math::max(_tilt1_gain * alpha_command_max - fabsf(_tilt1_zero), 0.f);
+	const float theta_reachable_max = math::max(_tilt2_gain * theta_command_max - fabsf(_tilt2_zero), 0.f);
+	const float alpha_angle_max = math::min(alpha_command_max, alpha_reachable_max);
+	const float theta_angle_max = math::min(theta_command_max, theta_reachable_max);
 	float alpha_limit = alpha_angle_max;
 	float theta_limit = theta_angle_max;
 
-	if (takeoff_tilt_suppress_active) {
+	if (_landed) {
 		alpha_limit = _takeoff_tilt_limit;
 		theta_limit = _takeoff_tilt_limit;
 
 	} else if (takeoff_xy_lock_active) {
-		alpha_limit = _xy_lock_tilt_limit;
-		theta_limit = _xy_lock_tilt_limit;
+		const float ramped_tilt_limit = _takeoff_tilt_limit
+						+ horizontal_authority * (_xy_lock_tilt_limit - _takeoff_tilt_limit);
+		alpha_limit = ramped_tilt_limit;
+		theta_limit = ramped_tilt_limit;
 	}
 
 	if (_last_servo_update != 0
 	    && alpha_limit >= math::radians(179.0f)
-	    && theta_limit >= math::radians(179.0f)) {
+	    && theta_limit >= math::radians(89.0f)) {
 		auto select_continuous_gimbal_branch = [alpha_limit, theta_limit](
-				float &alpha, float &theta, float previous_alpha, float previous_theta) {
+		float & alpha, float & theta, float previous_alpha, float previous_theta) {
 			const float base_alpha = matrix::unwrap_pi(previous_alpha, alpha);
 			const float alternate_alpha = matrix::unwrap_pi(previous_alpha, alpha + M_PI_F);
 			const float alternate_positive_theta = M_PI_F - theta;
@@ -494,17 +721,15 @@ void ActuatorEffectivenessHnuter::updateSetpoint(const matrix::Vector<float, NUM
 		};
 
 		select_continuous_gimbal_branch(alpha1, theta1,
-					       _last_servo_sp(1) * alpha1_angle_max,
-					       _last_servo_sp(3) * theta1_angle_max);
+						_estimated_tilt_angle(1), _estimated_tilt_angle(3));
 		select_continuous_gimbal_branch(alpha2, theta2,
-					       _last_servo_sp(0) * alpha2_angle_max,
-					       _last_servo_sp(2) * theta2_angle_max);
+						_estimated_tilt_angle(0), _estimated_tilt_angle(2));
 	}
 
 	if (_last_servo_update != 0 && alpha_limit >= math::radians(179.0f)) {
 		// Keep the atan2 branch continuous near the primary tilt hard stops.
-		const float previous_alpha1 = _last_servo_sp(1) * alpha1_angle_max;
-		const float previous_alpha2 = _last_servo_sp(0) * alpha2_angle_max;
+		const float previous_alpha1 = _estimated_tilt_angle(1);
+		const float previous_alpha2 = _estimated_tilt_angle(0);
 		alpha1 = math::constrain(matrix::unwrap_pi(previous_alpha1, alpha1), -alpha_limit, alpha_limit);
 		alpha2 = math::constrain(matrix::unwrap_pi(previous_alpha2, alpha2), -alpha_limit, alpha_limit);
 
@@ -512,15 +737,54 @@ void ActuatorEffectivenessHnuter::updateSetpoint(const matrix::Vector<float, NUM
 		alpha1 = math::constrain(alpha1, -alpha_limit, alpha_limit);
 		alpha2 = math::constrain(alpha2, -alpha_limit, alpha_limit);
 	}
+
 	theta1 = math::constrain(theta1, -theta_limit, theta_limit);
 	theta2 = math::constrain(theta2, -theta_limit, theta_limit);
 
 	const int num_rotors = _mc_rotors.geometry().num_rotors;
 	const int num_tilts = _tilts.count();
+	float dt = 0.f;
+
+	if (_last_servo_update != 0) {
+		dt = math::constrain((now - _last_servo_update) / 1e6f, 0.f, 0.05f);
+	}
+
+	matrix::Vector<float, 4> servo_sp{};
+	matrix::Vector<float, 4> command_angle{};
+
+	if (num_tilts >= 4) {
+		servo_sp(0) = tiltAngleToNormalizedServo((alpha2 - _tilt1_zero) / _tilt1_gain,
+				_tilts, 0, math::radians(185.f));
+		servo_sp(1) = tiltAngleToNormalizedServo((alpha1 - _tilt1_zero) / _tilt1_gain,
+				_tilts, 1, math::radians(185.f));
+		servo_sp(2) = tiltAngleToNormalizedServo((theta2 - _tilt2_zero) / _tilt2_gain,
+				_tilts, 2, math::radians(180.f));
+		servo_sp(3) = tiltAngleToNormalizedServo((theta1 - _tilt2_zero) / _tilt2_gain,
+				_tilts, 3, math::radians(180.f));
+		command_angle(0) = normalizedServoToTiltAngle(servo_sp(0), _tilts, 0, math::radians(185.f));
+		command_angle(1) = normalizedServoToTiltAngle(servo_sp(1), _tilts, 1, math::radians(185.f));
+		command_angle(2) = normalizedServoToTiltAngle(servo_sp(2), _tilts, 2, math::radians(180.f));
+		command_angle(3) = normalizedServoToTiltAngle(servo_sp(3), _tilts, 3, math::radians(180.f));
+		updateTiltAngleEstimate(now, dt, command_angle);
+	}
+
+	const Vector3f desired_left{u1, u2, u3};
+	const Vector3f desired_right{u4, u5, u6};
+	const float alpha1_est = num_tilts >= 4 ? _estimated_tilt_angle(1) : alpha1;
+	const float alpha2_est = num_tilts >= 4 ? _estimated_tilt_angle(0) : alpha2;
+	const float theta1_est = num_tilts >= 4 ? _estimated_tilt_angle(3) : theta1;
+	const float theta2_est = num_tilts >= 4 ? _estimated_tilt_angle(2) : theta2;
+	const Vector3f direction_left{cosf(theta1_est) *sinf(alpha1_est),
+				      cosf(theta1_est) *cosf(alpha1_est), sinf(theta1_est)};
+	const Vector3f direction_right{cosf(theta2_est) *sinf(alpha2_est),
+				       cosf(theta2_est) *cosf(alpha2_est), sinf(theta2_est)};
+	const float allocated_left_force = math::constrain(desired_left.dot(direction_left), 0.f, max_thrust_per_arm);
+	const float allocated_right_force = math::constrain(desired_right.dot(direction_right), 0.f, max_thrust_per_arm);
+	const float allocated_tail_force = math::constrain(F3, -max_tail_thrust, max_tail_thrust);
 
 	if (num_rotors >= 4) {
-		const float right_single = 0.5f * F2;
-		const float left_single = 0.5f * F1;
+		const float right_single = 0.5f * allocated_right_force;
+		const float left_single = 0.5f * allocated_left_force;
 
 		float norm_right = 0.f;
 		float norm_left = 0.f;
@@ -529,7 +793,8 @@ void ActuatorEffectivenessHnuter::updateSetpoint(const matrix::Vector<float, NUM
 		if (_simulation_motor_model) {
 			norm_right = thrustToNormalizedMotorControl(right_single, _motor_constant, _sim_min_velocity, _sim_max_velocity);
 			norm_left = thrustToNormalizedMotorControl(left_single, _motor_constant, _sim_min_velocity, _sim_max_velocity);
-			norm_tail = signedThrustToNormalizedMotorControl(F3, _motor_constant, _sim_min_velocity, _sim_max_velocity);
+			norm_tail = signedThrustToNormalizedMotorControl(allocated_tail_force, _motor_constant, _sim_min_velocity,
+					_sim_max_velocity);
 
 		} else {
 			// A hover anchor is measurable in flight and avoids pretending that the
@@ -538,8 +803,8 @@ void ActuatorEffectivenessHnuter::updateSetpoint(const matrix::Vector<float, NUM
 			norm_right = thrustToHoverAnchoredMotorControl(right_single, hover_force_per_motor,
 					_motor_hover_control, _motor_thrust_exponent);
 			norm_left = thrustToHoverAnchoredMotorControl(left_single, hover_force_per_motor,
-				       _motor_hover_control, _motor_thrust_exponent);
-			norm_tail = signedForceToNormalizedMotorControl(F3, max_tail_thrust, _motor_thrust_exponent);
+					_motor_hover_control, _motor_thrust_exponent);
+			norm_tail = signedForceToNormalizedMotorControl(allocated_tail_force, max_tail_thrust, _motor_thrust_exponent);
 		}
 
 		actuator_sp(0) = norm_right;
@@ -552,35 +817,26 @@ void ActuatorEffectivenessHnuter::updateSetpoint(const matrix::Vector<float, NUM
 		}
 	}
 
-	const float servo_rate_limit_rad_s = 50.f;
-	float dt = 0.f;
-
-	if (_last_servo_update != 0) {
-		dt = math::constrain((now - _last_servo_update) / 1e6f, 0.f, 0.2f);
-	}
+	const Vector3f allocated_left = allocated_left_force * direction_left;
+	const Vector3f allocated_right = allocated_right_force * direction_right;
+	const float allocated_fx = allocated_left(0) + allocated_right(0);
+	const float allocated_fy = -(allocated_left(2) + allocated_right(2));
+	const float allocated_fz = allocated_left(1) + allocated_right(1) + allocated_tail_force;
+	const float allocated_tx = l1 * (allocated_left(1) - allocated_right(1)) - r_z * allocated_fy;
+	const float allocated_ty = allocated_tail_force * (r_x + l2)
+				   + _tail_collective_comp * (r_z * allocated_fx - r_x * allocated_fz);
+	const float allocated_tz = l1 * (allocated_right(0) - allocated_left(0));
+	const float roll_scale = math::max(max_thrust_per_arm * l1, 1.f);
+	const float pitch_scale = math::max(max_tail_thrust * l2, 1.f);
+	const float vertical_scale = math::max(max_vertical_thrust, 1.f);
+	_unallocated_control(0) = math::constrain((W[3] - allocated_tx) / (_roll_torque_sign * roll_scale), -1.f, 1.f);
+	_unallocated_control(1) = math::constrain((W[4] - allocated_ty) / (_tail_torque_sign * pitch_scale), -1.f, 1.f);
+	_unallocated_control(2) = math::constrain(-(W[5] - allocated_tz) / roll_scale, -1.f, 1.f);
+	_unallocated_control(3) = math::constrain((W[0] - allocated_fx) / max_thrust_per_arm, -1.f, 1.f);
+	_unallocated_control(4) = math::constrain(-(W[1] - allocated_fy) / max_thrust_per_arm, -1.f, 1.f);
+	_unallocated_control(5) = math::constrain(-(W[2] - allocated_fz) / vertical_scale, -1.f, 1.f);
 
 	if (num_tilts >= 4) {
-		matrix::Vector<float, 4> servo_sp;
-		servo_sp(0) = tiltAngleToNormalizedServo(alpha2, _tilts, 0, math::radians(185.0f));
-		servo_sp(1) = tiltAngleToNormalizedServo(alpha1, _tilts, 1, math::radians(185.0f));
-		servo_sp(2) = tiltAngleToNormalizedServo(theta2, _tilts, 2, math::radians(180.0f));
-		servo_sp(3) = tiltAngleToNormalizedServo(theta1, _tilts, 3, math::radians(180.0f));
-
-		if (_last_servo_update != 0 && dt > 0.f) {
-			const float alpha2_max_delta = (servo_rate_limit_rad_s * dt) / alpha2_angle_max;
-			const float alpha1_max_delta = (servo_rate_limit_rad_s * dt) / alpha1_angle_max;
-			const float theta2_max_delta = (servo_rate_limit_rad_s * dt) / theta2_angle_max;
-			const float theta1_max_delta = (servo_rate_limit_rad_s * dt) / theta1_angle_max;
-			servo_sp(0) = math::constrain(servo_sp(0), _last_servo_sp(0) - alpha2_max_delta,
-						     _last_servo_sp(0) + alpha2_max_delta);
-			servo_sp(1) = math::constrain(servo_sp(1), _last_servo_sp(1) - alpha1_max_delta,
-						     _last_servo_sp(1) + alpha1_max_delta);
-			servo_sp(2) = math::constrain(servo_sp(2), _last_servo_sp(2) - theta2_max_delta,
-						     _last_servo_sp(2) + theta2_max_delta);
-			servo_sp(3) = math::constrain(servo_sp(3), _last_servo_sp(3) - theta1_max_delta,
-						     _last_servo_sp(3) + theta1_max_delta);
-		}
-
 		actuator_sp(_first_tilt_idx + 0) = servo_sp(0);
 		actuator_sp(_first_tilt_idx + 1) = servo_sp(1);
 		actuator_sp(_first_tilt_idx + 2) = servo_sp(2);
@@ -630,10 +886,10 @@ void ActuatorEffectivenessHnuter::getUnallocatedControl(int matrix_index, contro
 		return;
 	}
 
-	status.unallocated_torque[0] = 0.f;
-	status.unallocated_torque[1] = 0.f;
-	status.unallocated_torque[2] = 0.f;
-	status.unallocated_thrust[0] = 0.f;
-	status.unallocated_thrust[1] = 0.f;
-	status.unallocated_thrust[2] = 0.f;
+	status.unallocated_torque[0] = _unallocated_control(0);
+	status.unallocated_torque[1] = _unallocated_control(1);
+	status.unallocated_torque[2] = _unallocated_control(2);
+	status.unallocated_thrust[0] = _unallocated_control(3);
+	status.unallocated_thrust[1] = _unallocated_control(4);
+	status.unallocated_thrust[2] = _unallocated_control(5);
 }

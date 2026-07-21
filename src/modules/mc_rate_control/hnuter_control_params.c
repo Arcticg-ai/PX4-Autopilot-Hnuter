@@ -506,6 +506,166 @@ PARAM_DEFINE_FLOAT(HNTR_STAB_THR_DB, 0.15f);
 PARAM_DEFINE_FLOAT(HNTR_TILT_MAX, 185.0f);
 
 /**
+ * Enable identified tilt dynamics compensation
+ *
+ * When enabled, the allocator estimates physical tilt using the configured
+ * delay, first-order time constant and rate limit. Manual attitude references
+ * are synchronized to the same model. When disabled, commanded tilt geometry
+ * is used immediately and Position control closes the loop directly through
+ * measured vehicle position and attitude. Static gain and zero remain active.
+ *
+ * @boolean
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_INT32(HNTR_TDYN_EN, 0);
+
+/**
+ * Hnuter stage-one tilt static gain
+ *
+ * Ratio of measured stage-one joint angle to the equivalent servo command
+ * angle. The allocator divides the requested physical angle by this value.
+ *
+ * @min 0.1
+ * @max 3.0
+ * @decimal 3
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_T1_GAIN, 1.0f);
+
+/**
+ * Hnuter stage-one physical zero offset
+ *
+ * Measured stage-one joint angle when the normalized servo command is zero.
+ * A positive value means both arms physically point toward positive body X at
+ * the PWM midpoint. The allocator subtracts this offset before commanding the
+ * servo and includes it in the dynamic thrust-direction estimate.
+ *
+ * @unit deg
+ * @min -45.0
+ * @max 45.0
+ * @decimal 2
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_T1_ZERO, 0.0f);
+
+/**
+ * Hnuter stage-one tilt time constant
+ *
+ * First-order time constant identified from the physical joint response.
+ *
+ * @unit s
+ * @min 0.0
+ * @max 2.0
+ * @decimal 3
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_T1_TAU, 0.0f);
+
+/**
+ * Hnuter stage-one tilt pure delay
+ *
+ * @unit s
+ * @min 0.0
+ * @max 0.4
+ * @decimal 3
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_T1_DLY, 0.0f);
+
+/**
+ * Hnuter stage-one tilt rate limit
+ *
+ * Conservative physical joint speed, not the unloaded servo shaft speed.
+ *
+ * @unit deg/s
+ * @min 1.0
+ * @max 2000.0
+ * @decimal 1
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_T1_RATE, 1000.0f);
+
+/**
+ * Hnuter stage-two tilt static gain
+ *
+ * Ratio of measured stage-two joint angle to the equivalent servo command
+ * angle. This includes the gearbox and linkage ratio.
+ *
+ * @min 0.1
+ * @max 3.0
+ * @decimal 3
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_T2_GAIN, 1.0f);
+
+/**
+ * Hnuter stage-two physical zero offset
+ *
+ * Measured stage-two joint angle when the normalized servo command is zero.
+ * The allocator subtracts this offset before commanding the servo and includes
+ * it in the dynamic thrust-direction estimate.
+ *
+ * @unit deg
+ * @min -45.0
+ * @max 45.0
+ * @decimal 2
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_T2_ZERO, 0.0f);
+
+/**
+ * Hnuter stage-two tilt time constant
+ *
+ * First-order time constant identified at the gearbox output.
+ *
+ * @unit s
+ * @min 0.0
+ * @max 2.0
+ * @decimal 3
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_T2_TAU, 0.0f);
+
+/**
+ * Hnuter stage-two tilt pure delay
+ *
+ * @unit s
+ * @min 0.0
+ * @max 0.4
+ * @decimal 3
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_T2_DLY, 0.0f);
+
+/**
+ * Hnuter stage-two tilt rate limit
+ *
+ * Conservative physical joint speed after the gearbox reduction.
+ *
+ * @unit deg/s
+ * @min 1.0
+ * @max 2000.0
+ * @decimal 1
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_T2_RATE, 1000.0f);
+
+/**
+ * Hnuter tilt synchronization error
+ *
+ * Maximum approximate attitude-to-tilt dynamic angle mismatch used to limit
+ * manual roll and pitch reference rates. Roll uses the stage-two model and
+ * pitch uses the stage-one model.
+ *
+ * @unit deg
+ * @min 0.5
+ * @max 45.0
+ * @decimal 1
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_SYNC_ERR, 45.0f);
+
+/**
  * Hnuter takeoff tilt suppression time
  *
  * @unit s
