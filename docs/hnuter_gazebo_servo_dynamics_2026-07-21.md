@@ -2,9 +2,9 @@
 
 ## 1. 目的
 
-将 `analysis/` 中由动捕辨识得到的两级倾转参数放到 Gazebo 被控对象中，使仿真舵机
-不再瞬时到位。实机固件仍默认 `HNTR_TDYN_EN=0`；只有 `gz_hnuter` 的 POSIX airframe
-默认启用同参数的控制分配状态估计，用于补偿仿真被控对象的动态。
+将 `analysis/` 中由动捕辨识得到的两级倾转响应近似放到 Gazebo 被控对象中，使仿真舵机
+不再瞬时到位。实机和 `gz_hnuter` 均默认 `HNTR_TDYN_EN=0`，控制器只进行静态传动比
+换算，不再重复模拟被控对象已经包含的纯延迟、一阶惯性和速度限制。
 
 ## 2. 辨识参数
 
@@ -29,11 +29,14 @@ T2: gain=0.700, delay=0.147 s, tau=0.151 s, rate=165.3 deg/s
   增益、一阶惯性、速度限制和物理角度限制，再发布 `servo_N_dynamic`。
 - 四个 Gazebo `JointPositionController` 改为订阅动态输出。插件对非有限命令、非有限
   仿真时间和仿真时间回跳做保护。
-- 模型关节速度限制同步为一级负向最慢 `5.419 rad/s`、二级负向最慢
-  `2.886 rad/s`。一级关节 PID 原有的 `+-1.57 rad` 隐含限制已改为机构范围
-  `+-3.228859 rad`。
-- SITL airframe 启用 `HNTR_TDYN_EN=1`，并设置与被控对象匹配的 T1/T2 参数。实机
-  airframe 没有改为启用动态估计。
+- 插件使用正负方向均值近似响应：一级 `K=1.414, Td=0.108 s, tau=0.071 s,
+  rate=5.5 rad/s`，二级 `K=0.700, Td=0.147 s, tau=0.151 s, rate=3.0 rad/s`。
+  该近似保留两级机构的主要差异，不追求逐方向完全复现实测曲线。
+- Gazebo 关节速度恢复为 `10 rad/s`，高于插件输出速度，使关节 PID 主要负责跟踪
+  `servo_N_dynamic`，避免插件和物理关节重复限速。一级关节 PID 原有的
+  `+-1.57 rad` 隐含限制仍改为机构范围 `+-3.228859 rad`。
+- SITL 和实机 airframe 均保持 `HNTR_TDYN_EN=0`。T1/T2 参数保留用于可选实验，默认
+  只通过静态增益反算舵机命令，不用延迟模型再次限制控制分配。
 - 外部控制器新增 `HNUTER_CONTROL_MODE=px4_attitude`：同时发布位置和姿态期望，姿态
   输入使用 PX4 1.17 的 `/fmu/in/vehicle_attitude_setpoint_v1`。Arm 状态只以
   `VehicleControlMode.flag_armed` 为准，飞行后意外 Disarm 不会自动重新解锁。

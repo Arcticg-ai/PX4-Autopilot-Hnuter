@@ -204,7 +204,9 @@ param set-default HNTR_VEL_DN 1.5
 param set-default HNTR_ACC_XY 12.0
 param set-default HNTR_ACC_Z 20.0
 param set-default HNTR_TILT_MAX 185.0
-param set-default HNTR_TDYN_EN 1
+# Servo delay/lag/rate are already part of the Gazebo plant. Keep only static
+# transmission calibration in the allocator to avoid applying dynamics twice.
+param set-default HNTR_TDYN_EN 0
 param set-default HNTR_T1_GAIN 1.414
 param set-default HNTR_T1_ZERO 0.0
 param set-default HNTR_T1_TAU 0.071

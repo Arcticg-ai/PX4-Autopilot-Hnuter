@@ -132,7 +132,7 @@
         <limit>
           <lower>-3.2288591161895095</lower>
           <upper>3.2288591161895095</upper>
-          <effort>500</effort> <velocity>5.419</velocity> </limit>
+          <effort>500</effort> <velocity>10</velocity> </limit>
         <dynamics>
           <damping>0.5</damping>
           <friction>0.1</friction>
@@ -187,7 +187,7 @@
         <limit>
           <lower>-3.141592653589793</lower>
           <upper>3.141592653589793</upper>
-          <effort>500</effort> <velocity>2.886</velocity> </limit>
+          <effort>500</effort> <velocity>10</velocity> </limit>
         <dynamics>
           <damping>0.5</damping>
           <friction>0.1</friction>
@@ -353,7 +353,7 @@
         <limit>
           <lower>-3.2288591161895095</lower>
           <upper>3.2288591161895095</upper>
-          <effort>500</effort> <velocity>5.419</velocity> </limit>
+          <effort>500</effort> <velocity>10</velocity> </limit>
         <dynamics>
           <damping>0.5</damping>
           <friction>0.1</friction>
@@ -408,7 +408,7 @@
         <limit>
           <lower>-3.141592653589793</lower>
           <upper>3.141592653589793</upper>
-          <effort>500</effort> <velocity>2.886</velocity> </limit>
+          <effort>500</effort> <velocity>10</velocity> </limit>
         <dynamics>
           <damping>0.5</damping>
           <friction>0.1</friction>
@@ -710,14 +710,14 @@
       <channel_name>right_primary</channel_name>
       <input_topic>servo_0</input_topic>
       <output_topic>servo_0_dynamic</output_topic>
-      <gain_positive>1.404</gain_positive>
-      <gain_negative>1.423</gain_negative>
-      <tau_positive>0.076</tau_positive>
-      <tau_negative>0.065</tau_negative>
-      <delay_positive>0.110</delay_positive>
-      <delay_negative>0.106</delay_negative>
-      <rate_positive>6.082</rate_positive>
-      <rate_negative>5.419</rate_negative>
+      <gain_positive>1.414</gain_positive>
+      <gain_negative>1.414</gain_negative>
+      <tau_positive>0.071</tau_positive>
+      <tau_negative>0.071</tau_negative>
+      <delay_positive>0.108</delay_positive>
+      <delay_negative>0.108</delay_negative>
+      <rate_positive>5.5</rate_positive>
+      <rate_negative>5.5</rate_negative>
       <angle_min>-3.2288591161895095</angle_min>
       <angle_max>3.2288591161895095</angle_max>
     </plugin>
@@ -726,14 +726,14 @@
       <channel_name>left_primary</channel_name>
       <input_topic>servo_1</input_topic>
       <output_topic>servo_1_dynamic</output_topic>
-      <gain_positive>1.404</gain_positive>
-      <gain_negative>1.423</gain_negative>
-      <tau_positive>0.076</tau_positive>
-      <tau_negative>0.065</tau_negative>
-      <delay_positive>0.110</delay_positive>
-      <delay_negative>0.106</delay_negative>
-      <rate_positive>6.082</rate_positive>
-      <rate_negative>5.419</rate_negative>
+      <gain_positive>1.414</gain_positive>
+      <gain_negative>1.414</gain_negative>
+      <tau_positive>0.071</tau_positive>
+      <tau_negative>0.071</tau_negative>
+      <delay_positive>0.108</delay_positive>
+      <delay_negative>0.108</delay_negative>
+      <rate_positive>5.5</rate_positive>
+      <rate_negative>5.5</rate_negative>
       <angle_min>-3.2288591161895095</angle_min>
       <angle_max>3.2288591161895095</angle_max>
     </plugin>
@@ -742,14 +742,14 @@
       <channel_name>right_secondary</channel_name>
       <input_topic>servo_2</input_topic>
       <output_topic>servo_2_dynamic</output_topic>
-      <gain_positive>0.705</gain_positive>
-      <gain_negative>0.695</gain_negative>
-      <tau_positive>0.153</tau_positive>
-      <tau_negative>0.149</tau_negative>
-      <delay_positive>0.156</delay_positive>
-      <delay_negative>0.137</delay_negative>
-      <rate_positive>3.252</rate_positive>
-      <rate_negative>2.886</rate_negative>
+      <gain_positive>0.700</gain_positive>
+      <gain_negative>0.700</gain_negative>
+      <tau_positive>0.151</tau_positive>
+      <tau_negative>0.151</tau_negative>
+      <delay_positive>0.147</delay_positive>
+      <delay_negative>0.147</delay_negative>
+      <rate_positive>3.0</rate_positive>
+      <rate_negative>3.0</rate_negative>
       <angle_min>-3.141592653589793</angle_min>
       <angle_max>3.141592653589793</angle_max>
     </plugin>
@@ -758,14 +758,14 @@
       <channel_name>left_secondary</channel_name>
       <input_topic>servo_3</input_topic>
       <output_topic>servo_3_dynamic</output_topic>
-      <gain_positive>0.705</gain_positive>
-      <gain_negative>0.695</gain_negative>
-      <tau_positive>0.153</tau_positive>
-      <tau_negative>0.149</tau_negative>
-      <delay_positive>0.156</delay_positive>
-      <delay_negative>0.137</delay_negative>
-      <rate_positive>3.252</rate_positive>
-      <rate_negative>2.886</rate_negative>
+      <gain_positive>0.700</gain_positive>
+      <gain_negative>0.700</gain_negative>
+      <tau_positive>0.151</tau_positive>
+      <tau_negative>0.151</tau_negative>
+      <delay_positive>0.147</delay_positive>
+      <delay_negative>0.147</delay_negative>
+      <rate_positive>3.0</rate_positive>
+      <rate_negative>3.0</rate_negative>
       <angle_min>-3.141592653589793</angle_min>
       <angle_max>3.141592653589793</angle_max>
     </plugin>
