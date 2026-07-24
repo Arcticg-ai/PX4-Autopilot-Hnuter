@@ -311,8 +311,8 @@ param set-default HNTR_L1 0.33
 param set-default HNTR_L2 0.664
 param set-default HNTR_MOT_HOV 0.40
 param set-default HNTR_MOT_EXPO 0.50
-param set-default HNTR_LND_GC_R 0.90
-param set-default HNTR_LND_MIN_R 0.85
+param set-default HNTR_LND_GC_R 0.75
+param set-default HNTR_LND_MIN_R 0.60
 param set-default HNTR_POS_P_XY 0.6
 param set-default HNTR_POS_P_Z 1.0
 param set-default HNTR_VEL_P_XY 1.5
