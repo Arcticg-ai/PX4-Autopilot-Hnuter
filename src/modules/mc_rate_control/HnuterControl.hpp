@@ -11,6 +11,8 @@
 #include <matrix/matrix/math.hpp>
 #include <px4_platform_common/module_params.h>
 #include <uORB/Subscription.hpp>
+#include <uORB/Publication.hpp>
+#include <uORB/topics/debug_vect.h>
 #include <uORB/topics/rate_ctrl_status.h>
 #include <uORB/topics/manual_control_setpoint.h>
 #include <uORB/topics/trajectory_setpoint.h>
@@ -57,6 +59,7 @@ private:
 	uORB::Subscription _trajectory_setpoint_sub{ORB_ID(trajectory_setpoint)};
 	uORB::Subscription _vehicle_rates_setpoint_sub{ORB_ID(vehicle_rates_setpoint)};
 	uORB::Subscription _manual_control_setpoint_sub{ORB_ID(manual_control_setpoint)};
+	uORB::Publication<debug_vect_s> _hnuter_attitude_setpoint_debug_pub{ORB_ID(debug_vect)};
 
 	matrix::Vector3f _velocity_integral{};
 	matrix::Vector3f _integral_e_R{};

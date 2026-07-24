@@ -68,6 +68,10 @@ publications:
     type: px4_msgs::msg::VehicleAttitudeSetpoint
     rate_limit: 100.
 
+  - topic: /fmu/out/debug_vect
+    type: px4_msgs::msg::DebugVect
+    rate_limit: 100.
+
   - topic: /fmu/out/vehicle_torque_setpoint
     type: px4_msgs::msg::VehicleTorqueSetpoint
     rate_limit: 100.

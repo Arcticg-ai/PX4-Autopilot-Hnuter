@@ -13,13 +13,52 @@
           <iyy>0.076945537</iyy> <iyz>0</iyz>
           <izz>0.12824256</izz> </inertia>
       </inertial>
-      <collision name='base_link_collision'>
-        <pose>0 0 0 0 0 0</pose>
+      <collision name='base_body_collision'>
+        <pose>-0.30 0 -0.08 0 0 0</pose>
         <geometry>
-          <mesh>
-            <scale>1 1 1</scale>
-            <uri>meshes/base_link.STL</uri>
-          </mesh>
+          <box>
+            <size>0.78 0.42 0.20</size>
+          </box>
+        </geometry>
+      </collision>
+      <collision name='rear_boom_collision'>
+        <pose>-0.62 0 -0.15 0 0 0</pose>
+        <geometry>
+          <box>
+            <size>0.34 0.10 0.08</size>
+          </box>
+        </geometry>
+      </collision>
+      <collision name='front_left_ground_pad_collision'>
+        <pose>0.05 0.21 -0.3275 0 0 0</pose>
+        <geometry>
+          <box>
+            <size>0.28 0.045 0.035</size>
+          </box>
+        </geometry>
+      </collision>
+      <collision name='front_right_ground_pad_collision'>
+        <pose>0.05 -0.21 -0.3275 0 0 0</pose>
+        <geometry>
+          <box>
+            <size>0.28 0.045 0.035</size>
+          </box>
+        </geometry>
+      </collision>
+      <collision name='rear_left_ground_pad_collision'>
+        <pose>-0.58 0.21 -0.3275 0 0 0</pose>
+        <geometry>
+          <box>
+            <size>0.28 0.045 0.035</size>
+          </box>
+        </geometry>
+      </collision>
+      <collision name='rear_right_ground_pad_collision'>
+        <pose>-0.58 -0.21 -0.3275 0 0 0</pose>
+        <geometry>
+          <box>
+            <size>0.28 0.045 0.035</size>
+          </box>
         </geometry>
       </collision>
       <visual name='base_link_visual'>
@@ -154,12 +193,11 @@
         </inertia>
       </inertial>
       <collision name='l2_collision'>
-        <pose>0 0 0 0 0 0</pose>
+        <pose>0 0.02 -0.165 0 0 0</pose>
         <geometry>
-          <mesh>
-            <scale>1 1 1</scale>
-            <uri>meshes/l2.STL</uri>
-          </mesh>
+          <box>
+            <size>0.08 0.44 0.08</size>
+          </box>
         </geometry>
       </collision>
       <visual name='l2_visual'>
@@ -209,12 +247,11 @@
         </inertia>
       </inertial>
       <collision name='l1_collision'>
-        <pose>0 0 0 0 0 0</pose>
+        <pose>0 0 0.215 0 0 0</pose>
         <geometry>
-          <mesh>
-            <scale>1 1 1</scale>
-            <uri>meshes/l1.STL</uri>
-          </mesh>
+          <box>
+            <size>0.08 0.11 0.40</size>
+          </box>
         </geometry>
       </collision>
       <visual name='l1_visual'>
@@ -375,12 +412,11 @@
         </inertia>
       </inertial>
       <collision name='r2_collision'>
-        <pose>0 0 0 0 0 0</pose>
+        <pose>0 -0.02 0.165 0 0 0</pose>
         <geometry>
-          <mesh>
-            <scale>1 1 1</scale>
-            <uri>meshes/r2.STL</uri>
-          </mesh>
+          <box>
+            <size>0.08 0.44 0.08</size>
+          </box>
         </geometry>
       </collision>
       <visual name='r2_visual'>
@@ -430,12 +466,11 @@
         </inertia>
       </inertial>
       <collision name='r1_collision'>
-        <pose>0 0 0 0 0 0</pose>
+        <pose>0 0 -0.215 0 0 0</pose>
         <geometry>
-          <mesh>
-            <scale>1 1 1</scale>
-            <uri>meshes/r1.STL</uri>
-          </mesh>
+          <box>
+            <size>0.08 0.11 0.40</size>
+          </box>
         </geometry>
       </collision>
       <visual name='r1_visual'>
@@ -703,9 +738,9 @@
     <plugin filename="gz-sim-joint-position-controller-system" name="gz::sim::systems::JointPositionController">
       <joint_name>rj2</joint_name>
       <sub_topic>servo_0</sub_topic>
-      <p_gain>650</p_gain>
+      <p_gain>50</p_gain>
       <i_gain>0</i_gain>
-      <d_gain>50</d_gain>
+      <d_gain>5</d_gain>
       <i_max>0.0</i_max>
       <i_min>0.0</i_min>
       <cmd_max>1.57</cmd_max>
@@ -715,9 +750,9 @@
     <plugin filename="gz-sim-joint-position-controller-system" name="gz::sim::systems::JointPositionController">
       <joint_name>lj2</joint_name>
       <sub_topic>servo_1</sub_topic>
-      <p_gain>650</p_gain>
+      <p_gain>50</p_gain>
       <i_gain>0</i_gain>
-      <d_gain>50</d_gain>
+      <d_gain>5</d_gain>
       <i_max>0.0</i_max>
       <i_min>0.0</i_min>
       <cmd_max>1.57</cmd_max>
@@ -727,9 +762,9 @@
     <plugin filename="gz-sim-joint-position-controller-system" name="gz::sim::systems::JointPositionController">
       <joint_name>rj1</joint_name>
       <sub_topic>servo_2</sub_topic>
-      <p_gain>650</p_gain>
+      <p_gain>80</p_gain>
       <i_gain>0</i_gain>
-      <d_gain>50</d_gain>
+      <d_gain>6</d_gain>
       <i_max>0.0</i_max>
       <i_min>0.0</i_min>
       <cmd_max>3.141592653589793</cmd_max>
@@ -739,9 +774,9 @@
     <plugin filename="gz-sim-joint-position-controller-system" name="gz::sim::systems::JointPositionController">
       <joint_name>lj1</joint_name>
       <sub_topic>servo_3</sub_topic>
-      <p_gain>650</p_gain>
+      <p_gain>80</p_gain>
       <i_gain>0</i_gain>
-      <d_gain>50</d_gain>
+      <d_gain>6</d_gain>
       <i_max>0.0</i_max>
       <i_min>0.0</i_min>
       <cmd_max>3.141592653589793</cmd_max>
