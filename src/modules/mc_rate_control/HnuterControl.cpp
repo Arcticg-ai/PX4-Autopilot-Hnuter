@@ -334,14 +334,14 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 		f_body(1) = 0.f;
 	}
 
-	const float tilt_limit = tilt_suppress_active ? takeoff_tilt_limit_rad :
-				 (xy_lock_active ? xy_lock_tilt_limit_rad : default_tilt_limit_rad);
+	const bool takeoff_force_limit_active = tilt_suppress_active || xy_lock_active;
+	const float takeoff_force_limit = tilt_suppress_active ? takeoff_tilt_limit_rad : xy_lock_tilt_limit_rad;
 
-	if (tilt_limit < math::radians(89.f)) {
+	if (takeoff_force_limit_active && takeoff_force_limit < math::radians(89.f)) {
 		const float fz_abs = fabsf(f_body(2));
 
 		if (fz_abs > 1e-3f) {
-			const float max_xy = fz_abs * tanf(tilt_limit);
+			const float max_xy = fz_abs * tanf(takeoff_force_limit);
 			const float fxy_norm = f_body.xy().norm();
 
 			if (fxy_norm > max_xy && fxy_norm > 1e-5f) {
@@ -353,6 +353,13 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 			f_body(0) = 0.f;
 			f_body(1) = 0.f;
 		}
+
+	} else if (!takeoff_force_limit_active && default_tilt_limit_rad < math::radians(89.f)) {
+		// HNTR_TILT_MAX describes the primary (pitch/forward) tilt. Applying
+		// the same cone to body Y incorrectly removes the lateral force needed
+		// to hold position at large roll angles.
+		const float max_x = fabsf(f_body(2)) * tanf(default_tilt_limit_rad);
+		f_body(0) = math::constrain(f_body(0), -max_x, max_x);
 	}
 
 	Dcmf R_des{};
