@@ -735,36 +735,102 @@
       <motorType>velocity</motorType>
     </plugin>
 
+    <!-- Identified plant-side servo dynamics: static transmission gain, pure
+         delay, first-order lag, directional rate limit, then the joint PID. -->
+    <plugin filename="HnuterServoDynamics" name="custom::HnuterServoDynamics">
+      <channel_name>right_primary</channel_name>
+      <input_topic>servo_0</input_topic>
+      <output_topic>servo_0_dynamic</output_topic>
+      <gain_positive>1.404</gain_positive>
+      <gain_negative>1.423</gain_negative>
+      <tau_positive>0.076</tau_positive>
+      <tau_negative>0.065</tau_negative>
+      <delay_positive>0.110</delay_positive>
+      <delay_negative>0.106</delay_negative>
+      <rate_positive>6.082</rate_positive>
+      <rate_negative>5.419</rate_negative>
+      <angle_min>-3.2288591161895095</angle_min>
+      <angle_max>3.2288591161895095</angle_max>
+    </plugin>
+
+    <plugin filename="HnuterServoDynamics" name="custom::HnuterServoDynamics">
+      <channel_name>left_primary</channel_name>
+      <input_topic>servo_1</input_topic>
+      <output_topic>servo_1_dynamic</output_topic>
+      <gain_positive>1.404</gain_positive>
+      <gain_negative>1.423</gain_negative>
+      <tau_positive>0.076</tau_positive>
+      <tau_negative>0.065</tau_negative>
+      <delay_positive>0.110</delay_positive>
+      <delay_negative>0.106</delay_negative>
+      <rate_positive>6.082</rate_positive>
+      <rate_negative>5.419</rate_negative>
+      <angle_min>-3.2288591161895095</angle_min>
+      <angle_max>3.2288591161895095</angle_max>
+    </plugin>
+
+    <plugin filename="HnuterServoDynamics" name="custom::HnuterServoDynamics">
+      <channel_name>right_secondary</channel_name>
+      <input_topic>servo_2</input_topic>
+      <output_topic>servo_2_dynamic</output_topic>
+      <gain_positive>0.705</gain_positive>
+      <gain_negative>0.695</gain_negative>
+      <tau_positive>0.153</tau_positive>
+      <tau_negative>0.149</tau_negative>
+      <delay_positive>0.156</delay_positive>
+      <delay_negative>0.137</delay_negative>
+      <rate_positive>3.252</rate_positive>
+      <rate_negative>2.886</rate_negative>
+      <angle_min>-3.141592653589793</angle_min>
+      <angle_max>3.141592653589793</angle_max>
+    </plugin>
+
+    <plugin filename="HnuterServoDynamics" name="custom::HnuterServoDynamics">
+      <channel_name>left_secondary</channel_name>
+      <input_topic>servo_3</input_topic>
+      <output_topic>servo_3_dynamic</output_topic>
+      <gain_positive>0.705</gain_positive>
+      <gain_negative>0.695</gain_negative>
+      <tau_positive>0.153</tau_positive>
+      <tau_negative>0.149</tau_negative>
+      <delay_positive>0.156</delay_positive>
+      <delay_negative>0.137</delay_negative>
+      <rate_positive>3.252</rate_positive>
+      <rate_negative>2.886</rate_negative>
+      <angle_min>-3.141592653589793</angle_min>
+      <angle_max>3.141592653589793</angle_max>
+    </plugin>
+
     <plugin filename="gz-sim-joint-position-controller-system" name="gz::sim::systems::JointPositionController">
       <joint_name>rj2</joint_name>
-      <sub_topic>servo_0</sub_topic>
-      <p_gain>50</p_gain>
+      <sub_topic>servo_0_dynamic</sub_topic>
+      <p_gain>650</p_gain>
       <i_gain>0</i_gain>
-      <d_gain>5</d_gain>
+      <d_gain>50</d_gain>
       <i_max>0.0</i_max>
       <i_min>0.0</i_min>
-      <cmd_max>1.57</cmd_max>
-      <cmd_min>-1.57</cmd_min>
+      <cmd_max>3.2288591161895095</cmd_max>
+      <cmd_min>-3.2288591161895095</cmd_min>
       </plugin>
 
     <plugin filename="gz-sim-joint-position-controller-system" name="gz::sim::systems::JointPositionController">
       <joint_name>lj2</joint_name>
-      <sub_topic>servo_1</sub_topic>
-      <p_gain>50</p_gain>
+      <sub_topic>servo_1_dynamic</sub_topic>
+      <p_gain>650</p_gain>
       <i_gain>0</i_gain>
-      <d_gain>5</d_gain>
+      <d_gain>50</d_gain>
       <i_max>0.0</i_max>
       <i_min>0.0</i_min>
-      <cmd_max>1.57</cmd_max>
-      <cmd_min>-1.57</cmd_min>
+      <cmd_max>3.2288591161895095</cmd_max>
+      <cmd_min>-3.2288591161895095</cmd_min>
     </plugin>
 
     <plugin filename="gz-sim-joint-position-controller-system" name="gz::sim::systems::JointPositionController">
       <joint_name>rj1</joint_name>
-      <sub_topic>servo_2</sub_topic>
-      <p_gain>80</p_gain>
+      <sub_topic>servo_2_dynamic</sub_topic>
+      <p_gain>650</p_gain>
       <i_gain>0</i_gain>
-      <d_gain>6</d_gain>
+      <d_gain>50</d_gain>
       <i_max>0.0</i_max>
       <i_min>0.0</i_min>
       <cmd_max>3.141592653589793</cmd_max>
@@ -773,10 +839,10 @@
 
     <plugin filename="gz-sim-joint-position-controller-system" name="gz::sim::systems::JointPositionController">
       <joint_name>lj1</joint_name>
-      <sub_topic>servo_3</sub_topic>
-      <p_gain>80</p_gain>
+      <sub_topic>servo_3_dynamic</sub_topic>
+      <p_gain>650</p_gain>
       <i_gain>0</i_gain>
-      <d_gain>6</d_gain>
+      <d_gain>50</d_gain>
       <i_max>0.0</i_max>
       <i_min>0.0</i_min>
       <cmd_max>3.141592653589793</cmd_max>
