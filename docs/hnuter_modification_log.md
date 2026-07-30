@@ -646,3 +646,28 @@ param save
 
 完整参数、实机标定流程和验证数据见
 `docs/hnuter_cascaded_position_control_2026-07-13.md`。
+
+## 17. 2026-07-30 `144bd9fe` OK 版本（实机验证通过基线）
+
+- **状态：OK**。Git 标签为 `hnuter-ok-144bd9fe`，作为当前实机可用的回退基线。
+  验证范围为 CUAV 7 Nano 的 Position 模式起飞、稳定悬停和着陆；此标记不表示
+  已包含后续 AUX 姿态控制或着陆安全修复。
+- 分析 `log_48_2026-7-30-15-43-58.ulg`，ULog 内嵌版本确认是
+  `main@144bd9fea6bf7a2b55f9d530809e488292e0d615`、`CUAV_7_NANO`。
+- 日志时长 `347.918 s`，全程 Position，ULog 无丢包，飞行中无改参、failsafe、
+  EKF reset、传感器 clipping 或已使用执行器硬饱和。
+- 稳定悬停窗口 XY 误差 P95 约 `1-1.4 cm`、Z 误差 P95 约 `2.6-4.0 cm`；
+  全程 XY/Z P95 分别为 `6.35 cm`、`6.06 cm`。
+- 实际姿态存在约 `-1 deg roll / +2 deg pitch` 静差；两组摇杆回中后的偏航瞬态
+  最大约 `63 deg` 和 `34 deg`，同时 `HNTR_TAU_Y=0.8 Nm` 持续限幅。
+- AUX1/AUX2 在日志中有实际操作但没有姿态积分响应，实飞确认 `144bd9fe` 不包含
+  后续 AUX 姿态保持功能。
+- `vehicle_land_detected.has_low_throttle` 在整段飞行中保持 true，虽然本次没有
+  误判 landed，但保留了旧版 Hnuter 着陆推力判据不适配的直接证据。
+- 已将 ULog 中全部 `1154` 个初始参数按 QGroundControl 格式保存，作为该版本和
+  该架实机的可复现实飞快照；未把明显高于源码默认值的试验增益写回 airframe。
+- OK 版本的源码、固件校验值、关键参数组合、输出/RC 映射和恢复步骤统一记录在
+  `docs/flight_test_records/144bd9fe/OK_BASELINE.md`。
+- 完整分析与参数见
+  `docs/flight_test_records/144bd9fe/log_48_2026-07-30_analysis.md` 和
+  `docs/flight_test_records/144bd9fe/log_48_2026-07-30_parameters.params`。
