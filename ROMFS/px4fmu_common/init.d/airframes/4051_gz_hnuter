@@ -309,15 +309,15 @@ param set-default HNTR_MAX_ARM_T 170.96
 param set-default HNTR_MAX_TAIL_T 85.48
 param set-default HNTR_L1 0.33
 param set-default HNTR_L2 0.664
-param set-default HNTR_MOT_HOV 0.40
+param set-default HNTR_MOT_HOV 0.50
 param set-default HNTR_MOT_EXPO 0.50
-param set-default HNTR_LND_GC_R 0.75
-param set-default HNTR_LND_MIN_R 0.60
+param set-default HNTR_LND_GC_R 0.85
+param set-default HNTR_LND_MIN_R 0.80
 param set-default HNTR_POS_P_XY 0.6
 param set-default HNTR_POS_P_Z 1.0
 param set-default HNTR_VEL_P_XY 1.5
 param set-default HNTR_VEL_P_Z 2.5
-param set-default HNTR_VEL_I_XY 0.10
+param set-default HNTR_VEL_I_XY 0.20
 param set-default HNTR_VEL_I_Z 0.40
 param set-default HNTR_VEL_D_XY 0.10
 param set-default HNTR_VEL_D_Z 0.20
@@ -341,10 +341,10 @@ param set-default HNTR_TO_TILT 8.0
 param set-default HNTR_LOCK_TILT 12.0
 param set-default HNTR_LOCK_ACC 1.0
 param set-default HNTR_LOCK_KP 0.4
-param set-default HNTR_ATT_KR_R 1.5
+param set-default HNTR_ATT_KR_R 10.0
 param set-default HNTR_ATT_KR_P 1.5
 param set-default HNTR_ATT_KR_Y 1.5
-param set-default HNTR_ATT_D_R 0.8
+param set-default HNTR_ATT_D_R 4.0
 param set-default HNTR_ATT_D_P 0.8
 param set-default HNTR_ATT_D_Y 1.2
 param set-default HNTR_ATT_I_R 0.0
@@ -353,7 +353,7 @@ param set-default HNTR_ATT_I_Y 0.0
 param set-default HNTR_ATT_ILIM_R 1.0
 param set-default HNTR_ATT_ILIM_P 3.0
 param set-default HNTR_ATT_ILIM_Y 1.0
-param set-default HNTR_TAU_R 0.25
+param set-default HNTR_TAU_R 15.0
 param set-default HNTR_TAU_P 0.25
 param set-default HNTR_TAU_Y 1.8
 param set-default HNTR_PITCH_BIAS 0.0
@@ -364,6 +364,36 @@ param set-default HNTR_RC_RATE_Y 25.0
 param set-default HNTR_RC_DB 0.08
 param set-default HNTR_RC_ANG_MAX 45.0
 param set-default HNTR_RC_LVL_R 15.0
+
+# Migrate only the parameter combination recorded in the 2026-07-30 e0958bbd
+# flight. This makes the safer debug values effective after flashing while
+# preserving any later tuning instead of forcing parameters on every boot.
+if param compare HNTR_ATT_KR_R 18.2
+then
+	if param compare HNTR_ATT_D_R 9.6
+	then
+		if param compare HNTR_TAU_R 56.3
+		then
+			param set HNTR_ATT_KR_R 10.0
+			param set HNTR_ATT_D_R 4.0
+			param set HNTR_TAU_R 15.0
+		fi
+	fi
+fi
+
+if param compare HNTR_VEL_I_XY 0.39
+then
+	param set HNTR_VEL_I_XY 0.20
+fi
+
+if param compare HNTR_LND_GC_R 0.75
+then
+	if param compare HNTR_LND_MIN_R 0.60
+	then
+		param set HNTR_LND_GC_R 0.85
+		param set HNTR_LND_MIN_R 0.80
+	fi
+fi
 
 param set-default MPC_XY_P 1.875
 param set-default MPC_XY_VEL_P_ACC 8.0

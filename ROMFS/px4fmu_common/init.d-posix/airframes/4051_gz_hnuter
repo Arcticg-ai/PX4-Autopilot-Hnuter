@@ -183,8 +183,8 @@ param set-default HNTR_ROLL_SIGN 1.0
 param set-default HNTR_TAIL_SIGN 1.0
 param set-default HNTR_TAIL_COMP 1.0
 param set-default HNTR_MOT_HOV 0.40
-param set-default HNTR_LND_GC_R 0.75
-param set-default HNTR_LND_MIN_R 0.60
+param set-default HNTR_LND_GC_R 0.85
+param set-default HNTR_LND_MIN_R 0.80
 param set-default HNTR_MOT_EXPO 0.50
 param set-default HNTR_POS_P_XY 1.0
 param set-default HNTR_POS_P_Z 1.5

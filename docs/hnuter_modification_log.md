@@ -704,3 +704,16 @@ param save
   和分配器后再从小值启用积分。
 - 完整报告和图表见
   `logs/analyze/log_9_2026-7-14-20-40-28_analysis.md`。
+
+## 20. 2026-07-31 e0958bbd 实机 Roll 调试参数与安全修正
+
+- 根据 `log_48`/`log_53` 对比，将实机 Roll 参数从已保存的
+  `18.2/9.6/56.3` 条件迁移到 `10.0/4.0/15.0`，用于降低 3--4 Hz 横滚振荡。
+- 将实机 `HNTR_VEL_I_XY` 从已保存的 `0.39` 条件迁移到 `0.20`。
+- 将 Hnuter 着陆阈值改为 `HNTR_LND_GC_R=0.85`、
+  `HNTR_LND_MIN_R=0.80`，实机悬停锚点保持 `HNTR_MOT_HOV=0.50`。
+- 修复 Hnuter RC/控制消息新鲜度使用旧陀螺仪采样时间的问题，改用当前 HRT 时间，
+  避免单周期错误重置 AUX 姿态和航向保持状态。
+- 舵机角度反馈、`Fy -> Tz` 几何补偿、真实 allocation residual 和大扰动垂直推力
+  裕度暂缓到下一阶段；详细计划见
+  `docs/hnuter_e095_roll_debug_followup_2026-07-31.md`。

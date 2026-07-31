@@ -178,7 +178,7 @@ PARAM_DEFINE_FLOAT(HNTR_MOT_EXPO, 0.50f);
  * @decimal 2
  * @group Hnuter Control
  */
-PARAM_DEFINE_FLOAT(HNTR_LND_GC_R, 0.75f);
+PARAM_DEFINE_FLOAT(HNTR_LND_GC_R, 0.85f);
 
 /**
  * Hnuter landed motor ratio
@@ -191,7 +191,7 @@ PARAM_DEFINE_FLOAT(HNTR_LND_GC_R, 0.75f);
  * @decimal 2
  * @group Hnuter Control
  */
-PARAM_DEFINE_FLOAT(HNTR_LND_MIN_R, 0.60f);
+PARAM_DEFINE_FLOAT(HNTR_LND_MIN_R, 0.80f);
 
 /**
  * Hnuter legacy XY position P gain

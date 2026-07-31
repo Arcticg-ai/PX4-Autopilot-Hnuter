@@ -81,7 +81,11 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 			   RateControl &rate_control, AlphaFilter<float> &yaw_torque_filter, float dt,
 			   const matrix::Vector3f &rates, Output &output)
 {
-	const hrt_abstime now = angular_velocity.timestamp_sample;
+	// Topic timestamps are publication times in the HRT clock domain. Use the
+	// current HRT time for freshness and elapsed-time checks: timestamp_sample
+	// can legitimately precede a newly published manual/control setpoint and
+	// must only be propagated as the output sample timestamp.
+	const hrt_abstime now = hrt_absolute_time();
 
 	vehicle_odometry_s odom{};
 	vehicle_attitude_s att{};
