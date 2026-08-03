@@ -124,15 +124,51 @@ param set PWM_MAIN_MAX3 2000
 param set PWM_MAIN_MAX4 2000
 param set PWM_MAIN_MAX5 2000
 
-param set-default PWM_MAIN_MIN8 1000
-param set-default PWM_MAIN_MIN9 1000
-param set-default PWM_MAIN_MIN10 1000
-param set-default PWM_MAIN_MIN11 1000
+param set-default PWM_MAIN_MIN8 500
+param set-default PWM_MAIN_MIN9 500
+param set-default PWM_MAIN_MIN10 500
+param set-default PWM_MAIN_MIN11 500
 
-param set-default PWM_MAIN_MAX8 2000
-param set-default PWM_MAIN_MAX9 2000
-param set-default PWM_MAIN_MAX10 2000
-param set-default PWM_MAIN_MAX11 2000
+param set-default PWM_MAIN_MAX8 2500
+param set-default PWM_MAIN_MAX9 2500
+param set-default PWM_MAIN_MAX10 2500
+param set-default PWM_MAIN_MAX11 2500
+
+# Migrate only the 800--2200 us range captured in the 2026-07-30/31 flight
+# logs. Fresh setups receive the 500--2500 defaults above, while later manual
+# endpoint calibration is preserved across reboot.
+if param compare PWM_MAIN_MIN8 800
+then
+	if param compare PWM_MAIN_MIN9 800
+	then
+		if param compare PWM_MAIN_MIN10 800
+		then
+			if param compare PWM_MAIN_MIN11 800
+			then
+				if param compare PWM_MAIN_MAX8 2200
+				then
+					if param compare PWM_MAIN_MAX9 2200
+					then
+						if param compare PWM_MAIN_MAX10 2200
+						then
+							if param compare PWM_MAIN_MAX11 2200
+							then
+								param set PWM_MAIN_MIN8 500
+								param set PWM_MAIN_MIN9 500
+								param set PWM_MAIN_MIN10 500
+								param set PWM_MAIN_MIN11 500
+								param set PWM_MAIN_MAX8 2500
+								param set PWM_MAIN_MAX9 2500
+								param set PWM_MAIN_MAX10 2500
+								param set PWM_MAIN_MAX11 2500
+							fi
+						fi
+					fi
+				fi
+			fi
+		fi
+	fi
+fi
 
 # Disarmed output.
 # MAIN1-4 use low PWM for one-way ESC stop. MAIN5 uses its reversible ESC stop point.
@@ -275,25 +311,45 @@ param set-default CA_ROTOR4_TILT 0
 
 param set-default CA_SV_TL_COUNT 4
 
-# Tilt 0: rj2, right arm primary, yaw axis
-param set-default CA_SV_TL0_MAXA 185
-param set-default CA_SV_TL0_MINA -185
+# Tilt 0: rj2, right arm primary, direct drive, yaw axis
+param set-default CA_SV_TL0_MAXA 180
+param set-default CA_SV_TL0_MINA -180
 param set-default CA_SV_TL0_TD 0
 param set-default CA_SV_TL0_CT 0
 
-# Tilt 1: lj2, left arm primary, yaw axis
-param set-default CA_SV_TL1_MAXA 185
-param set-default CA_SV_TL1_MINA -185
+# Tilt 1: lj2, left arm primary, direct drive, yaw axis
+param set-default CA_SV_TL1_MAXA 180
+param set-default CA_SV_TL1_MINA -180
 param set-default CA_SV_TL1_TD 0
 param set-default CA_SV_TL1_CT 0
 
-# Tilt 2: rj1, right arm secondary, roll axis
+# The e0958bbd/75fb3965 flight parameters stored a 185 deg primary margin.
+# With calibrated 500--2500 us endpoints, use the measured +/-180 deg servo
+# travel so normalized +/-1 and the physical primary angle agree exactly.
+if param compare CA_SV_TL0_MAXA 185
+then
+	if param compare CA_SV_TL0_MINA -185
+	then
+		if param compare CA_SV_TL1_MAXA 185
+		then
+			if param compare CA_SV_TL1_MINA -185
+			then
+				param set CA_SV_TL0_MAXA 180
+				param set CA_SV_TL0_MINA -180
+				param set CA_SV_TL1_MAXA 180
+				param set CA_SV_TL1_MINA -180
+			fi
+		fi
+	fi
+fi
+
+# Tilt 2: rj1, right arm secondary servo-shaft range, roll axis
 param set-default CA_SV_TL2_MAXA 180
 param set-default CA_SV_TL2_MINA -180
 param set-default CA_SV_TL2_TD 90
 param set-default CA_SV_TL2_CT 0
 
-# Tilt 3: lj1, left arm secondary, roll axis
+# Tilt 3: lj1, left arm secondary servo-shaft range, roll axis
 param set-default CA_SV_TL3_MAXA 180
 param set-default CA_SV_TL3_MINA -180
 param set-default CA_SV_TL3_TD 90
@@ -309,6 +365,7 @@ param set-default HNTR_MAX_ARM_T 170.96
 param set-default HNTR_MAX_TAIL_T 85.48
 param set-default HNTR_L1 0.33
 param set-default HNTR_L2 0.664
+param set-default HNTR_S2_GEAR 2.0
 param set-default HNTR_MOT_HOV 0.50
 param set-default HNTR_MOT_EXPO 0.50
 param set-default HNTR_LND_GC_R 0.85

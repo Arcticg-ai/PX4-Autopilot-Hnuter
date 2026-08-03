@@ -109,6 +109,7 @@ private:
 	param_t _param_hntr_max_tail_t{PARAM_INVALID};
 	param_t _param_hntr_l1{PARAM_INVALID};
 	param_t _param_hntr_l2{PARAM_INVALID};
+	param_t _param_hntr_s2_gear{PARAM_INVALID};
 	param_t _param_hntr_roll_sign{PARAM_INVALID};
 	param_t _param_hntr_tail_sign{PARAM_INVALID};
 	param_t _param_hntr_tail_comp{PARAM_INVALID};
@@ -126,6 +127,7 @@ private:
 	float _max_tail_thrust{85.48f};
 	float _l1{0.33f};
 	float _l2{0.664f};
+	float _secondary_servo_gear_ratio{2.f};
 	float _roll_torque_sign{1.f};
 	float _tail_torque_sign{1.f};
 	float _tail_collective_comp{0.f};

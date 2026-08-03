@@ -77,6 +77,22 @@ PARAM_DEFINE_FLOAT(HNTR_L1, 0.33f);
 PARAM_DEFINE_FLOAT(HNTR_L2, 0.664f);
 
 /**
+ * Hnuter second-stage servo gear ratio
+ *
+ * Ratio of servo-shaft angle to second-stage output-joint angle. A value of
+ * 2.0 means the servo must rotate 2 degrees for 1 degree of second-stage joint
+ * motion. The allocator applies this ratio only to Servo 3/4 (rj1/lj1); the
+ * primary tilt servos remain direct-drive. Set this to 1.0 for a direct-drive
+ * simulation model.
+ *
+ * @min 0.1
+ * @max 10.0
+ * @decimal 2
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_S2_GEAR, 2.0f);
+
+/**
  * Hnuter roll torque direction
  *
  * Sign used by the custom Hnuter allocator to map normalized roll torque to

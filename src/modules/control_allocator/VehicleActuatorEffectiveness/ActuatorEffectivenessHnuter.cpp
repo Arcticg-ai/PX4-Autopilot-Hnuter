@@ -136,6 +136,7 @@ ActuatorEffectivenessHnuter::ActuatorEffectivenessHnuter(ModuleParams *parent)
 	_param_hntr_max_tail_t = param_find("HNTR_MAX_TAIL_T");
 	_param_hntr_l1 = param_find("HNTR_L1");
 	_param_hntr_l2 = param_find("HNTR_L2");
+	_param_hntr_s2_gear = param_find("HNTR_S2_GEAR");
 	_param_hntr_roll_sign = param_find("HNTR_ROLL_SIGN");
 	_param_hntr_tail_sign = param_find("HNTR_TAIL_SIGN");
 	_param_hntr_tail_comp = param_find("HNTR_TAIL_COMP");
@@ -221,6 +222,14 @@ void ActuatorEffectivenessHnuter::updateParams()
 
 		if (param_get(_param_hntr_l2, &value) == 0) {
 			_l2 = math::max(value, 0.01f);
+		}
+	}
+
+	if (_param_hntr_s2_gear != PARAM_INVALID) {
+		float value = 0.f;
+
+		if (param_get(_param_hntr_s2_gear, &value) == 0) {
+			_secondary_servo_gear_ratio = math::constrain(value, 0.1f, 10.f);
 		}
 	}
 
@@ -430,10 +439,12 @@ void ActuatorEffectivenessHnuter::updateSetpoint(const matrix::Vector<float, NUM
 	float theta1 = asinf(math::constrain(u3 / F1_safe, -1.0f, 1.0f));
 	float theta2 = asinf(math::constrain(u6 / F2_safe, -1.0f, 1.0f));
 
-	const float alpha2_angle_max = tiltAngleAbsLimit(_tilts, 0, math::radians(185.0f));
-	const float alpha1_angle_max = tiltAngleAbsLimit(_tilts, 1, math::radians(185.0f));
-	const float theta2_angle_max = tiltAngleAbsLimit(_tilts, 2, math::radians(180.0f));
-	const float theta1_angle_max = tiltAngleAbsLimit(_tilts, 3, math::radians(180.0f));
+	const float alpha2_angle_max = tiltAngleAbsLimit(_tilts, 0, M_PI_F);
+	const float alpha1_angle_max = tiltAngleAbsLimit(_tilts, 1, M_PI_F);
+	const float theta2_servo_angle_max = tiltAngleAbsLimit(_tilts, 2, M_PI_F);
+	const float theta1_servo_angle_max = tiltAngleAbsLimit(_tilts, 3, M_PI_F);
+	const float theta2_angle_max = theta2_servo_angle_max / _secondary_servo_gear_ratio;
+	const float theta1_angle_max = theta1_servo_angle_max / _secondary_servo_gear_ratio;
 	const float alpha_angle_max = math::min(alpha1_angle_max, alpha2_angle_max);
 	const float theta_angle_max = math::min(theta1_angle_max, theta2_angle_max);
 	float alpha_limit = alpha_angle_max;
@@ -495,10 +506,10 @@ void ActuatorEffectivenessHnuter::updateSetpoint(const matrix::Vector<float, NUM
 
 		select_continuous_gimbal_branch(alpha1, theta1,
 					       _last_servo_sp(1) * alpha1_angle_max,
-					       _last_servo_sp(3) * theta1_angle_max);
+					       _last_servo_sp(3) * theta1_servo_angle_max / _secondary_servo_gear_ratio);
 		select_continuous_gimbal_branch(alpha2, theta2,
 					       _last_servo_sp(0) * alpha2_angle_max,
-					       _last_servo_sp(2) * theta2_angle_max);
+					       _last_servo_sp(2) * theta2_servo_angle_max / _secondary_servo_gear_ratio);
 	}
 
 	if (_last_servo_update != 0 && alpha_limit >= math::radians(179.0f)) {
@@ -561,16 +572,16 @@ void ActuatorEffectivenessHnuter::updateSetpoint(const matrix::Vector<float, NUM
 
 	if (num_tilts >= 4) {
 		matrix::Vector<float, 4> servo_sp;
-		servo_sp(0) = tiltAngleToNormalizedServo(alpha2, _tilts, 0, math::radians(185.0f));
-		servo_sp(1) = tiltAngleToNormalizedServo(alpha1, _tilts, 1, math::radians(185.0f));
-		servo_sp(2) = tiltAngleToNormalizedServo(theta2, _tilts, 2, math::radians(180.0f));
-		servo_sp(3) = tiltAngleToNormalizedServo(theta1, _tilts, 3, math::radians(180.0f));
+		servo_sp(0) = tiltAngleToNormalizedServo(alpha2, _tilts, 0, M_PI_F);
+		servo_sp(1) = tiltAngleToNormalizedServo(alpha1, _tilts, 1, M_PI_F);
+		servo_sp(2) = tiltAngleToNormalizedServo(theta2 * _secondary_servo_gear_ratio, _tilts, 2, M_PI_F);
+		servo_sp(3) = tiltAngleToNormalizedServo(theta1 * _secondary_servo_gear_ratio, _tilts, 3, M_PI_F);
 
 		if (_last_servo_update != 0 && dt > 0.f) {
 			const float alpha2_max_delta = (servo_rate_limit_rad_s * dt) / alpha2_angle_max;
 			const float alpha1_max_delta = (servo_rate_limit_rad_s * dt) / alpha1_angle_max;
-			const float theta2_max_delta = (servo_rate_limit_rad_s * dt) / theta2_angle_max;
-			const float theta1_max_delta = (servo_rate_limit_rad_s * dt) / theta1_angle_max;
+			const float theta2_max_delta = (servo_rate_limit_rad_s * dt) / theta2_servo_angle_max;
+			const float theta1_max_delta = (servo_rate_limit_rad_s * dt) / theta1_servo_angle_max;
 			servo_sp(0) = math::constrain(servo_sp(0), _last_servo_sp(0) - alpha2_max_delta,
 						     _last_servo_sp(0) + alpha2_max_delta);
 			servo_sp(1) = math::constrain(servo_sp(1), _last_servo_sp(1) - alpha1_max_delta,
