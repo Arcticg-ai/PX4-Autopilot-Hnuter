@@ -717,3 +717,15 @@ param save
 - 舵机角度反馈、`Fy -> Tz` 几何补偿、真实 allocation residual 和大扰动垂直推力
   裕度暂缓到下一阶段；详细计划见
   `docs/hnuter_e095_roll_debug_followup_2026-07-31.md`。
+
+## 21. 2026-08-04 无延迟实机固件备份基线
+
+- 将 `e0958bbd` 上的 `75fb3965` Roll 初修复明确保存为无舵机延迟模型的实机
+  固件基线。
+- 记录该版本没有合入 `servo-id` 和 `identified-delay-actuator` 实验分支。
+- 汇总相对 `e0958bbd` 的 Roll 参数、XY 积分、着陆阈值、消息时间基准修复和
+  条件迁移逻辑。
+- 记录 MAIN8--11 实飞保存范围 `800--2200 us` 与舵机完整输入范围
+  `500--2500 us` 不一致，以及二级倾转缺少独立齿轮比参数的问题。
+- 完整版本身份、历史构建哈希和回退说明见
+  `docs/hnuter_no_delay_firmware_baseline_2026-08-04.md`。
