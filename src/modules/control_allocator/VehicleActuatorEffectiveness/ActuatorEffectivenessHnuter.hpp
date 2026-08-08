@@ -49,6 +49,8 @@
 #include <matrix/matrix/math.hpp>
 #include <drivers/drv_hrt.h>
 
+#include <cstdint>
+
 #include <uORB/Subscription.hpp>
 #include <uORB/topics/vehicle_control_mode.h>
 #include <uORB/topics/vehicle_land_detected.h>
@@ -81,6 +83,7 @@ public:
 private:
 
 	void updateParams() override;
+	float applyTailReversalGuard(float desired_tail_force, hrt_abstime now);
 
 	bool _collective_tilt_updated{true};
 	ActuatorEffectivenessRotors _mc_rotors;
@@ -113,6 +116,9 @@ private:
 	param_t _param_hntr_roll_sign{PARAM_INVALID};
 	param_t _param_hntr_tail_sign{PARAM_INVALID};
 	param_t _param_hntr_tail_comp{PARAM_INVALID};
+	param_t _param_hntr_tail_rev_t{PARAM_INVALID};
+	param_t _param_hntr_s1_rate{PARAM_INVALID};
+	param_t _param_hntr_s2_rate{PARAM_INVALID};
 	param_t _param_hntr_to_sup_t{PARAM_INVALID};
 	param_t _param_hntr_to_lock_t{PARAM_INVALID};
 	param_t _param_hntr_to_tilt{PARAM_INVALID};
@@ -131,6 +137,9 @@ private:
 	float _roll_torque_sign{1.f};
 	float _tail_torque_sign{1.f};
 	float _tail_collective_comp{0.f};
+	float _tail_reverse_delay_s{0.3f};
+	float _primary_servo_rate_rad_s{4.7f};
+	float _secondary_servo_rate_rad_s{4.7f};
 	float _takeoff_tilt_suppress_time_s{1.f};
 	float _takeoff_xy_lock_time_s{3.f};
 	float _takeoff_tilt_limit{0.349066f};
@@ -139,4 +148,7 @@ private:
 
 	hrt_abstime _last_servo_update{0};
 	matrix::Vector<float, 4> _last_servo_sp{};
+	float _tail_force_command{0.f};
+	hrt_abstime _tail_zero_timestamp{0};
+	int8_t _tail_last_nonzero_direction{0};
 };

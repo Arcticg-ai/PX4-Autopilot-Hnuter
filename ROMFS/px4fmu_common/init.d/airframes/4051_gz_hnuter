@@ -366,6 +366,11 @@ param set-default HNTR_MAX_TAIL_T 85.48
 param set-default HNTR_L1 0.33
 param set-default HNTR_L2 0.664
 param set-default HNTR_S2_GEAR 2.0
+param set-default HNTR_TAIL_REV_T 0.30
+# Conservative no-load servo-shaft rate. The 2:1 secondary transmission makes
+# the physical second-stage joint limit 2.35 rad/s.
+param set-default HNTR_S1_RATE 4.7
+param set-default HNTR_S2_RATE 4.7
 param set-default HNTR_MOT_HOV 0.50
 param set-default HNTR_MOT_EXPO 0.50
 param set-default HNTR_LND_GC_R 0.85
@@ -421,6 +426,43 @@ param set-default HNTR_RC_RATE_Y 25.0
 param set-default HNTR_RC_DB 0.08
 param set-default HNTR_RC_ANG_MAX 45.0
 param set-default HNTR_RC_LVL_R 15.0
+
+# The 2026-08-07 position-flight logs stored an aggressive Pitch combination
+# that overrides the safer defaults above. Migrate only that complete recorded
+# combination so later manual tuning remains untouched. HNTR_TAU_P is now the
+# final total Pitch torque limit (including HNTR_PITCH_BIAS); 8 Nm retains the
+# measured trim while removing the previous roughly 15 Nm positive extreme.
+if param compare HNTR_ATT_KR_P 20.0
+then
+	if param compare HNTR_ATT_D_P 8.0
+	then
+		if param compare HNTR_TAU_P 10.0
+		then
+			if param compare HNTR_ATT_I_P 0.06
+			then
+				if param compare HNTR_ATT_ILIM_P 0.8
+				then
+					if param compare HNTR_PITCH_BIAS 0.09
+					then
+						if param compare HNTR_RC_RATE_P 20.0
+						then
+							if param compare HNTR_RC_ANG_MAX 45.0
+							then
+								param set HNTR_ATT_KR_P 5.0
+								param set HNTR_ATT_D_P 2.5
+								param set HNTR_TAU_P 8.0
+								param set HNTR_ATT_I_P 0.0
+								param set HNTR_ATT_ILIM_P 0.3
+								param set HNTR_RC_RATE_P 8.0
+								param set HNTR_RC_ANG_MAX 30.0
+							fi
+						fi
+					fi
+				fi
+			fi
+		fi
+	fi
+fi
 
 # Migrate only the parameter combination recorded in the 2026-07-30 e0958bbd
 # flight. This makes the safer debug values effective after flashing while

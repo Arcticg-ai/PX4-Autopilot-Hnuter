@@ -564,6 +564,9 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 	const Vector3f omega_error = rates - R.transpose() * R_des * target_attitude_rate;
 	const Vector3f attitude_torque = -KR.emult(e_R) - Domega.emult(omega_error);
 	const Vector3f tau_limit{_param_hntr_tau_r.get(), _param_hntr_tau_p.get(), _param_hntr_tau_y.get()};
+	const float pitch_bias_normalized = math::constrain(_param_hntr_pitch_bias.get(), -1.f, 1.f);
+	Vector3f trim_torque{};
+	trim_torque(1) = -pitch_bias_normalized * max_tail_thrust * l2;
 
 	if (landed || maybe_landed) {
 		_integral_e_R.setZero();
@@ -582,7 +585,8 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 			const float candidate_integral = math::constrain(_integral_e_R(i) + e_R(i) * dt,
 								   -integral_limit / integral_gain,
 								   integral_limit / integral_gain);
-			const float candidate_torque = attitude_torque(i) - integral_gain * candidate_integral;
+			const float candidate_torque = attitude_torque(i) + trim_torque(i)
+					       - integral_gain * candidate_integral;
 			const float integral_torque_step = -integral_gain * (candidate_integral - _integral_e_R(i));
 			const bool saturated = fabsf(candidate_torque) > torque_limit;
 			const bool drives_further_into_saturation = saturated && candidate_torque * integral_torque_step > 0.f;
@@ -593,7 +597,10 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 		}
 	}
 
-	Vector3f tau_c = attitude_torque - Ki.emult(_integral_e_R);
+	// Apply the CG/tail trim in physical torque before the final per-axis limit.
+	// Previously HNTR_PITCH_BIAS was added after this limit in normalized units,
+	// allowing the real pitch command to exceed HNTR_TAU_P.
+	Vector3f tau_c = attitude_torque + trim_torque - Ki.emult(_integral_e_R);
 	tau_c(0) = math::constrain(tau_c(0), -tau_limit(0), tau_limit(0));
 	tau_c(1) = math::constrain(tau_c(1), -tau_limit(1), tau_limit(1));
 	tau_c(2) = math::constrain(tau_c(2), -tau_limit(2), tau_limit(2));
@@ -624,16 +631,15 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 		rate_torque(2) = yaw_torque_filter.update(rate_torque(2), dt);
 
 		torque_setpoint_normalized(0) = math::constrain(rate_torque(0), -1.f, 1.f);
-		torque_setpoint_normalized(1) = math::constrain(-rate_torque(1), -1.f, 1.f);
+		const float normalized_pitch_limit = math::constrain(tau_limit(1) / (max_tail_thrust * l2), 0.f, 1.f);
+		torque_setpoint_normalized(1) = math::constrain(-rate_torque(1) + pitch_bias_normalized,
+						  -normalized_pitch_limit, normalized_pitch_limit);
 		torque_setpoint_normalized(2) = math::constrain(rate_torque(2), -1.f, 1.f);
 
 		rate_control.getRateControlStatus(output.rate_ctrl_status);
 		output.rate_ctrl_status.timestamp = hrt_absolute_time();
 		output.rate_ctrl_status_updated = true;
 	}
-
-	torque_setpoint_normalized(1) = math::constrain(torque_setpoint_normalized(1)
-				       + math::constrain(_param_hntr_pitch_bias.get(), -1.f, 1.f), -1.f, 1.f);
 
 	const float normalized_vertical_thrust = forceToNormalizedThrust(-f_body(2), max_front_vertical_thrust);
 
