@@ -872,9 +872,12 @@ PARAM_DEFINE_FLOAT(HNTR_RC_RATE_Y, 30.0f);
 PARAM_DEFINE_FLOAT(HNTR_RC_DB, 0.08f);
 
 /**
- * Hnuter RC held attitude limit
+ * Hnuter RC held roll limit
  *
- * Maximum absolute roll and pitch setpoint accumulated from AUX1 and AUX2.
+ * Maximum absolute roll setpoint accumulated from AUX1. AUX2 Pitch is not
+ * magnitude-limited by this parameter and can command the full attitude
+ * circle; its internal target is wrapped to the canonical -180..180 degree
+ * range.
  *
  * @unit deg
  * @min 0.0
