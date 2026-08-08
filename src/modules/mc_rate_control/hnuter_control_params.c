@@ -127,21 +127,6 @@ PARAM_DEFINE_FLOAT(HNTR_ROLL_SIGN, 1.0f);
 PARAM_DEFINE_FLOAT(HNTR_TAIL_SIGN, 1.0f);
 
 /**
- * Hnuter tail collective pitch compensation
- *
- * Blends Motor5 feedforward for the pitch moment caused by commanded force and
- * the HNTR_CG_X/HNTR_CG_Z center-of-mass offsets. A value of 1 replaces the
- * fixed hover-only HNTR_PITCH_BIAS with force-dependent compensation. Validate
- * the geometry and sign without propellers before enabling it on hardware.
- *
- * @min 0.0
- * @max 1.0
- * @decimal 2
- * @group Hnuter Control
- */
-PARAM_DEFINE_FLOAT(HNTR_TAIL_COMP, 0.0f);
-
-/**
  * Hnuter tail motor reversal neutral time
  *
  * Minimum time Motor5 must remain at zero thrust before changing thrust

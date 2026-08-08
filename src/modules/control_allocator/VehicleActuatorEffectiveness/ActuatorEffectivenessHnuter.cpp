@@ -141,7 +141,6 @@ ActuatorEffectivenessHnuter::ActuatorEffectivenessHnuter(ModuleParams *parent)
 	_param_hntr_s2_gear = param_find("HNTR_S2_GEAR");
 	_param_hntr_roll_sign = param_find("HNTR_ROLL_SIGN");
 	_param_hntr_tail_sign = param_find("HNTR_TAIL_SIGN");
-	_param_hntr_tail_comp = param_find("HNTR_TAIL_COMP");
 	_param_hntr_tail_rev_t = param_find("HNTR_TAIL_REV_T");
 	_param_hntr_s1_rate = param_find("HNTR_S1_RATE");
 	_param_hntr_s2_rate = param_find("HNTR_S2_RATE");
@@ -262,14 +261,6 @@ void ActuatorEffectivenessHnuter::updateParams()
 
 		if (param_get(_param_hntr_tail_sign, &value) == 0) {
 			_tail_torque_sign = (value < 0.f) ? -1.f : 1.f;
-		}
-	}
-
-	if (_param_hntr_tail_comp != PARAM_INVALID) {
-		float value = 0.f;
-
-		if (param_get(_param_hntr_tail_comp, &value) == 0) {
-			_tail_collective_comp = math::constrain(value, 0.f, 1.f);
 		}
 	}
 
@@ -523,11 +514,10 @@ void ActuatorEffectivenessHnuter::updateSetpoint(const matrix::Vector<float, NUM
 	float u1 = W[0] / 2.0f - W[5] / (2.0f * l1);
 	float u4 = W[0] / 2.0f + W[5] / (2.0f * l1);
 
-	// Force-dependent feedforward cancels the pitch moment created by the
-	// configured CG offset. HNTR_TAIL_COMP blends it so geometry/sign can be
-	// validated safely before full compensation is used.
-	const float Ty_parasitic = r_z * W[0] - r_x * W[2];
-	const float F3_desired = (W[4] - _tail_collective_comp * Ty_parasitic) / (r_x + l2);
+	// Motor5 is a dedicated Pitch torque actuator. Its command must not follow
+	// collective thrust; any attitude-dependent gravity trim is modelled
+	// separately once the primary-axis-to-CG geometry has been measured.
+	const float F3_desired = W[4] / (r_x + l2);
 	const float F3 = math::constrain(applyTailReversalGuard(F3_desired, now), -max_tail_thrust, max_tail_thrust);
 
 	// Compensate the front vertical force using the guarded tail force that is
@@ -748,8 +738,7 @@ void ActuatorEffectivenessHnuter::updateSetpoint(const matrix::Vector<float, NUM
 	const float fy_achieved = -(u3_achieved + u6_achieved);
 	const float fz_achieved = u2_achieved + u5_achieved + F3;
 	const float tx_achieved = l1 * (u2_achieved - u5_achieved) - r_z * fy_achieved;
-	const float ty_achieved = F3 * (r_x + l2)
-				  + _tail_collective_comp * (r_z * fx_achieved - r_x * fz_achieved);
+	const float ty_achieved = F3 * (r_x + l2);
 	const float tz_achieved = l1 * (u4_achieved - u1_achieved);
 	matrix::Vector<float, NUM_AXES> achieved_control{};
 	achieved_control(0) = _roll_torque_sign * tx_achieved / math::max(max_thrust_per_arm * l1, 1.f);

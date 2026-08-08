@@ -189,7 +189,6 @@ param set-default HNTR_S1_RATE 4.7
 param set-default HNTR_S2_RATE 2.35
 param set-default HNTR_ROLL_SIGN 1.0
 param set-default HNTR_TAIL_SIGN 1.0
-param set-default HNTR_TAIL_COMP 1.0
 param set-default HNTR_MOT_HOV 0.40
 param set-default HNTR_LND_GC_R 0.85
 param set-default HNTR_LND_MIN_R 0.80

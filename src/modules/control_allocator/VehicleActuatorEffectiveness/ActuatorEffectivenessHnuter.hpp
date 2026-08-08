@@ -117,7 +117,6 @@ private:
 	param_t _param_hntr_s2_gear{PARAM_INVALID};
 	param_t _param_hntr_roll_sign{PARAM_INVALID};
 	param_t _param_hntr_tail_sign{PARAM_INVALID};
-	param_t _param_hntr_tail_comp{PARAM_INVALID};
 	param_t _param_hntr_tail_rev_t{PARAM_INVALID};
 	param_t _param_hntr_s1_rate{PARAM_INVALID};
 	param_t _param_hntr_s2_rate{PARAM_INVALID};
@@ -141,7 +140,6 @@ private:
 	float _secondary_servo_gear_ratio{2.f};
 	float _roll_torque_sign{1.f};
 	float _tail_torque_sign{1.f};
-	float _tail_collective_comp{0.f};
 	float _tail_reverse_delay_s{0.3f};
 	float _primary_servo_rate_rad_s{4.7f};
 	float _secondary_servo_rate_rad_s{4.7f};

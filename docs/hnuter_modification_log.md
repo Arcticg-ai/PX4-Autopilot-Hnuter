@@ -780,3 +780,19 @@ param save
   关节和舵机指令速率限制的模型分配残差。
 - 详细证据、参数、限制和验证顺序见
   `docs/hnuter_full_attitude_followup_2026-08-08.md`。
+
+## 26. log 133 解锁倾覆纠正（2026-08-08）
+
+- `003349b7` 的实机 log 133 证明 `HNTR_TAIL_COMP=1` 会让 Motor5 跟随总推力；
+  旧 `HNTR_PITCH_BIAS=0.09` 又因条件迁移失败而保留，两者共同产生约 `0.379`
+  的初始尾电机指令并导致负 Pitch 倾覆。该提交禁止实机上桨使用。
+- 删除 `HNTR_TAIL_COMP` 参数和基于 `W[0]/W[2]` 的尾推前馈；Motor5 恢复为只
+  根据 Pitch 力矩指令分配。保留尾电机机体系 Z 力对主电机合力的扣除。
+- 删除 airframe 中所有按旧参数值组合执行的自动迁移，只保留发布默认值。已有飞控
+  烧录后必须按发布参数表手动设置并保存，不由启动脚本覆盖人工调参。
+- Pitch 默认值改为 `KR_P=5`、`D_P=2.5`、`I_P=0`、`ILIM_P=0.3 Nm`、
+  `TAU_P=8 Nm`、`PITCH_BIAS=0.09`、`RC_RATE_P=8 deg/s`；位置默认值改为
+  `POS_P_XY=0.6`、`VEL_P_XY=1.5`、`VEL_I_XY=0`、`ACC_XY=1.5`、
+  `POS_P_Z=1.0`、`VEL_P_Z=2.5`、`ACC_Z=8.0`。
+- 详细证据和烧录后参数表见
+  `docs/hnuter_log133_takeoff_flip_correction_2026-08-08.md`。

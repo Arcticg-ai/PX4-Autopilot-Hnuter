@@ -134,42 +134,6 @@ param set-default PWM_MAIN_MAX9 2500
 param set-default PWM_MAIN_MAX10 2500
 param set-default PWM_MAIN_MAX11 2500
 
-# Migrate only the 800--2200 us range captured in the 2026-07-30/31 flight
-# logs. Fresh setups receive the 500--2500 defaults above, while later manual
-# endpoint calibration is preserved across reboot.
-if param compare PWM_MAIN_MIN8 800
-then
-	if param compare PWM_MAIN_MIN9 800
-	then
-		if param compare PWM_MAIN_MIN10 800
-		then
-			if param compare PWM_MAIN_MIN11 800
-			then
-				if param compare PWM_MAIN_MAX8 2200
-				then
-					if param compare PWM_MAIN_MAX9 2200
-					then
-						if param compare PWM_MAIN_MAX10 2200
-						then
-							if param compare PWM_MAIN_MAX11 2200
-							then
-								param set PWM_MAIN_MIN8 500
-								param set PWM_MAIN_MIN9 500
-								param set PWM_MAIN_MIN10 500
-								param set PWM_MAIN_MIN11 500
-								param set PWM_MAIN_MAX8 2500
-								param set PWM_MAIN_MAX9 2500
-								param set PWM_MAIN_MAX10 2500
-								param set PWM_MAIN_MAX11 2500
-							fi
-						fi
-					fi
-				fi
-			fi
-		fi
-	fi
-fi
-
 # Disarmed output.
 # MAIN1-4 use low PWM for one-way ESC stop. MAIN5 uses its reversible ESC stop point.
 param set PWM_MAIN_DIS1 900
@@ -323,26 +287,6 @@ param set-default CA_SV_TL1_MINA -180
 param set-default CA_SV_TL1_TD 0
 param set-default CA_SV_TL1_CT 0
 
-# The e0958bbd/75fb3965 flight parameters stored a 185 deg primary margin.
-# With calibrated 500--2500 us endpoints, use the measured +/-180 deg servo
-# travel so normalized +/-1 and the physical primary angle agree exactly.
-if param compare CA_SV_TL0_MAXA 185
-then
-	if param compare CA_SV_TL0_MINA -185
-	then
-		if param compare CA_SV_TL1_MAXA 185
-		then
-			if param compare CA_SV_TL1_MINA -185
-			then
-				param set CA_SV_TL0_MAXA 180
-				param set CA_SV_TL0_MINA -180
-				param set CA_SV_TL1_MAXA 180
-				param set CA_SV_TL1_MINA -180
-			fi
-		fi
-	fi
-fi
-
 # Tilt 2: rj1, right arm secondary servo-shaft range, roll axis
 param set-default CA_SV_TL2_MAXA 180
 param set-default CA_SV_TL2_MINA -180
@@ -368,7 +312,6 @@ param set-default HNTR_L2 0.664
 param set-default HNTR_CG_X 0.105
 param set-default HNTR_CG_Z -0.013
 param set-default HNTR_S2_GEAR 2.0
-param set-default HNTR_TAIL_COMP 1.0
 param set-default HNTR_TAIL_REV_T 0.30
 # Conservative no-load servo-shaft rate. The 2:1 secondary transmission makes
 # the physical second-stage joint limit 2.35 rad/s.
@@ -382,7 +325,7 @@ param set-default HNTR_POS_P_XY 0.6
 param set-default HNTR_POS_P_Z 1.0
 param set-default HNTR_VEL_P_XY 1.5
 param set-default HNTR_VEL_P_Z 2.5
-param set-default HNTR_VEL_I_XY 0.20
+param set-default HNTR_VEL_I_XY 0.0
 param set-default HNTR_VEL_I_Z 0.40
 param set-default HNTR_VEL_D_XY 0.10
 param set-default HNTR_VEL_D_Z 0.20
@@ -391,7 +334,7 @@ param set-default HNTR_VEL_ILIM_Z 2.5
 param set-default HNTR_VEL_XY 3.0
 param set-default HNTR_VEL_UP 1.5
 param set-default HNTR_VEL_DN 1.0
-param set-default HNTR_ACC_XY 5.0
+param set-default HNTR_ACC_XY 1.5
 param set-default HNTR_ACC_Z 8.0
 param set-default HNTR_STAB_Z_P 2.0
 param set-default HNTR_STAB_Z_D 1.2
@@ -408,158 +351,35 @@ param set-default HNTR_LOCK_TILT 12.0
 param set-default HNTR_LOCK_ACC 1.0
 param set-default HNTR_LOCK_KP 0.4
 param set-default HNTR_ATT_KR_R 10.0
-param set-default HNTR_ATT_KR_P 1.5
+param set-default HNTR_ATT_KR_P 5.0
 param set-default HNTR_ATT_KR_Y 1.5
 param set-default HNTR_ATT_D_R 4.0
-param set-default HNTR_ATT_D_P 0.8
+param set-default HNTR_ATT_D_P 2.5
 param set-default HNTR_ATT_D_Y 1.2
 param set-default HNTR_ATT_I_R 0.0
 param set-default HNTR_ATT_I_P 0.0
 param set-default HNTR_ATT_I_Y 0.0
 param set-default HNTR_ATT_ILIM_R 1.0
-param set-default HNTR_ATT_ILIM_P 3.0
+param set-default HNTR_ATT_ILIM_P 0.3
 param set-default HNTR_ATT_ILIM_Y 1.0
 param set-default HNTR_TAU_R 15.0
-param set-default HNTR_TAU_P 0.25
+param set-default HNTR_TAU_P 8.0
 param set-default HNTR_TAU_Y 1.8
-param set-default HNTR_PITCH_BIAS 0.0
+param set-default HNTR_PITCH_BIAS 0.09
 param set-default HNTR_RC_ATT_EN 1
 param set-default HNTR_RC_RATE_R 20.0
-param set-default HNTR_RC_RATE_P 20.0
+param set-default HNTR_RC_RATE_P 8.0
 param set-default HNTR_RC_RATE_Y 25.0
 param set-default HNTR_RC_DB 0.08
-param set-default HNTR_RC_ANG_MAX 45.0
+param set-default HNTR_RC_ANG_MAX 30.0
 param set-default HNTR_RC_ERR_S 20.0
 param set-default HNTR_RC_ERR_H 35.0
 param set-default HNTR_RC_LVL_R 15.0
 param set-default HNTR_FD_ERR 45.0
 
-# The 2026-08-07 position-flight logs stored an aggressive Pitch combination
-# that overrides the safer defaults above. Migrate only that complete recorded
-# combination so later manual tuning remains untouched. HNTR_TAU_P is now the
-# final total Pitch torque limit (including HNTR_PITCH_BIAS); 8 Nm retains the
-# measured trim while removing the previous roughly 15 Nm positive extreme.
-if param compare HNTR_ATT_KR_P 20.0
-then
-	if param compare HNTR_ATT_D_P 8.0
-	then
-		if param compare HNTR_TAU_P 10.0
-		then
-			if param compare HNTR_ATT_I_P 0.06
-			then
-				if param compare HNTR_ATT_ILIM_P 0.8
-				then
-					if param compare HNTR_PITCH_BIAS 0.09
-					then
-						if param compare HNTR_RC_RATE_P 20.0
-						then
-							if param compare HNTR_RC_ANG_MAX 45.0
-							then
-								param set HNTR_ATT_KR_P 5.0
-								param set HNTR_ATT_D_P 2.5
-								param set HNTR_TAU_P 8.0
-								param set HNTR_ATT_I_P 0.0
-								param set HNTR_ATT_ILIM_P 0.3
-								param set HNTR_RC_RATE_P 8.0
-								param set HNTR_RC_ANG_MAX 30.0
-							fi
-						fi
-					fi
-				fi
-			fi
-		fi
-	fi
-fi
-
-# The 2026-08-08 flight (04881ce9) retained a fixed 0.09 Pitch bias. At the
-# recorded KR_P=5 this trim was about 5.1 Nm, equal to the maximum sine-error
-# feedback, and prevented negative recovery torque. Replace that exact saved
-# combination with geometry-dependent allocator compensation plus a deliberately
-# small, bounded integral term. This is a model-based starting point and still
-# requires prop-off and tethered validation of CG_X/CG_Z.
-if param compare HNTR_ATT_KR_P 5.0
-then
-	if param compare HNTR_ATT_D_P 2.5
-	then
-		if param compare HNTR_TAU_P 8.0
-		then
-			if param compare HNTR_ATT_I_P 0.0
-			then
-				if param compare HNTR_ATT_ILIM_P 0.3
-				then
-					if param compare HNTR_PITCH_BIAS 0.09
-					then
-						if param compare HNTR_TAIL_COMP 0.0
-						then
-							param set HNTR_PITCH_BIAS 0.0
-							param set HNTR_TAIL_COMP 1.0
-							param set HNTR_ATT_I_P 0.01
-							param set HNTR_ATT_ILIM_P 0.5
-						fi
-					fi
-				fi
-			fi
-		fi
-	fi
-fi
-
-# Migrate only the full aggressive position combination recorded in log 132.
-# The takeoff release ramp then blends from LOCK_ACC/LOCK_KP to these values.
-if param compare HNTR_POS_P_XY 3.75
-then
-	if param compare HNTR_VEL_P_XY 9.05
-	then
-		if param compare HNTR_POS_P_Z 3.5
-		then
-			if param compare HNTR_VEL_P_Z 4.0
-			then
-				if param compare HNTR_ACC_XY 3.0
-				then
-					if param compare HNTR_ACC_Z 45.6
-					then
-						param set HNTR_POS_P_XY 0.6
-						param set HNTR_VEL_P_XY 1.5
-						param set HNTR_VEL_I_XY 0.0
-						param set HNTR_POS_P_Z 1.0
-						param set HNTR_VEL_P_Z 2.5
-						param set HNTR_ACC_XY 1.5
-						param set HNTR_ACC_Z 8.0
-					fi
-				fi
-			fi
-		fi
-	fi
-fi
-
-# Migrate only the parameter combination recorded in the 2026-07-30 e0958bbd
-# flight. This makes the safer debug values effective after flashing while
-# preserving any later tuning instead of forcing parameters on every boot.
-if param compare HNTR_ATT_KR_R 18.2
-then
-	if param compare HNTR_ATT_D_R 9.6
-	then
-		if param compare HNTR_TAU_R 56.3
-		then
-			param set HNTR_ATT_KR_R 10.0
-			param set HNTR_ATT_D_R 4.0
-			param set HNTR_TAU_R 15.0
-		fi
-	fi
-fi
-
-if param compare HNTR_VEL_I_XY 0.39
-then
-	param set HNTR_VEL_I_XY 0.20
-fi
-
-if param compare HNTR_LND_GC_R 0.75
-then
-	if param compare HNTR_LND_MIN_R 0.60
-	then
-		param set HNTR_LND_GC_R 0.85
-		param set HNTR_LND_MIN_R 0.80
-	fi
-fi
+# Saved parameters on an existing flight controller override these defaults.
+# Firmware updates do not infer an old configuration from value combinations;
+# apply and save the release parameter table manually after flashing.
 
 param set-default MPC_XY_P 1.875
 param set-default MPC_XY_VEL_P_ACC 8.0
