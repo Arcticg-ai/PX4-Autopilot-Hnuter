@@ -129,10 +129,10 @@ PARAM_DEFINE_FLOAT(HNTR_TAIL_SIGN, 1.0f);
 /**
  * Hnuter tail collective pitch compensation
  *
- * Blends in the old Motor5 compensation for pitch moment caused by collective
- * vertical front thrust and model center-of-mass offset. Keep this at 0 on the
- * real aircraft so Motor5 does not follow throttle. Set to 1 in SITL when the
- * Gazebo model still needs tail thrust to cancel collective pitch moment.
+ * Blends Motor5 feedforward for the pitch moment caused by commanded force and
+ * the HNTR_CG_X/HNTR_CG_Z center-of-mass offsets. A value of 1 replaces the
+ * fixed hover-only HNTR_PITCH_BIAS with force-dependent compensation. Validate
+ * the geometry and sign without propellers before enabling it on hardware.
  *
  * @min 0.0
  * @max 1.0
@@ -589,6 +589,21 @@ PARAM_DEFINE_FLOAT(HNTR_TO_SUP_T, 1.0f);
 PARAM_DEFINE_FLOAT(HNTR_TO_LOCK_T, 3.0f);
 
 /**
+ * Hnuter takeoff release ramp time
+ *
+ * Time used to blend the XY position gain, acceleration limit and tilt limit
+ * from their locked values to the normal-flight values after HNTR_TO_LOCK_T.
+ * This removes the single-cycle controller step previously seen at lock exit.
+ *
+ * @unit s
+ * @min 0.0
+ * @max 20.0
+ * @decimal 2
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_TO_RAMP_T, 4.0f);
+
+/**
  * Hnuter takeoff tilt limit
  *
  * @unit deg
@@ -888,6 +903,35 @@ PARAM_DEFINE_FLOAT(HNTR_RC_DB, 0.08f);
 PARAM_DEFINE_FLOAT(HNTR_RC_ANG_MAX, 90.0f);
 
 /**
+ * Hnuter RC attitude governor soft error
+ *
+ * The full quaternion attitude target starts slowing when its shortest-path
+ * error from the measured attitude exceeds this value. This is a tracking
+ * error governor, not an absolute Pitch angle limit.
+ *
+ * @unit deg
+ * @min 0.0
+ * @max 180.0
+ * @decimal 1
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_RC_ERR_S, 20.0f);
+
+/**
+ * Hnuter RC attitude governor hard error
+ *
+ * Commands that would increase attitude error are stopped at this error;
+ * commands that reduce error remain available. Must exceed HNTR_RC_ERR_S.
+ *
+ * @unit deg
+ * @min 1.0
+ * @max 180.0
+ * @decimal 1
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_RC_ERR_H, 35.0f);
+
+/**
  * Hnuter gradual return-to-level rate
  *
  * Maximum roll and pitch setpoint slew rate after an AUX3 rising edge.
@@ -899,3 +943,36 @@ PARAM_DEFINE_FLOAT(HNTR_RC_ANG_MAX, 90.0f);
  * @group Hnuter Control
  */
 PARAM_DEFINE_FLOAT(HNTR_RC_LVL_R, 20.0f);
+
+/**
+ * Hnuter commanded-attitude failure error
+ *
+ * In active Hnuter geometric control, failure detection compares measured
+ * attitude with the commanded attitude instead of treating intentional large
+ * Pitch as a failure. Set to zero to use the standard absolute-angle check.
+ *
+ * @unit deg
+ * @min 0.0
+ * @max 180.0
+ * @decimal 1
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_FD_ERR, 45.0f);
+
+/** Hnuter body-X center-of-mass offset
+ * @unit m
+ * @min -1.0
+ * @max 1.0
+ * @decimal 3
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_CG_X, 0.105f);
+
+/** Hnuter body-Z center-of-mass offset
+ * @unit m
+ * @min -1.0
+ * @max 1.0
+ * @decimal 3
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_CG_Z, -0.013f);

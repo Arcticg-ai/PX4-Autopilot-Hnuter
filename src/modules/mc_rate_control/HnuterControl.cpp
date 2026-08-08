@@ -15,6 +15,21 @@
 using namespace matrix;
 using namespace time_literals;
 
+static Quatf normalizedCanonicalQuaternion(const Quatf &input)
+{
+	Quatf output{input};
+	output.normalize();
+	output.canonicalize();
+	return output;
+}
+
+static Quatf normalizedQuaternion(const Quatf &input)
+{
+	Quatf output{input};
+	output.normalize();
+	return output;
+}
+
 HnuterControl::HnuterControl(ModuleParams *parent) :
 	ModuleParams(parent)
 {
@@ -49,19 +64,12 @@ float HnuterControl::applyDeadband(float input, float deadband)
 	return math::signNoZero(input) * (magnitude - constrained_deadband) / (1.f - constrained_deadband);
 }
 
-float HnuterControl::slewToZero(float value, float rate_limit, float dt, float &applied_rate)
-{
-	const float max_step = math::max(rate_limit, 0.f) * dt;
-	const float step = math::constrain(-value, -max_step, max_step);
-	applied_rate = dt > FLT_EPSILON ? step / dt : 0.f;
-	return value + step;
-}
-
 void HnuterControl::reset()
 {
 	_velocity_integral.setZero();
 	_integral_e_R.setZero();
 	_xy_lock_initialized = false;
+	_takeoff_ramp_started = false;
 	_manual_altitude_initialized = false;
 	_rc_attitude_initialized = false;
 	_rc_level_return_active = false;
@@ -72,8 +80,10 @@ void HnuterControl::reset()
 	_prev_armed = false;
 	_armed_time = 0;
 	_manual_altitude_sp = 0.f;
-	_rc_yaw_sp = 0.f;
-	_rc_attitude_sp.setZero();
+	_rc_level_yaw_sp = 0.f;
+	_rc_roll_command_angle = 0.f;
+	_rc_governor_scale = 1.f;
+	_rc_attitude_q_sp = Quatf{};
 }
 
 bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
@@ -123,6 +133,7 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 	if (vehicle_control_mode.flag_armed && !_prev_armed) {
 		_armed_time = now;
 		_xy_lock_initialized = false;
+		_takeoff_ramp_started = false;
 		_manual_altitude_initialized = false;
 		_velocity_integral.setZero();
 		_integral_e_R.setZero();
@@ -217,6 +228,7 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 
 	const float takeoff_tilt_suppress_time_s = math::max(_param_hntr_to_sup_t.get(), 0.f);
 	const float takeoff_xy_lock_time_s = math::max(_param_hntr_to_lock_t.get(), takeoff_tilt_suppress_time_s);
+	const float takeoff_release_ramp_time_s = math::max(_param_hntr_to_ramp_t.get(), 0.f);
 	const float xy_lock_kp_scale = math::constrain(_param_hntr_lock_kp.get(), 0.f, 1.f);
 	const float max_acc_xy_default = math::max(_param_hntr_acc_xy.get(), 0.1f);
 	const float xy_lock_max_acc_xy = math::max(_param_hntr_lock_acc.get(), 0.1f);
@@ -228,6 +240,22 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 	const bool tilt_suppress_active = time_since_armed_s < takeoff_tilt_suppress_time_s;
 	const bool xy_lock_active = (time_since_armed_s >= takeoff_tilt_suppress_time_s)
 				    && (time_since_armed_s < takeoff_xy_lock_time_s);
+	const float takeoff_release_progress = takeoff_release_ramp_time_s > FLT_EPSILON
+			? math::constrain((time_since_armed_s - takeoff_xy_lock_time_s) / takeoff_release_ramp_time_s, 0.f, 1.f)
+			: 1.f;
+	const bool takeoff_release_ramp_active = time_since_armed_s >= takeoff_xy_lock_time_s
+					 && takeoff_release_progress < 1.f;
+	const float takeoff_xy_gain_scale = xy_lock_active ? xy_lock_kp_scale
+			: (takeoff_release_ramp_active
+			   ? xy_lock_kp_scale + (1.f - xy_lock_kp_scale) * takeoff_release_progress : 1.f);
+
+	if (takeoff_release_ramp_active && !_takeoff_ramp_started) {
+		// Do not carry the locked-phase XY integrator into the newly released
+		// position target. The normal controller rebuilds it smoothly afterwards.
+		_velocity_integral(0) = 0.f;
+		_velocity_integral(1) = 0.f;
+		_takeoff_ramp_started = true;
+	}
 
 	if (xy_lock_active) {
 		if (!_xy_lock_initialized) {
@@ -256,10 +284,8 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 	position_p(1, 1) = manual_attitude_altitude_mode ? 0.f : _param_hntr_pos_p_xy.get();
 	position_p(2, 2) = manual_attitude_altitude_mode ? _param_hntr_stab_z_p.get() : _param_hntr_pos_p_z.get();
 
-	if (xy_lock_active) {
-		position_p(0, 0) *= xy_lock_kp_scale;
-		position_p(1, 1) *= xy_lock_kp_scale;
-	}
+	position_p(0, 0) *= takeoff_xy_gain_scale;
+	position_p(1, 1) *= takeoff_xy_gain_scale;
 
 	vel_sp += position_p * pos_error;
 	constrainXY(vel_sp, manual_attitude_altitude_mode ? 0.f : math::max(_param_hntr_vel_xy.get(), 0.f));
@@ -294,7 +320,11 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 					 - velocity_d.emult(measured_acceleration);
 	Vector3f acc_des = acc_unsaturated;
 
-	const float max_acc_xy = manual_attitude_altitude_mode ? 0.f : (xy_lock_active ? xy_lock_max_acc_xy : max_acc_xy_default);
+	const float takeoff_max_acc_xy = xy_lock_active ? xy_lock_max_acc_xy
+			: (takeoff_release_ramp_active
+			   ? xy_lock_max_acc_xy + (max_acc_xy_default - xy_lock_max_acc_xy) * takeoff_release_progress
+			   : max_acc_xy_default);
+	const float max_acc_xy = manual_attitude_altitude_mode ? 0.f : takeoff_max_acc_xy;
 	constrainXY(acc_des, max_acc_xy);
 	const float requested_max_acc_z = manual_attitude_altitude_mode ? math::max(_param_hntr_stab_acc_z.get(), 0.1f) :
 					math::max(_param_hntr_acc_z.get(), 0.1f);
@@ -338,8 +368,11 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 		f_body(1) = 0.f;
 	}
 
-	const bool takeoff_force_limit_active = tilt_suppress_active || xy_lock_active;
-	const float takeoff_force_limit = tilt_suppress_active ? takeoff_tilt_limit_rad : xy_lock_tilt_limit_rad;
+	const bool takeoff_force_limit_active = tilt_suppress_active || xy_lock_active || takeoff_release_ramp_active;
+	const float takeoff_force_limit = tilt_suppress_active ? takeoff_tilt_limit_rad
+			: (xy_lock_active ? xy_lock_tilt_limit_rad
+			   : xy_lock_tilt_limit_rad + (default_tilt_limit_rad - xy_lock_tilt_limit_rad)
+			   * takeoff_release_progress);
 
 	if (takeoff_force_limit_active && takeoff_force_limit < math::radians(89.f)) {
 		const float fz_abs = fabsf(f_body(2));
@@ -369,7 +402,8 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 	Dcmf R_des{};
 	bool r_des_valid = false;
 	float yaw_rate_sp = 0.f;
-	Vector2f rc_attitude_rate_sp{};
+	Vector3f target_attitude_rate{};
+	bool rc_attitude_control_active = false;
 
 	const bool use_attitude_sp = vehicle_control_mode.flag_control_attitude_enabled
 				     && have_att_sp
@@ -408,17 +442,21 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 		Vector2f attitude_sp_rp{};
 		const bool manual_sp_fresh = have_manual_sp && manual_sp.valid && manual_sp.timestamp > 0
 					     && now >= manual_sp.timestamp && (now - manual_sp.timestamp) < 500_ms;
-		const bool rc_attitude_control_active = _param_hntr_rc_att_en.get()
+		rc_attitude_control_active = _param_hntr_rc_att_en.get()
 						&& hnuter_translation_control_active
 						&& vehicle_control_mode.flag_control_manual_enabled
 						&& manual_sp_fresh;
 
 		if (rc_attitude_control_active) {
+			const Quatf q_cur{att.q};
+
 			if (!_rc_attitude_initialized) {
-				// Enter position mode at the measured attitude, then use the same
-				// bounded slew as AUX3 to establish the level-flight target.
-				_rc_attitude_sp = Vector2f{euler_cur.phi(), euler_cur.theta()};
-				_rc_yaw_sp = euler_cur.psi();
+				// A quaternion target preserves the complete attitude circle without
+				// the +/-90 degree Euler singularity or a hidden roll/yaw branch flip.
+				_rc_attitude_q_sp = q_cur;
+				_rc_attitude_q_sp.normalize();
+				_rc_level_yaw_sp = euler_cur.psi();
+				_rc_roll_command_angle = 0.f;
 				_rc_attitude_initialized = true;
 				_rc_level_return_active = true;
 				_rc_level_switch_previous = PX4_ISFINITE(manual_sp.aux3) && manual_sp.aux3 > 0.5f;
@@ -435,6 +473,7 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 
 			if (level_switch && !_rc_level_switch_previous) {
 				_rc_level_return_active = true;
+				_rc_level_yaw_sp = euler_cur.psi();
 			}
 
 			_rc_level_switch_previous = level_switch;
@@ -447,54 +486,77 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 				_rc_level_return_active = false;
 			}
 
-			// AUX1/AUX2 are rate commands. Latch the angle actually reached on
-			// release instead of continuing toward an integrated target that may be
-			// far ahead of a slow tilt mechanism.
-			if (!roll_input_active && _rc_roll_input_previous) {
-				_rc_attitude_sp(0) = euler_cur.phi();
+			// AUX1/AUX2 are body-rate commands. When either attitude channel is
+			// released, latch the complete attitude actually reached. This prevents
+			// a slow mechanism from continuing toward an integrated target ahead of
+			// the aircraft, including through vertical Pitch.
+			if ((!roll_input_active && _rc_roll_input_previous)
+			    || (!pitch_input_active && _rc_pitch_input_previous)) {
+				_rc_attitude_q_sp = q_cur;
+				_rc_attitude_q_sp.normalize();
+				_rc_roll_command_angle = 0.f;
 			}
 
-			if (!pitch_input_active && _rc_pitch_input_previous) {
-				_rc_attitude_sp(1) = euler_cur.theta();
-			}
-
-			if (!yaw_input_active && _rc_yaw_input_previous) {
-				_rc_yaw_sp = euler_cur.psi();
-			}
+			Vector3f requested_body_rate{};
 
 			if (_rc_level_return_active) {
 				const float level_rate = math::radians(math::max(_param_hntr_rc_lvl_r.get(), 0.f));
-				_rc_attitude_sp(0) = slewToZero(_rc_attitude_sp(0), level_rate, dt, rc_attitude_rate_sp(0));
-				_rc_attitude_sp(1) = slewToZero(_rc_attitude_sp(1), level_rate, dt, rc_attitude_rate_sp(1));
+				const Quatf q_level{Eulerf{0.f, 0.f, _rc_level_yaw_sp}};
+				const AxisAnglef level_error{normalizedCanonicalQuaternion(Quatf{_rc_attitude_q_sp.inversed() * q_level})};
+				const float level_error_angle = level_error.norm();
 
-				if (fabsf(_rc_attitude_sp(0)) < 1e-4f && fabsf(_rc_attitude_sp(1)) < 1e-4f) {
-					_rc_attitude_sp.setZero();
-					rc_attitude_rate_sp.setZero();
+				if (level_error_angle < 1e-4f || level_rate <= FLT_EPSILON) {
+					_rc_attitude_q_sp = q_level;
 					_rc_level_return_active = false;
+					_rc_roll_command_angle = 0.f;
+
+				} else {
+					requested_body_rate = level_error * (math::min(level_rate * dt, level_error_angle)
+							      / math::max(level_error_angle * dt, FLT_EPSILON));
 				}
 
 			} else {
-				rc_attitude_rate_sp(0) = roll_input_active
+				requested_body_rate(0) = roll_input_active
 							? roll_input * math::radians(math::max(_param_hntr_rc_rate_r.get(), 0.f)) : 0.f;
-				rc_attitude_rate_sp(1) = pitch_input_active
+				requested_body_rate(1) = pitch_input_active
 							? pitch_input * math::radians(math::max(_param_hntr_rc_rate_p.get(), 0.f)) : 0.f;
-				_rc_attitude_sp += rc_attitude_rate_sp * dt;
+				requested_body_rate(2) = yaw_input_active
+							? yaw_input * math::radians(math::max(_param_hntr_rc_rate_y.get(), 0.f)) : 0.f;
+
+				// HNTR_RC_ANG_MAX remains a relative AUX1 travel guard. It is not
+				// derived from Euler roll, which is ambiguous around vertical Pitch.
+				const float roll_limit = math::radians(math::constrain(_param_hntr_rc_ang_max.get(), 0.f, 180.f));
+				const float next_roll_command = math::constrain(_rc_roll_command_angle
+							+ requested_body_rate(0) * dt, -roll_limit, roll_limit);
+				requested_body_rate(0) = dt > FLT_EPSILON
+							? (next_roll_command - _rc_roll_command_angle) / dt : 0.f;
+				_rc_roll_command_angle = next_roll_command;
 			}
 
-			const float attitude_limit = math::radians(math::constrain(_param_hntr_rc_ang_max.get(), 0.f, 180.f));
-			_rc_attitude_sp(0) = math::constrain(_rc_attitude_sp(0), -attitude_limit, attitude_limit);
-			// Keep the Roll guard while allowing AUX2 to command the complete Pitch
-			// attitude circle. Wrapping avoids unbounded integration without imposing
-			// an artificial 30/45/90 degree Pitch magnitude limit.
-			_rc_attitude_sp(1) = matrix::wrap_pi(_rc_attitude_sp(1));
-			yaw_rate_sp = yaw_input_active
-					? yaw_input * math::radians(math::max(_param_hntr_rc_rate_y.get(), 0.f)) : 0.f;
-			_rc_yaw_sp = atan2f(sinf(_rc_yaw_sp + yaw_rate_sp * dt), cosf(_rc_yaw_sp + yaw_rate_sp * dt));
+			const Quatf full_candidate = normalizedQuaternion(Quatf{_rc_attitude_q_sp
+						     * Quatf{AxisAnglef{requested_body_rate * dt}}});
+			const float current_error = AxisAnglef{normalizedCanonicalQuaternion(
+							Quatf{_rc_attitude_q_sp.inversed() * q_cur})}.norm();
+			const float candidate_error = AxisAnglef{normalizedCanonicalQuaternion(
+							  Quatf{full_candidate.inversed() * q_cur})}.norm();
+			const float governor_soft = math::radians(math::constrain(_param_hntr_rc_err_s.get(), 0.f, 179.f));
+			const float governor_hard = math::radians(math::constrain(_param_hntr_rc_err_h.get(),
+							math::degrees(governor_soft) + 1.f, 180.f));
+			_rc_governor_scale = 1.f;
+
+			if (candidate_error > current_error && current_error > governor_soft) {
+				_rc_governor_scale = math::constrain((governor_hard - current_error)
+							/ math::max(governor_hard - governor_soft, math::radians(1.f)), 0.f, 1.f);
+			}
+
+			target_attitude_rate = requested_body_rate * _rc_governor_scale;
+			_rc_attitude_q_sp = normalizedQuaternion(Quatf{_rc_attitude_q_sp
+							 * Quatf{AxisAnglef{target_attitude_rate * dt}}});
+			R_des = Dcmf{_rc_attitude_q_sp};
+			r_des_valid = true;
 			_rc_roll_input_previous = roll_input_active;
 			_rc_pitch_input_previous = pitch_input_active;
 			_rc_yaw_input_previous = yaw_input_active;
-			yaw_sp = _rc_yaw_sp;
-			attitude_sp_rp = _rc_attitude_sp;
 
 		} else {
 			_rc_attitude_initialized = false;
@@ -503,6 +565,7 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 			_rc_roll_input_previous = false;
 			_rc_pitch_input_previous = false;
 			_rc_yaw_input_previous = false;
+			_rc_governor_scale = 1.f;
 
 			// Hnuter extension for Offboard: trajectory_setpoint carries
 			// translation, and jerk[0]/jerk[1] carry roll/pitch attitude
@@ -538,18 +601,29 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 			}
 		}
 
-		// Translation is generated by thrust-vectoring, so body roll and pitch can
-		// be commanded independently without using mc_pos_control's tilt setpoint.
-		R_des = Dcmf{Eulerf{attitude_sp_rp(0), attitude_sp_rp(1), yaw_sp}};
-		r_des_valid = true;
+		if (!rc_attitude_control_active) {
+			// Translation is generated by thrust-vectoring, so body roll and pitch
+			// can be commanded independently without mc_pos_control's tilt target.
+			R_des = Dcmf{Eulerf{attitude_sp_rp(0), attitude_sp_rp(1), yaw_sp}};
+			r_des_valid = true;
+		}
 
 		if (!rc_attitude_control_active && have_traj && PX4_ISFINITE(traj_sp.yawspeed)) {
 			yaw_rate_sp = traj_sp.yawspeed;
 		}
 	}
 
-	const Matrix3f e_rm = 0.5f * (R_des.transpose() * R - R.transpose() * R_des);
-	const Vector3f e_R{e_rm(2, 1), e_rm(0, 2), e_rm(1, 0)};
+	if (!rc_attitude_control_active) {
+		// yaw_rate_sp is about the world vertical axis. Express it directly in
+		// desired-body coordinates without an Euler-angle round trip.
+		target_attitude_rate = R_des.transpose() * Vector3f{0.f, 0.f, yaw_rate_sp};
+	}
+
+	// Shortest-path SO(3) logarithm retains control authority through 90 degrees
+	// and up to 180 degrees. The previous skew/sine error went back to zero at
+	// 180 degrees and could command no recovery torque.
+	const Quatf q_error = normalizedCanonicalQuaternion(Quatf{Quatf{R_des}.inversed() * Quatf{R}});
+	const Vector3f e_R{AxisAnglef{q_error}};
 
 	const Vector3f KR{_param_hntr_att_kr_r.get(), _param_hntr_att_kr_p.get(), _param_hntr_att_kr_y.get()};
 	const Vector3f Domega{_param_hntr_att_d_r.get(), _param_hntr_att_d_p.get(), _param_hntr_att_d_y.get()};
@@ -557,15 +631,10 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 	const Vector3f integral_torque_limit{_param_hntr_att_ilim_r.get(), _param_hntr_att_ilim_p.get(),
 			_param_hntr_att_ilim_y.get()};
 	const Eulerf euler_des{R_des};
-	const float roll_des = euler_des.phi();
-	const float pitch_des = euler_des.theta();
-	const Vector3f target_attitude_rate{
-		rc_attitude_rate_sp(0) - yaw_rate_sp * sinf(pitch_des),
-		rc_attitude_rate_sp(1) * cosf(roll_des) + yaw_rate_sp * sinf(roll_des) * cosf(pitch_des),
-		-rc_attitude_rate_sp(1) * sinf(roll_des) + yaw_rate_sp * cosf(roll_des) * cosf(pitch_des)
-	};
 	const Vector3f omega_error = rates - R.transpose() * R_des * target_attitude_rate;
-	const Vector3f attitude_torque = -KR.emult(e_R) - Domega.emult(omega_error);
+	const Vector3f torque_p = -KR.emult(e_R);
+	const Vector3f torque_d = -Domega.emult(omega_error);
+	const Vector3f attitude_torque = torque_p + torque_d;
 	const Vector3f tau_limit{_param_hntr_tau_r.get(), _param_hntr_tau_p.get(), _param_hntr_tau_y.get()};
 	const float pitch_bias_normalized = math::constrain(_param_hntr_pitch_bias.get(), -1.f, 1.f);
 	Vector3f trim_torque{};
@@ -603,7 +672,8 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 	// Apply the CG/tail trim in physical torque before the final per-axis limit.
 	// Previously HNTR_PITCH_BIAS was added after this limit in normalized units,
 	// allowing the real pitch command to exceed HNTR_TAU_P.
-	Vector3f tau_c = attitude_torque + trim_torque - Ki.emult(_integral_e_R);
+	const Vector3f torque_i = -Ki.emult(_integral_e_R);
+	Vector3f tau_c = attitude_torque + trim_torque + torque_i;
 	tau_c(0) = math::constrain(tau_c(0), -tau_limit(0), tau_limit(0));
 	tau_c(1) = math::constrain(tau_c(1), -tau_limit(1), tau_limit(1));
 	tau_c(2) = math::constrain(tau_c(2), -tau_limit(2), tau_limit(2));
@@ -621,6 +691,8 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 				  && vehicle_rates_setpoint.timestamp > 0
 				  && (now >= vehicle_rates_setpoint.timestamp)
 				  && (now - vehicle_rates_setpoint.timestamp) < 500_ms;
+	const bool geometric_control_active = !(use_rates_sp && !hnuter_translation_control_active
+					      && !manual_attitude_altitude_mode);
 
 	if (use_rates_sp && !hnuter_translation_control_active && !manual_attitude_altitude_mode) {
 		const Vector3f rates_sp{
@@ -660,6 +732,30 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 	hnuter_attitude_setpoint_debug.y = math::degrees(euler_des.theta());
 	hnuter_attitude_setpoint_debug.z = math::degrees(euler_des.psi());
 	_hnuter_attitude_setpoint_debug_pub.publish(hnuter_attitude_setpoint_debug);
+
+	hnuter_control_status_s hnuter_status{};
+	hnuter_status.timestamp = hnuter_attitude_setpoint_debug.timestamp;
+	hnuter_status.active = geometric_control_active;
+	const Quatf q_des{R_des};
+
+	for (int i = 0; i < 4; i++) {
+		hnuter_status.attitude_setpoint_q[i] = q_des(i);
+	}
+
+	for (int i = 0; i < 3; i++) {
+		hnuter_status.attitude_error[i] = e_R(i);
+		hnuter_status.rate_setpoint[i] = target_attitude_rate(i);
+		hnuter_status.torque_p[i] = torque_p(i);
+		hnuter_status.torque_d[i] = torque_d(i);
+		hnuter_status.torque_i[i] = torque_i(i);
+		hnuter_status.torque_trim[i] = trim_torque(i);
+		hnuter_status.torque_command[i] = tau_c(i);
+		hnuter_status.force_body[i] = f_body(i);
+	}
+
+	hnuter_status.attitude_error_angle = e_R.norm();
+	hnuter_status.governor_scale = _rc_governor_scale;
+	_hnuter_control_status_pub.publish(hnuter_status);
 
 	output.thrust_setpoint.timestamp_sample = angular_velocity.timestamp_sample;
 	output.thrust_setpoint.timestamp = hnuter_attitude_setpoint_debug.timestamp;

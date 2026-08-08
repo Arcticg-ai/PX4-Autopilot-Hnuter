@@ -56,6 +56,7 @@
 #include <uORB/topics/actuator_motors.h>
 #include <uORB/topics/esc_status.h>
 #include <uORB/topics/failure_detector_status.h>
+#include <uORB/topics/hnuter_control_status.h>
 #include <uORB/topics/pwm_input.h>
 #include <uORB/topics/sensor_selection.h>
 #include <uORB/topics/vehicle_attitude_setpoint.h>
@@ -118,6 +119,7 @@ private:
 	hrt_abstime _motor_failure_undercurrent_start_time[actuator_motors_s::NUM_CONTROLS] {};
 
 	uORB::Subscription _vehicle_attitude_sub{ORB_ID(vehicle_attitude)};
+	uORB::Subscription _hnuter_control_status_sub{ORB_ID(hnuter_control_status)};
 	uORB::Subscription _esc_status_sub{ORB_ID(esc_status)}; // TODO: multi-instance
 	uORB::Subscription _pwm_input_sub{ORB_ID(pwm_input)};
 	uORB::Subscription _sensor_selection_sub{ORB_ID(sensor_selection)};
@@ -133,6 +135,7 @@ private:
 		(ParamInt<px4::params::FD_FAIL_R>) _param_fd_fail_r,
 		(ParamFloat<px4::params::FD_FAIL_R_TTRI>) _param_fd_fail_r_ttri,
 		(ParamFloat<px4::params::FD_FAIL_P_TTRI>) _param_fd_fail_p_ttri,
+		(ParamFloat<px4::params::HNTR_FD_ERR>) _param_hntr_fd_err,
 		(ParamBool<px4::params::FD_EXT_ATS_EN>) _param_fd_ext_ats_en,
 		(ParamInt<px4::params::FD_EXT_ATS_TRIG>) _param_fd_ext_ats_trig,
 		(ParamInt<px4::params::FD_ESCS_EN>) _param_escs_en,

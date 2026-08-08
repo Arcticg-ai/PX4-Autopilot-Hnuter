@@ -13,6 +13,7 @@
 #include <uORB/Subscription.hpp>
 #include <uORB/Publication.hpp>
 #include <uORB/topics/debug_vect.h>
+#include <uORB/topics/hnuter_control_status.h>
 #include <uORB/topics/rate_ctrl_status.h>
 #include <uORB/topics/manual_control_setpoint.h>
 #include <uORB/topics/trajectory_setpoint.h>
@@ -50,7 +51,6 @@ private:
 	static float forceToNormalizedThrust(float force, float max_force);
 	static void constrainXY(matrix::Vector3f &vector, float limit);
 	static float applyDeadband(float input, float deadband);
-	static float slewToZero(float value, float rate_limit, float dt, float &applied_rate);
 
 	uORB::Subscription _vehicle_odometry_sub{ORB_ID(vehicle_odometry)};
 	uORB::Subscription _vehicle_attitude_sub{ORB_ID(vehicle_attitude)};
@@ -60,11 +60,13 @@ private:
 	uORB::Subscription _vehicle_rates_setpoint_sub{ORB_ID(vehicle_rates_setpoint)};
 	uORB::Subscription _manual_control_setpoint_sub{ORB_ID(manual_control_setpoint)};
 	uORB::Publication<debug_vect_s> _hnuter_attitude_setpoint_debug_pub{ORB_ID(debug_vect)};
+	uORB::Publication<hnuter_control_status_s> _hnuter_control_status_pub{ORB_ID(hnuter_control_status)};
 
 	matrix::Vector3f _velocity_integral{};
 	matrix::Vector3f _integral_e_R{};
 	matrix::Vector2f _xy_lock_position{};
 	bool _xy_lock_initialized{false};
+	bool _takeoff_ramp_started{false};
 	bool _manual_altitude_initialized{false};
 	bool _rc_attitude_initialized{false};
 	bool _rc_level_return_active{false};
@@ -75,8 +77,10 @@ private:
 	bool _prev_armed{false};
 	hrt_abstime _armed_time{0};
 	float _manual_altitude_sp{0.f};
-	float _rc_yaw_sp{0.f};
-	matrix::Vector2f _rc_attitude_sp{};
+	float _rc_level_yaw_sp{0.f};
+	float _rc_roll_command_angle{0.f};
+	float _rc_governor_scale{1.f};
+	matrix::Quatf _rc_attitude_q_sp{};
 
 	DEFINE_PARAMETERS(
 		(ParamInt<px4::params::HNTR_CTRL_MODE>) _param_hntr_ctrl_mode,
@@ -109,6 +113,7 @@ private:
 		(ParamFloat<px4::params::HNTR_TILT_MAX>) _param_hntr_tilt_max,
 		(ParamFloat<px4::params::HNTR_TO_SUP_T>) _param_hntr_to_sup_t,
 		(ParamFloat<px4::params::HNTR_TO_LOCK_T>) _param_hntr_to_lock_t,
+		(ParamFloat<px4::params::HNTR_TO_RAMP_T>) _param_hntr_to_ramp_t,
 		(ParamFloat<px4::params::HNTR_TO_TILT>) _param_hntr_to_tilt,
 		(ParamFloat<px4::params::HNTR_LOCK_TILT>) _param_hntr_lock_tilt,
 		(ParamFloat<px4::params::HNTR_LOCK_ACC>) _param_hntr_lock_acc,
@@ -135,6 +140,8 @@ private:
 		(ParamFloat<px4::params::HNTR_RC_RATE_Y>) _param_hntr_rc_rate_y,
 		(ParamFloat<px4::params::HNTR_RC_DB>) _param_hntr_rc_db,
 		(ParamFloat<px4::params::HNTR_RC_ANG_MAX>) _param_hntr_rc_ang_max,
+		(ParamFloat<px4::params::HNTR_RC_ERR_S>) _param_hntr_rc_err_s,
+		(ParamFloat<px4::params::HNTR_RC_ERR_H>) _param_hntr_rc_err_h,
 		(ParamFloat<px4::params::HNTR_RC_LVL_R>) _param_hntr_rc_lvl_r
 	)
 };

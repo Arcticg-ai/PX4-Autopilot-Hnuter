@@ -112,6 +112,8 @@ private:
 	param_t _param_hntr_max_tail_t{PARAM_INVALID};
 	param_t _param_hntr_l1{PARAM_INVALID};
 	param_t _param_hntr_l2{PARAM_INVALID};
+	param_t _param_hntr_cg_x{PARAM_INVALID};
+	param_t _param_hntr_cg_z{PARAM_INVALID};
 	param_t _param_hntr_s2_gear{PARAM_INVALID};
 	param_t _param_hntr_roll_sign{PARAM_INVALID};
 	param_t _param_hntr_tail_sign{PARAM_INVALID};
@@ -121,6 +123,7 @@ private:
 	param_t _param_hntr_s2_rate{PARAM_INVALID};
 	param_t _param_hntr_to_sup_t{PARAM_INVALID};
 	param_t _param_hntr_to_lock_t{PARAM_INVALID};
+	param_t _param_hntr_to_ramp_t{PARAM_INVALID};
 	param_t _param_hntr_to_tilt{PARAM_INVALID};
 	param_t _param_hntr_lock_tilt{PARAM_INVALID};
 	float _sim_min_velocity{10.f};
@@ -133,6 +136,8 @@ private:
 	float _max_tail_thrust{85.48f};
 	float _l1{0.33f};
 	float _l2{0.664f};
+	float _cg_x{0.105f};
+	float _cg_z{-0.013f};
 	float _secondary_servo_gear_ratio{2.f};
 	float _roll_torque_sign{1.f};
 	float _tail_torque_sign{1.f};
@@ -142,6 +147,7 @@ private:
 	float _secondary_servo_rate_rad_s{4.7f};
 	float _takeoff_tilt_suppress_time_s{1.f};
 	float _takeoff_xy_lock_time_s{3.f};
+	float _takeoff_release_ramp_time_s{4.f};
 	float _takeoff_tilt_limit{0.349066f};
 	float _xy_lock_tilt_limit{0.523599f};
 	float _motor_constant{8.54858e-05f};
@@ -151,4 +157,5 @@ private:
 	float _tail_force_command{0.f};
 	hrt_abstime _tail_zero_timestamp{0};
 	int8_t _tail_last_nonzero_direction{0};
+	matrix::Vector<float, NUM_AXES> _unallocated_control{};
 };
