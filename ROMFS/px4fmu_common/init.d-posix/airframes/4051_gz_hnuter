@@ -182,6 +182,11 @@ param set-default HNTR_L2 0.664
 # The current Gazebo model commands the second-stage joints directly and does
 # not contain the real aircraft's 2:1 reduction gearing.
 param set-default HNTR_S2_GEAR 1.0
+param set-default HNTR_TAIL_REV_T 0.30
+param set-default HNTR_S1_RATE 4.7
+# Direct-drive Gazebo joint rate corresponding to the real 4.7 rad/s servo
+# shaft after its 2:1 secondary transmission.
+param set-default HNTR_S2_RATE 2.35
 param set-default HNTR_ROLL_SIGN 1.0
 param set-default HNTR_TAIL_SIGN 1.0
 param set-default HNTR_TAIL_COMP 1.0

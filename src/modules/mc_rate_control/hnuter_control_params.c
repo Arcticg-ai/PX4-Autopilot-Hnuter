@@ -142,6 +142,51 @@ PARAM_DEFINE_FLOAT(HNTR_TAIL_SIGN, 1.0f);
 PARAM_DEFINE_FLOAT(HNTR_TAIL_COMP, 0.0f);
 
 /**
+ * Hnuter tail motor reversal neutral time
+ *
+ * Minimum time Motor5 must remain at zero thrust before changing thrust
+ * direction. This protects a reversible ESC and propeller from an immediate
+ * positive-to-negative command. Set from measured motor/ESC coast-down time.
+ *
+ * @unit s
+ * @min 0.0
+ * @max 2.0
+ * @decimal 2
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_TAIL_REV_T, 0.30f);
+
+/**
+ * Hnuter primary servo shaft rate limit
+ *
+ * Maximum shaft rate for Servo 1/2. This limit is applied inside the Hnuter
+ * allocator so its commanded servo state cannot move faster than the measured
+ * actuator. The 4.7 rad/s default is the conservative no-load rating.
+ *
+ * @unit rad/s
+ * @min 0.1
+ * @max 50.0
+ * @decimal 2
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_S1_RATE, 4.7f);
+
+/**
+ * Hnuter secondary servo shaft rate limit
+ *
+ * Maximum shaft rate for Servo 3/4 before the HNTR_S2_GEAR reduction. With a
+ * 2:1 ratio and a 4.7 rad/s shaft rate, the secondary output joint is limited
+ * to 2.35 rad/s.
+ *
+ * @unit rad/s
+ * @min 0.1
+ * @max 50.0
+ * @decimal 2
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_S2_RATE, 4.7f);
+
+/**
  * Hnuter legacy hover thrust
  *
  * Retained so existing parameter files still load. The cascaded controller
@@ -727,6 +772,10 @@ PARAM_DEFINE_FLOAT(HNTR_TAU_R, 0.9f);
 /**
  * Hnuter geometric pitch torque limit
  *
+ * Final absolute body-y torque limit after P/D/I and HNTR_PITCH_BIAS are
+ * combined. The trim therefore cannot increase the command beyond this value.
+ *
+ * @unit Nm
  * @min 0.0
  * @max 100.0
  * @decimal 2
@@ -747,11 +796,13 @@ PARAM_DEFINE_FLOAT(HNTR_TAU_Y, 1.8f);
 /**
  * Hnuter pitch torque bias
  *
- * Constant normalized pitch torque added after the pitch attitude controller.
- * This is used to trim a rear/front CG offset so Motor5 does not have to sit at
- * the bidirectional ESC neutral point in level attitude. Positive values move
- * Motor5 toward the positive pitch-torque direction; use the opposite sign if
- * pitch trim moves the vehicle the wrong way.
+ * Constant normalized pitch torque used to trim a rear/front CG offset so
+ * Motor5 does not have to sit at the bidirectional ESC neutral point in level
+ * attitude. The equivalent physical trim torque is combined with P/D/I before
+ * the final HNTR_TAU_P limit, so the bias cannot bypass the total pitch torque
+ * limit. Positive values move Motor5 toward the positive pitch-torque
+ * direction; use the opposite sign if pitch trim moves the vehicle the wrong
+ * way.
  *
  * @min -1.0
  * @max 1.0

@@ -140,6 +140,9 @@ ActuatorEffectivenessHnuter::ActuatorEffectivenessHnuter(ModuleParams *parent)
 	_param_hntr_roll_sign = param_find("HNTR_ROLL_SIGN");
 	_param_hntr_tail_sign = param_find("HNTR_TAIL_SIGN");
 	_param_hntr_tail_comp = param_find("HNTR_TAIL_COMP");
+	_param_hntr_tail_rev_t = param_find("HNTR_TAIL_REV_T");
+	_param_hntr_s1_rate = param_find("HNTR_S1_RATE");
+	_param_hntr_s2_rate = param_find("HNTR_S2_RATE");
 	_param_hntr_to_sup_t = param_find("HNTR_TO_SUP_T");
 	_param_hntr_to_lock_t = param_find("HNTR_TO_LOCK_T");
 	_param_hntr_to_tilt = param_find("HNTR_TO_TILT");
@@ -257,6 +260,30 @@ void ActuatorEffectivenessHnuter::updateParams()
 		}
 	}
 
+	if (_param_hntr_tail_rev_t != PARAM_INVALID) {
+		float value = 0.f;
+
+		if (param_get(_param_hntr_tail_rev_t, &value) == 0) {
+			_tail_reverse_delay_s = math::constrain(value, 0.f, 2.f);
+		}
+	}
+
+	if (_param_hntr_s1_rate != PARAM_INVALID) {
+		float value = 0.f;
+
+		if (param_get(_param_hntr_s1_rate, &value) == 0) {
+			_primary_servo_rate_rad_s = math::constrain(value, 0.1f, 50.f);
+		}
+	}
+
+	if (_param_hntr_s2_rate != PARAM_INVALID) {
+		float value = 0.f;
+
+		if (param_get(_param_hntr_s2_rate, &value) == 0) {
+			_secondary_servo_rate_rad_s = math::constrain(value, 0.1f, 50.f);
+		}
+	}
+
 	if (_param_hntr_to_sup_t != PARAM_INVALID) {
 		float value = 0.f;
 
@@ -288,6 +315,62 @@ void ActuatorEffectivenessHnuter::updateParams()
 			_xy_lock_tilt_limit = math::radians(math::constrain(value, 0.f, 185.f));
 		}
 	}
+}
+
+float ActuatorEffectivenessHnuter::applyTailReversalGuard(float desired_tail_force, hrt_abstime now)
+{
+	// Ignore tiny force sign changes around the reversible ESC neutral point.
+	const float force_deadband = math::max(0.005f * _max_tail_thrust, 0.1f);
+	const int8_t desired_direction = desired_tail_force > force_deadband ? 1
+					 : (desired_tail_force < -force_deadband ? -1 : 0);
+	const int8_t current_direction = _tail_force_command > force_deadband ? 1
+					 : (_tail_force_command < -force_deadband ? -1 : 0);
+
+	if (current_direction != 0) {
+		_tail_last_nonzero_direction = current_direction;
+
+		if (desired_direction == current_direction) {
+			_tail_force_command = desired_tail_force;
+			return _tail_force_command;
+		}
+
+		// Stop at neutral before either reversing or remaining stopped. The next
+		// direction is not enabled until the configured coast-down time expires.
+		_tail_force_command = 0.f;
+		_tail_zero_timestamp = now;
+		return 0.f;
+	}
+
+	if (desired_direction == 0) {
+		if (_tail_zero_timestamp == 0) {
+			_tail_zero_timestamp = now;
+		}
+
+		_tail_force_command = 0.f;
+		return 0.f;
+	}
+
+	// A first command, or restarting in the previous direction, does not need
+	// a reversal delay. Only a true sign reversal must dwell at zero thrust.
+	if (_tail_last_nonzero_direction == 0 || desired_direction == _tail_last_nonzero_direction) {
+		_tail_force_command = desired_tail_force;
+		_tail_last_nonzero_direction = desired_direction;
+		_tail_zero_timestamp = 0;
+		return _tail_force_command;
+	}
+
+	const float neutral_time_s = (_tail_zero_timestamp != 0 && now >= _tail_zero_timestamp)
+				     ? (now - _tail_zero_timestamp) * 1e-6f : 0.f;
+
+	if (neutral_time_s >= _tail_reverse_delay_s) {
+		_tail_force_command = desired_tail_force;
+		_tail_last_nonzero_direction = desired_direction;
+		_tail_zero_timestamp = 0;
+		return _tail_force_command;
+	}
+
+	_tail_force_command = 0.f;
+	return 0.f;
 }
 
 bool ActuatorEffectivenessHnuter::getEffectivenessMatrix(Configuration &configuration,
@@ -370,6 +453,9 @@ void ActuatorEffectivenessHnuter::updateSetpoint(const matrix::Vector<float, NUM
 
 		_last_servo_update = 0;
 		_last_servo_sp.setZero();
+		_tail_force_command = 0.f;
+		_tail_zero_timestamp = 0;
+		_tail_last_nonzero_direction = 0;
 		_armed_time = 0;
 		_prev_armed = false;
 		return;
@@ -414,8 +500,11 @@ void ActuatorEffectivenessHnuter::updateSetpoint(const matrix::Vector<float, NUM
 	// collective compensation term because the Gazebo model still has a pitch
 	// moment from vertical front thrust and its center-of-mass placement.
 	const float Ty_parasitic = r_z * W[0] - r_x * W[2];
-	float F3 = (W[4] - _tail_collective_comp * Ty_parasitic) / (r_x + l2);
+	const float F3_desired = (W[4] - _tail_collective_comp * Ty_parasitic) / (r_x + l2);
+	const float F3 = applyTailReversalGuard(F3_desired, now);
 
+	// Compensate the front vertical force using the guarded tail force that is
+	// actually commanded, not the unavailable opposite-direction request.
 	float Fz_front = W[2] - F3;
 
 	float Tx_parasitic = - r_z * W[1];
@@ -563,8 +652,7 @@ void ActuatorEffectivenessHnuter::updateSetpoint(const matrix::Vector<float, NUM
 		}
 	}
 
-	const float servo_rate_limit_rad_s = 50.f;
-	float dt = 0.f;
+	float dt = 0.004f;
 
 	if (_last_servo_update != 0) {
 		dt = math::constrain((now - _last_servo_update) / 1e6f, 0.f, 0.2f);
@@ -577,11 +665,11 @@ void ActuatorEffectivenessHnuter::updateSetpoint(const matrix::Vector<float, NUM
 		servo_sp(2) = tiltAngleToNormalizedServo(theta2 * _secondary_servo_gear_ratio, _tilts, 2, M_PI_F);
 		servo_sp(3) = tiltAngleToNormalizedServo(theta1 * _secondary_servo_gear_ratio, _tilts, 3, M_PI_F);
 
-		if (_last_servo_update != 0 && dt > 0.f) {
-			const float alpha2_max_delta = (servo_rate_limit_rad_s * dt) / alpha2_angle_max;
-			const float alpha1_max_delta = (servo_rate_limit_rad_s * dt) / alpha1_angle_max;
-			const float theta2_max_delta = (servo_rate_limit_rad_s * dt) / theta2_servo_angle_max;
-			const float theta1_max_delta = (servo_rate_limit_rad_s * dt) / theta1_servo_angle_max;
+		if (dt > 0.f) {
+			const float alpha2_max_delta = (_primary_servo_rate_rad_s * dt) / alpha2_angle_max;
+			const float alpha1_max_delta = (_primary_servo_rate_rad_s * dt) / alpha1_angle_max;
+			const float theta2_max_delta = (_secondary_servo_rate_rad_s * dt) / theta2_servo_angle_max;
+			const float theta1_max_delta = (_secondary_servo_rate_rad_s * dt) / theta1_servo_angle_max;
 			servo_sp(0) = math::constrain(servo_sp(0), _last_servo_sp(0) - alpha2_max_delta,
 						     _last_servo_sp(0) + alpha2_max_delta);
 			servo_sp(1) = math::constrain(servo_sp(1), _last_servo_sp(1) - alpha1_max_delta,

@@ -744,3 +744,15 @@ param save
   齿轮比 2.0 下的物理关节范围限制为正负 90 deg。
 - SITL、Gazebo 启动和 CUAV 7-Nano 固件构建均通过；完整公式、迁移、产物哈希和
   台架检查见 `docs/hnuter_servo_pwm_gear_calibration_2026-08-04.md`。
+
+## 23. 2026-08-08 Pitch 与尾电机安全修改
+
+- 对 2026-08-07 日志中的完整 Pitch 激进参数组合做条件迁移：降低 Pitch P/D、
+  总力矩、指令速率和最大角度，关闭 Pitch 积分；不覆盖后续非匹配人工调参。
+- 将 `HNTR_PITCH_BIAS` 在物理力矩域与 P/D/I 合并后再执行最终
+  `HNTR_TAU_P` 限制，并让几何控制抗积分饱和判定包含配平力矩。
+- 新增 `HNTR_TAIL_REV_T`；尾电机换向必须先经过中立，当前临时默认 `0.30 s`。
+- 新增 `HNTR_S1_RATE`、`HNTR_S2_RATE`，实机按保守舵机轴速率
+  `4.7 rad/s` 限制；2:1 二级齿轮后的关节速率为 `2.35 rad/s`。
+- 尾电机正反推独立模型和真实 allocation residual 暂缓；辨识依据、残差含义与
+  拆桨/系留验证顺序见 `docs/hnuter_pitch_tail_safety_2026-08-08.md`。
