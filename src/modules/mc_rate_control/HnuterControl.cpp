@@ -483,7 +483,10 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 
 			const float attitude_limit = math::radians(math::constrain(_param_hntr_rc_ang_max.get(), 0.f, 180.f));
 			_rc_attitude_sp(0) = math::constrain(_rc_attitude_sp(0), -attitude_limit, attitude_limit);
-			_rc_attitude_sp(1) = math::constrain(_rc_attitude_sp(1), -attitude_limit, attitude_limit);
+			// Keep the Roll guard while allowing AUX2 to command the complete Pitch
+			// attitude circle. Wrapping avoids unbounded integration without imposing
+			// an artificial 30/45/90 degree Pitch magnitude limit.
+			_rc_attitude_sp(1) = matrix::wrap_pi(_rc_attitude_sp(1));
 			yaw_rate_sp = yaw_input_active
 					? yaw_input * math::radians(math::max(_param_hntr_rc_rate_y.get(), 0.f)) : 0.f;
 			_rc_yaw_sp = atan2f(sinf(_rc_yaw_sp + yaw_rate_sp * dt), cosf(_rc_yaw_sp + yaw_rate_sp * dt));

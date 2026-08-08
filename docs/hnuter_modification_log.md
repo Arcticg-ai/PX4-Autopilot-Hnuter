@@ -770,3 +770,13 @@ param save
   `4.7 rad/s` 限制；2:1 二级齿轮后的关节速率为 `2.35 rad/s`。
 - 尾电机正反推独立模型和真实 allocation residual 暂缓；辨识依据、残差含义与
   拆桨/系留验证顺序见 `docs/hnuter_pitch_tail_safety_2026-08-08.md`。
+
+## 25. 2026-08-08 取消 Position AUX2/Pitch 目标角限制
+
+- 确认手动 Position 模式的 AUX2/Pitch 内部目标仍被
+  `HNTR_RC_ANG_MAX=30/45 deg` 截断，之前日志中的 `72--74 deg` 不是正常的
+  `90 deg` 指令，而是超过目标后的过冲。
+- AUX2/Pitch 不再受 `HNTR_RC_ANG_MAX` 限制，内部目标只周期归一化到正负
+  180 deg，可正常命令经过正负 90 deg。
+- AUX1/Roll 继续使用 `HNTR_RC_ANG_MAX`，避免在大角度 Roll 悬停和二级倾转问题
+  尚未解决时同步取消 Roll 保护。

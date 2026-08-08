@@ -3,7 +3,11 @@
 ## 版本与范围
 
 - 基线提交：`3131ddd4`（舵机 PWM 与二级齿轮比标定版本）。
-- 修改分支：`codex/hnuter-pitch-tail-safety-20260808`。
+- 原始实现分支：`codex/hnuter-pitch-tail-safety-20260808`，构建验证提交
+  `04881ce9`。
+- 归档发布分支：`codex/hnuter-pitch-tail-safety-release-20260808`；在原始实现
+  代码前加入 `3131ddd4` 实飞报告提交，固件源码与 `04881ce9` 相同，仅文档提交链
+  和最终 Git 身份不同。
 - 本次实现：Pitch 参数迁移、Pitch 偏置/总力矩限幅、尾电机换向保护、一级/二级
   舵机指令速率限制。
 - 本次暂不实现：尾电机正反推力独立模型、真实分配残差。
@@ -33,11 +37,23 @@ HNTR_ATT_I_P=0.0
 HNTR_ATT_ILIM_P=0.3
 HNTR_PITCH_BIAS=0.09
 HNTR_RC_RATE_P=8.0
-HNTR_RC_ANG_MAX=30.0
+HNTR_RC_ANG_MAX=30.0   # 仅限制 AUX1/Roll；AUX2/Pitch 不再受此参数限制
 ```
 
 保留 `HNTR_PITCH_BIAS=0.09` 是为了保留现有静态配平；Pitch 积分先关闭。该迁移
-不会覆盖不完全匹配的后续人工调参。
+不会覆盖不完全匹配的后续人工调参。后续修改已取消 AUX2/Pitch 对
+`HNTR_RC_ANG_MAX` 的依赖，所以该迁移值只继续保护 AUX1/Roll。
+
+### Position 模式 Pitch 目标限幅取消
+
+旧代码用同一个 `HNTR_RC_ANG_MAX` 同时限制 AUX1/Roll 和 AUX2/Pitch；因此实机
+保存 `45 deg` 时，控制器并没有正常命令到 `90 deg`，日志中的约 `72--74 deg`
+属于超过目标后的失控过冲。
+
+现在 AUX2/Pitch 不再执行该幅值截断，内部目标只做周期归一化到
+`-180--+180 deg`，可正常经过正负 `90 deg`，同时避免持续按住 AUX2 时数值无限
+累计。AUX1/Roll 仍受 `HNTR_RC_ANG_MAX` 保护，因为大角度 Roll 悬停和二级倾转
+跟踪问题尚未解决。
 
 ## 2. Pitch 偏置纳入最终力矩限制
 
@@ -131,8 +147,12 @@ Hnuter 分配器目前把 `unallocated_torque` 和 `unallocated_thrust` 全部�
 - `HEADLESS=1 make px4_sitl gz_hnuter`：成功启动到 `pxh>`，模型
   `hnuter_0` 和四路舵机加载；运行时参数为 `HNTR_TAIL_REV_T=0.30`、
   `HNTR_S1_RATE=4.7`、`HNTR_S2_RATE=2.35`、`HNTR_S2_GEAR=1.0`。
-- `CCACHE_DIR=/tmp/ccache make cuav_7-nano_default`：通过；Flash
-  `1868556 / 1966080 bytes (95.04%)`。
+- `CCACHE_DIR=/tmp/ccache make cuav_7-nano_default`：通过；取消 Pitch 目标限幅后的
+  Flash 为 `1868644 / 1966080 bytes (95.04%)`。
+- 上述 CUAV 构建产物内嵌 `git_hash=04881ce9d57c31782eec3d42e4e1f33646655e61`，
+  SHA-256 为 `bc0a881bab6e403566a8cba26b9d984c9c96a85ab876566924553daacd322478`。
+  从归档发布分支重新构建时，功能源码不变，但固件会嵌入该分支新的最终提交号；
+  不能把现有 `04881ce9` 产物标记成归档分支提交。
 - CUAV `parameters.xml` 和 `romfs_files.tar` 已反向核对，包含三个新增参数、硬件
   `4.7/4.7 rad/s` 默认值、`0.30 s` 换向时间及完整 Pitch 条件迁移。
 
