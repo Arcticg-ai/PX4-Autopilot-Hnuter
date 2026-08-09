@@ -89,6 +89,8 @@ private:
 		(ParamFloat<px4::params::HNTR_MAX_TAIL_T>) _param_hntr_max_tail_t,
 		(ParamFloat<px4::params::HNTR_L1>) _param_hntr_l1,
 		(ParamFloat<px4::params::HNTR_L2>) _param_hntr_l2,
+		(ParamFloat<px4::params::HNTR_CG_X>) _param_hntr_cg_x,
+		(ParamFloat<px4::params::HNTR_CG_Z>) _param_hntr_cg_z,
 		(ParamFloat<px4::params::HNTR_POS_P_XY>) _param_hntr_pos_p_xy,
 		(ParamFloat<px4::params::HNTR_POS_P_Z>) _param_hntr_pos_p_z,
 		(ParamFloat<px4::params::HNTR_VEL_P_XY>) _param_hntr_vel_p_xy,

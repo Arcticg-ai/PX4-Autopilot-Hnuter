@@ -637,8 +637,19 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 	const Vector3f attitude_torque = torque_p + torque_d;
 	const Vector3f tau_limit{_param_hntr_tau_r.get(), _param_hntr_tau_p.get(), _param_hntr_tau_y.get()};
 	const float pitch_bias_normalized = math::constrain(_param_hntr_pitch_bias.get(), -1.f, 1.f);
+	const Vector3f gravity_force_body = R.transpose() * Vector3f{0.f, 0.f, mass * gravity};
+	const float cg_x = math::constrain(_param_hntr_cg_x.get(), -1.f, 1.f);
+	const float cg_z = math::constrain(_param_hntr_cg_z.get(), -1.f, 1.f);
+	Vector3f gravity_torque{};
+	// Cancel the attitude-dependent gravity moment about the primary tilt axis.
+	// This feed-forward depends on attitude, mass and CG geometry, not collective
+	// thrust. At vertical Pitch it naturally falls toward the much smaller CG-Z
+	// contribution instead of retaining the level-flight tail command.
+	gravity_torque(1) = cg_z * gravity_force_body(0) - cg_x * gravity_force_body(2);
+	Vector3f bias_torque{};
+	bias_torque(1) = -pitch_bias_normalized * max_tail_thrust * l2;
 	Vector3f trim_torque{};
-	trim_torque(1) = -pitch_bias_normalized * max_tail_thrust * l2;
+	trim_torque = gravity_torque + bias_torque;
 
 	if (landed || maybe_landed) {
 		_integral_e_R.setZero();
@@ -707,7 +718,8 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 
 		torque_setpoint_normalized(0) = math::constrain(rate_torque(0), -1.f, 1.f);
 		const float normalized_pitch_limit = math::constrain(tau_limit(1) / (max_tail_thrust * l2), 0.f, 1.f);
-		torque_setpoint_normalized(1) = math::constrain(-rate_torque(1) + pitch_bias_normalized,
+		const float normalized_pitch_trim = math::constrain(-trim_torque(1) / (max_tail_thrust * l2), -1.f, 1.f);
+		torque_setpoint_normalized(1) = math::constrain(-rate_torque(1) + normalized_pitch_trim,
 						  -normalized_pitch_limit, normalized_pitch_limit);
 		torque_setpoint_normalized(2) = math::constrain(rate_torque(2), -1.f, 1.f);
 
@@ -748,6 +760,8 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 		hnuter_status.torque_p[i] = torque_p(i);
 		hnuter_status.torque_d[i] = torque_d(i);
 		hnuter_status.torque_i[i] = torque_i(i);
+		hnuter_status.torque_gravity[i] = gravity_torque(i);
+		hnuter_status.torque_bias[i] = bias_torque(i);
 		hnuter_status.torque_trim[i] = trim_torque(i);
 		hnuter_status.torque_command[i] = tau_c(i);
 		hnuter_status.force_body[i] = f_body(i);

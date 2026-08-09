@@ -81,7 +81,7 @@ void LoggedTopics::add_default_topics()
 	add_optional_topic("heater_status");
 	add_topic("home_position");
 	add_topic("hover_thrust_estimate", 100);
-	add_optional_topic("hnuter_control_status", 20);
+	add_topic("hnuter_control_status", 20);
 	add_topic("input_rc", 500);
 	add_optional_topic("internal_combustion_engine_control", 10);
 	add_optional_topic("internal_combustion_engine_status", 10);
@@ -277,7 +277,7 @@ void LoggedTopics::add_high_rate_topics()
 	add_topic("vehicle_angular_velocity");
 	add_topic("vehicle_attitude");
 	add_topic("vehicle_attitude_setpoint");
-	add_optional_topic("hnuter_control_status");
+	add_topic("hnuter_control_status");
 	add_topic("vehicle_rates_setpoint");
 
 	add_topic("esc_status", 5);

@@ -772,8 +772,8 @@ PARAM_DEFINE_FLOAT(HNTR_TAU_R, 0.9f);
 /**
  * Hnuter geometric pitch torque limit
  *
- * Final absolute body-y torque limit after P/D/I and HNTR_PITCH_BIAS are
- * combined. The trim therefore cannot increase the command beyond this value.
+ * Final absolute body-y torque limit after P/D/I, gravity feed-forward and
+ * HNTR_PITCH_BIAS are combined. Trim cannot bypass this limit.
  *
  * @unit Nm
  * @min 0.0
@@ -796,13 +796,12 @@ PARAM_DEFINE_FLOAT(HNTR_TAU_Y, 1.8f);
 /**
  * Hnuter pitch torque bias
  *
- * Constant normalized pitch torque used to trim a rear/front CG offset so
- * Motor5 does not have to sit at the bidirectional ESC neutral point in level
- * attitude. The equivalent physical trim torque is combined with P/D/I before
- * the final HNTR_TAU_P limit, so the bias cannot bypass the total pitch torque
- * limit. Positive values move Motor5 toward the positive pitch-torque
- * direction; use the opposite sign if pitch trim moves the vehicle the wrong
- * way.
+ * Small constant normalized residual trim applied after the attitude-dependent
+ * gravity torque calculated from HNTR_MASS and HNTR_CG_X/Z. It compensates
+ * remaining tail-thrust model error without retaining the full level-flight
+ * command near vertical Pitch. The equivalent physical torque is combined
+ * with P/D/I and gravity feed-forward before the final HNTR_TAU_P limit.
+ * Positive values move Motor5 toward the positive pitch-torque direction.
  *
  * @min -1.0
  * @max 1.0
@@ -944,7 +943,11 @@ PARAM_DEFINE_FLOAT(HNTR_RC_LVL_R, 20.0f);
  */
 PARAM_DEFINE_FLOAT(HNTR_FD_ERR, 45.0f);
 
-/** Hnuter body-X center-of-mass offset
+/**
+ * Hnuter body-X center-of-mass offset
+ *
+ * Used with attitude and HNTR_MASS to calculate Pitch gravity feed-forward.
+ * Set both HNTR_CG_X and HNTR_CG_Z to zero to disable gravity compensation.
  * @unit m
  * @min -1.0
  * @max 1.0
@@ -953,7 +956,10 @@ PARAM_DEFINE_FLOAT(HNTR_FD_ERR, 45.0f);
  */
 PARAM_DEFINE_FLOAT(HNTR_CG_X, 0.105f);
 
-/** Hnuter body-Z center-of-mass offset
+/**
+ * Hnuter body-Z center-of-mass offset
+ *
+ * Used with attitude and HNTR_MASS to calculate Pitch gravity feed-forward.
  * @unit m
  * @min -1.0
  * @max 1.0

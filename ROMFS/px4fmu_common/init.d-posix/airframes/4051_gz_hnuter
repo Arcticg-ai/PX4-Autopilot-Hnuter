@@ -179,6 +179,10 @@ param set-default HNTR_MAX_ARM_T 170.96
 param set-default HNTR_MAX_TAIL_T 85.48
 param set-default HNTR_L1 0.33
 param set-default HNTR_L2 0.664
+# Gazebo integrates gravity about the model center of mass. Keep the real
+# aircraft's primary-axis-to-CG gravity trim disabled in this direct model.
+param set-default HNTR_CG_X 0.0
+param set-default HNTR_CG_Z 0.0
 # The current Gazebo model commands the second-stage joints directly and does
 # not contain the real aircraft's 2:1 reduction gearing.
 param set-default HNTR_S2_GEAR 1.0
