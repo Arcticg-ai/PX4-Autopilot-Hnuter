@@ -1,0 +1,39 @@
+{
+  "source": "/home/hnuter/文档/低频数据--1405-3寸-30a---2026‘08’11-18‘48’15.xls",
+  "sample_period_s": 0.2,
+  "pwm_plateau_duration_s": 2.0,
+  "neutral_pwm_us": 1500.0,
+  "force_forward": {
+    "maximum": 12.76098162351561,
+    "exponent": 1.849381960309502,
+    "neutral_pwm_us": 1500.0,
+    "rmse": 0.11828859386531214
+  },
+  "force_reverse": {
+    "maximum": 6.122347949129092,
+    "exponent": 1.5373575902720173,
+    "neutral_pwm_us": 1500.0,
+    "rmse": 0.11498029773186286
+  },
+  "rpm_forward": {
+    "maximum": 20339.37820472221,
+    "exponent": 0.7532401335700157,
+    "neutral_pwm_us": 1500.0,
+    "rmse": 250.64350861347506
+  },
+  "rpm_reverse": {
+    "maximum": 20789.777640383505,
+    "exponent": 0.6885895577927659,
+    "neutral_pwm_us": 1500.0,
+    "rmse": 294.42695390537955
+  },
+  "force_constant_forward_n_per_rad_s2": 2.6257161009720356e-06,
+  "force_constant_reverse_n_per_rad_s2": 1.2432383346937271e-06,
+  "moment_constant_forward_m": 0.02112150203425405,
+  "moment_constant_reverse_m": 0.041023035780269744,
+  "measured_forward_max_force_n": 12.777084284999999,
+  "measured_reverse_max_force_n": 6.019910168999999,
+  "measured_forward_max_rpm": 20645.0,
+  "measured_reverse_max_rpm": 20886.5,
+  "dynamic_identification": "The 5 Hz log cannot identify a 0.1-0.2 s reversal transient. Use 0.05 s as a conservative simulation time constant and retain the PX4 reversal guard."
+}

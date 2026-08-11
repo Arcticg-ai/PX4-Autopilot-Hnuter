@@ -176,17 +176,23 @@ param set-default CA_SV_TL3_CT 0
 param set-default HNTR_CTRL_MODE 0
 param set-default HNTR_MASS 4.5
 param set-default HNTR_MAX_ARM_T 170.96
-param set-default HNTR_MAX_TAIL_T 85.48
+# 1405 motor / 3-inch prop / 30 A bidirectional ESC bench fit (24 V):
+# +12.78 N forward, -6.02 N reverse. The allocator applies the asymmetric
+# reverse clamp; this parameter is the positive-direction model limit.
+param set-default HNTR_MAX_TAIL_T 12.78
 param set-default HNTR_L1 0.33
 param set-default HNTR_L2 0.664
-# Gazebo integrates gravity about the model center of mass. Keep the real
-# aircraft's primary-axis-to-CG gravity trim disabled in this direct model.
-param set-default HNTR_CG_X 0.0
-param set-default HNTR_CG_Z 0.0
+# Use the geometry assumption that passed the current SDF A/B takeoff test.
+# These values are not a new physical CG measurement. With zero trim the
+# reduced tail model receives no initial command and pitches backward.
+param set-default HNTR_CG_X 0.105
+param set-default HNTR_CG_Z -0.013
 # The current Gazebo model commands the second-stage joints directly and does
 # not contain the real aircraft's 2:1 reduction gearing.
 param set-default HNTR_S2_GEAR 1.0
-param set-default HNTR_TAIL_REV_T 0.30
+# Bench observation indicates a complete sign change in roughly 0.1-0.2 s.
+# Require 0.15 s at neutral to prevent chatter and hard repeated reversals.
+param set-default HNTR_TAIL_REV_T 0.15
 param set-default HNTR_S1_RATE 4.7
 # Direct-drive Gazebo joint rate corresponding to the real 4.7 rad/s servo
 # shaft after its 2:1 secondary transmission.
@@ -232,7 +238,9 @@ param set-default HNTR_ATT_ILIM_R 0.0
 param set-default HNTR_ATT_ILIM_P 0.0
 param set-default HNTR_ATT_ILIM_Y 0.0
 param set-default HNTR_TAU_R 0.9
-param set-default HNTR_TAU_P 0.9
+# The measured tail can provide about 8.5 N m forward pitch moment at the
+# fitted geometry. Keep the controller limit inside that physical envelope.
+param set-default HNTR_TAU_P 8.0
 param set-default HNTR_TAU_Y 1.8
 param set-default HNTR_PITCH_BIAS 0.0
 param set-default HNTR_RC_ATT_EN 1

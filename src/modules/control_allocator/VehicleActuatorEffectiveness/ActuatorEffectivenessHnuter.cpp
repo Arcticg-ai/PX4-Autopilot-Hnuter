@@ -46,6 +46,17 @@
 
 using namespace matrix;
 
+namespace
+{
+// Tail-motor bench fit, 2026-08-11. The Gazebo rotor speed is an internal
+// normalized rad/s scale; the motor constant below is selected so 1000 rad/s
+// produces the measured 12.777 N forward limit. Reverse thrust is clamped
+// separately because the measured propeller/ESC combination is asymmetric.
+constexpr float kSimTailMotorConstant = 1.2777084e-05f;
+constexpr float kSimTailMaxForwardThrust = 12.777084f;
+constexpr float kSimTailMaxReverseThrust = 6.019910f;
+}
+
 static float thrustToNormalizedMotorControl(float thrust, float motor_constant, float min_velocity, float max_velocity)
 {
 	if (thrust <= 0.f) {
@@ -518,7 +529,12 @@ void ActuatorEffectivenessHnuter::updateSetpoint(const matrix::Vector<float, NUM
 	// collective thrust; any attitude-dependent gravity trim is modelled
 	// separately once the primary-axis-to-CG geometry has been measured.
 	const float F3_desired = W[4] / (r_x + l2);
-	const float F3 = math::constrain(applyTailReversalGuard(F3_desired, now), -max_tail_thrust, max_tail_thrust);
+	const float tail_forward_limit = _simulation_motor_model
+				       ? math::min(max_tail_thrust, kSimTailMaxForwardThrust) : max_tail_thrust;
+	const float tail_reverse_limit = _simulation_motor_model
+				       ? math::min(max_tail_thrust, kSimTailMaxReverseThrust) : max_tail_thrust;
+	const float F3 = math::constrain(applyTailReversalGuard(F3_desired, now),
+			 -tail_reverse_limit, tail_forward_limit);
 
 	// Compensate the front vertical force using the guarded tail force that is
 	// actually commanded, not the unavailable opposite-direction request.
@@ -650,7 +666,8 @@ void ActuatorEffectivenessHnuter::updateSetpoint(const matrix::Vector<float, NUM
 		if (_simulation_motor_model) {
 			norm_right = thrustToNormalizedMotorControl(right_single, _motor_constant, _sim_min_velocity, _sim_max_velocity);
 			norm_left = thrustToNormalizedMotorControl(left_single, _motor_constant, _sim_min_velocity, _sim_max_velocity);
-			norm_tail = signedThrustToNormalizedMotorControl(F3, _motor_constant, _sim_min_velocity, _sim_max_velocity);
+			norm_tail = signedThrustToNormalizedMotorControl(F3, kSimTailMotorConstant,
+					_sim_min_velocity, _sim_max_velocity);
 
 		} else {
 			// A hover anchor is measurable in flight and avoids pretending that the

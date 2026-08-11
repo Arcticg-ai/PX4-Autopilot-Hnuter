@@ -721,11 +721,16 @@
       <jointName>xyj5</jointName>
       <linkName>xy5</linkName>
       <turningDirection>ccw</turningDirection>
-      <timeConstantUp>0.001</timeConstantUp>
-      <timeConstantDown>0.002</timeConstantDown>
+      <!-- 0.05 s first-order constant gives about 0.15 s to settle after a
+           full reversal. The 5 Hz bench log only supports this as a
+           conservative engineering model, not a directly identified value. -->
+      <timeConstantUp>0.05</timeConstantUp>
+      <timeConstantDown>0.05</timeConstantDown>
       <maxRotVelocity>1000.0</maxRotVelocity>
-      <motorConstant>8.54858e-05</motorConstant>
-      <momentConstant>0.016</momentConstant>
+      <!-- 12.777 N at the internal 1000 rad/s limit; reverse is clamped to
+           6.020 N in ActuatorEffectivenessHnuter. -->
+      <motorConstant>1.2777084e-05</motorConstant>
+      <momentConstant>0.02112</momentConstant>
       <commandSubTopic>command/motor_speed</commandSubTopic>
       <motorNumber>4</motorNumber>
       <rotorDragCoefficient>8.06428e-05</rotorDragCoefficient>
