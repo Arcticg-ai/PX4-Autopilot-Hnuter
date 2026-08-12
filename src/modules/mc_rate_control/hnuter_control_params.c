@@ -142,6 +142,94 @@ PARAM_DEFINE_FLOAT(HNTR_TAIL_SIGN, 1.0f);
 PARAM_DEFINE_FLOAT(HNTR_TAIL_REV_T, 0.30f);
 
 /**
+ * Hnuter tail minimum reversal neutral time
+ *
+ * Minimum neutral dwell for a low-force Motor5 sign change. The allocator
+ * interpolates from this value to HNTR_TAIL_REV_T as reversal severity grows.
+ *
+ * @unit s
+ * @min 0.0
+ * @max 1.0
+ * @decimal 2
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_T_REV_MIN, 0.05f);
+
+/**
+ * Hnuter tail dynamic force reference
+ *
+ * Force scale used only by the Motor5 reversal-severity and slew-rate
+ * protection. This is intentionally independent of HNTR_MAX_TAIL_T: the real
+ * tail actuator and the Gazebo rotor have different measured/modelled dynamic
+ * ranges even while the allocator force model is being identified.
+ *
+ * @unit N
+ * @min 0.1
+ * @max 200.0
+ * @decimal 1
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_T_FORCE_REF, 12.8f);
+
+/**
+ * Hnuter tail normal rise slew rate
+ *
+ * Maximum Motor5 force-command rise rate as a fraction of HNTR_T_FORCE_REF per
+ * second. Small commands therefore remain responsive while a
+ * full-scale step is spread over multiple control cycles.
+ *
+ * @unit normalized_thrust/s
+ * @min 0.1
+ * @max 100.0
+ * @decimal 1
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_T_SLEW_UP, 5.0f);
+
+/**
+ * Hnuter tail reduction slew rate
+ *
+ * Maximum Motor5 force-command reduction rate as a fraction of
+ * HNTR_T_FORCE_REF per second. This is normally faster than the rise rate so a
+ * reversal can unload the propeller promptly without an instantaneous step.
+ *
+ * @unit normalized_thrust/s
+ * @min 0.1
+ * @max 100.0
+ * @decimal 1
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_T_SLEW_DN, 10.0f);
+
+/**
+ * Hnuter tail post-reversal rise slew rate
+ *
+ * Maximum Motor5 command rise after the neutral dwell, expressed as a fraction
+ * of HNTR_T_FORCE_REF per second.
+ *
+ * @unit normalized_thrust/s
+ * @min 0.1
+ * @max 100.0
+ * @decimal 1
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_T_REV_SLEW, 4.0f);
+
+/**
+ * Hnuter tail maximum RPM estimate
+ *
+ * Motor5 speed at full normalized command. This is used only for allocator
+ * telemetry; it is not a measured RPM and does not affect control.
+ *
+ * @unit rpm
+ * @min 100.0
+ * @max 100000.0
+ * @decimal 0
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_T_RPM_MAX, 20650.0f);
+
+/**
  * Hnuter primary servo shaft rate limit
  *
  * Maximum shaft rate for Servo 1/2. This limit is applied inside the Hnuter

@@ -30,6 +30,47 @@ static Quatf normalizedQuaternion(const Quatf &input)
 	return output;
 }
 
+static float wrapPi(float angle)
+{
+	return atan2f(sinf(angle), cosf(angle));
+}
+
+static Quatf attitudeFromHeadingTilt(float heading, const Vector2f &tilt)
+{
+	const Quatf q_heading{Eulerf{0.f, 0.f, heading}};
+	const Quatf q_tilt{AxisAnglef{Vector3f{tilt(0), tilt(1), 0.f}}};
+	return normalizedQuaternion(Quatf{q_heading * q_tilt});
+}
+
+static Vector2f tiltForFixedHeading(const Quatf &attitude, float heading)
+{
+	const Quatf q_heading{Eulerf{0.f, 0.f, heading}};
+	const Quatf q_relative = normalizedQuaternion(Quatf{q_heading.inversed() * attitude});
+	Quatf q_twist{q_relative(0), 0.f, 0.f, q_relative(3)};
+
+	if (q_twist.norm() < 1e-5f) {
+		q_twist = Quatf{};
+
+	} else {
+		q_twist.normalize();
+	}
+
+	const Quatf q_swing = normalizedCanonicalQuaternion(Quatf{q_relative * q_twist.inversed()});
+	const Vector3f swing_vector{AxisAnglef{q_swing}};
+	return Vector2f{swing_vector(0), swing_vector(1)};
+}
+
+static float headingFromAttitude(const Quatf &attitude, float fallback)
+{
+	const Quatf q = normalizedQuaternion(attitude);
+
+	if (fabsf(q(0)) + fabsf(q(3)) < 1e-5f) {
+		return fallback;
+	}
+
+	return wrapPi(2.f * atan2f(q(3), q(0)));
+}
+
 HnuterControl::HnuterControl(ModuleParams *parent) :
 	ModuleParams(parent)
 {
@@ -80,9 +121,9 @@ void HnuterControl::reset()
 	_prev_armed = false;
 	_armed_time = 0;
 	_manual_altitude_sp = 0.f;
-	_rc_level_yaw_sp = 0.f;
-	_rc_roll_command_angle = 0.f;
+	_rc_yaw_sp = 0.f;
 	_rc_governor_scale = 1.f;
+	_rc_tilt_sp.setZero();
 	_rc_attitude_q_sp = Quatf{};
 }
 
@@ -152,6 +193,28 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 	const float max_front_vertical_thrust = max_thrust_per_arm * 2.f;
 	const float l1 = math::max(_param_hntr_l1.get(), 0.01f);
 	const float l2 = math::max(_param_hntr_l2.get(), 0.01f);
+	const Dcmf R{Quatf(att.q)};
+
+	control_allocator_status_s allocator_status{};
+	const bool allocator_status_valid = _control_allocator_status_sub.copy(&allocator_status)
+					    && allocator_status.timestamp > 0 && now >= allocator_status.timestamp
+					    && (now - allocator_status.timestamp) < 100_ms;
+	const float allocator_pitch_residual = allocator_status_valid ? allocator_status.unallocated_torque[1] : 0.f;
+	const bool pitch_actuator_limited = allocator_status_valid && fabsf(allocator_pitch_residual) > 1e-3f;
+	Vector3f allocator_force_residual_world{};
+
+	if (allocator_status_valid) {
+		const Vector3f allocator_force_residual_body{
+			allocator_status.unallocated_thrust[0] *max_thrust_per_arm,
+			-allocator_status.unallocated_thrust[1] *max_thrust_per_arm,
+			-allocator_status.unallocated_thrust[2] *max_front_vertical_thrust
+		};
+		allocator_force_residual_world = R * allocator_force_residual_body / mass;
+	}
+
+	bool position_integrator_blocked = false;
+	bool pitch_integrator_blocked = false;
+	bool pitch_target_blocked = false;
 
 	const Vector3f pos{odom.position};
 	const Vector3f vel{odom.velocity};
@@ -241,13 +304,13 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 	const bool xy_lock_active = (time_since_armed_s >= takeoff_tilt_suppress_time_s)
 				    && (time_since_armed_s < takeoff_xy_lock_time_s);
 	const float takeoff_release_progress = takeoff_release_ramp_time_s > FLT_EPSILON
-			? math::constrain((time_since_armed_s - takeoff_xy_lock_time_s) / takeoff_release_ramp_time_s, 0.f, 1.f)
-			: 1.f;
+					       ? math::constrain((time_since_armed_s - takeoff_xy_lock_time_s) / takeoff_release_ramp_time_s, 0.f, 1.f)
+					       : 1.f;
 	const bool takeoff_release_ramp_active = time_since_armed_s >= takeoff_xy_lock_time_s
-					 && takeoff_release_progress < 1.f;
+			&& takeoff_release_progress < 1.f;
 	const float takeoff_xy_gain_scale = xy_lock_active ? xy_lock_kp_scale
-			: (takeoff_release_ramp_active
-			   ? xy_lock_kp_scale + (1.f - xy_lock_kp_scale) * takeoff_release_progress : 1.f);
+					    : (takeoff_release_ramp_active
+					       ? xy_lock_kp_scale + (1.f - xy_lock_kp_scale) * takeoff_release_progress : 1.f);
 
 	if (takeoff_release_ramp_active && !_takeoff_ramp_started) {
 		// Do not carry the locked-phase XY integrator into the newly released
@@ -290,9 +353,9 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 	vel_sp += position_p * pos_error;
 	constrainXY(vel_sp, manual_attitude_altitude_mode ? 0.f : math::max(_param_hntr_vel_xy.get(), 0.f));
 	const float max_velocity_up = manual_attitude_altitude_mode ? math::max(_param_hntr_stab_z_vel.get(), 0.f) :
-			      math::max(_param_hntr_vel_up.get(), 0.f);
+				      math::max(_param_hntr_vel_up.get(), 0.f);
 	const float max_velocity_down = manual_attitude_altitude_mode ? math::max(_param_hntr_stab_z_vel.get(), 0.f) :
-				math::max(_param_hntr_vel_dn.get(), 0.f);
+					math::max(_param_hntr_vel_dn.get(), 0.f);
 	vel_sp(2) = math::constrain(vel_sp(2), -max_velocity_up, max_velocity_down);
 
 	Vector3f vel_error{};
@@ -300,6 +363,7 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 	for (int i = 0; i < 3; i++) {
 		if (velocity_sp_valid[i]) {
 			vel_error(i) = vel_sp(i) - vel(i);
+
 		} else {
 			_velocity_integral(i) = 0.f;
 		}
@@ -321,13 +385,13 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 	Vector3f acc_des = acc_unsaturated;
 
 	const float takeoff_max_acc_xy = xy_lock_active ? xy_lock_max_acc_xy
-			: (takeoff_release_ramp_active
-			   ? xy_lock_max_acc_xy + (max_acc_xy_default - xy_lock_max_acc_xy) * takeoff_release_progress
-			   : max_acc_xy_default);
+					 : (takeoff_release_ramp_active
+					    ? xy_lock_max_acc_xy + (max_acc_xy_default - xy_lock_max_acc_xy) * takeoff_release_progress
+					    : max_acc_xy_default);
 	const float max_acc_xy = manual_attitude_altitude_mode ? 0.f : takeoff_max_acc_xy;
 	constrainXY(acc_des, max_acc_xy);
 	const float requested_max_acc_z = manual_attitude_altitude_mode ? math::max(_param_hntr_stab_acc_z.get(), 0.1f) :
-					math::max(_param_hntr_acc_z.get(), 0.1f);
+					  math::max(_param_hntr_acc_z.get(), 0.1f);
 	const float physical_max_acc_up = math::max(max_front_vertical_thrust / mass - gravity, 0.1f);
 	const float max_acc_up = math::min(requested_max_acc_z, physical_max_acc_up);
 	const float max_acc_down = math::min(requested_max_acc_z, gravity);
@@ -346,19 +410,25 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 
 		for (int i = 0; i < 3; i++) {
 			const bool drives_further_into_saturation = saturation_residual(i) * vel_error(i) > 0.f;
+			const float integral_step = velocity_i(i) * vel_error(i) * dt;
+			const bool drives_further_into_allocator_limit = allocator_status_valid
+					&& allocator_force_residual_world(i) * integral_step > 0.f;
 
-			if (velocity_sp_valid[i] && !drives_further_into_saturation) {
-				_velocity_integral(i) += velocity_i(i) * vel_error(i) * dt;
+			if (velocity_sp_valid[i] && !drives_further_into_saturation
+			    && !drives_further_into_allocator_limit) {
+				_velocity_integral(i) += integral_step;
+
+			} else if (velocity_sp_valid[i] && drives_further_into_allocator_limit) {
+				position_integrator_blocked = true;
 			}
 		}
 
 		constrainXY(_velocity_integral, math::max(_param_hntr_vel_ilim_xy.get(), 0.f));
 		const float velocity_integral_z_limit = math::max(_param_hntr_vel_ilim_z.get(), 0.f);
 		_velocity_integral(2) = math::constrain(_velocity_integral(2), -velocity_integral_z_limit,
-					velocity_integral_z_limit);
+							velocity_integral_z_limit);
 	}
 
-	const Dcmf R{Quatf(att.q)};
 	const Vector3f gravity_vec{0.f, 0.f, gravity};
 	const Vector3f f_world = mass * (acc_des - gravity_vec);
 	Vector3f f_body = R.transpose() * f_world;
@@ -370,9 +440,9 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 
 	const bool takeoff_force_limit_active = tilt_suppress_active || xy_lock_active || takeoff_release_ramp_active;
 	const float takeoff_force_limit = tilt_suppress_active ? takeoff_tilt_limit_rad
-			: (xy_lock_active ? xy_lock_tilt_limit_rad
-			   : xy_lock_tilt_limit_rad + (default_tilt_limit_rad - xy_lock_tilt_limit_rad)
-			   * takeoff_release_progress);
+					  : (xy_lock_active ? xy_lock_tilt_limit_rad
+					     : xy_lock_tilt_limit_rad + (default_tilt_limit_rad - xy_lock_tilt_limit_rad)
+					     * takeoff_release_progress);
 
 	if (takeoff_force_limit_active && takeoff_force_limit < math::radians(89.f)) {
 		const float fz_abs = fabsf(f_body(2));
@@ -443,20 +513,20 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 		const bool manual_sp_fresh = have_manual_sp && manual_sp.valid && manual_sp.timestamp > 0
 					     && now >= manual_sp.timestamp && (now - manual_sp.timestamp) < 500_ms;
 		rc_attitude_control_active = _param_hntr_rc_att_en.get()
-						&& hnuter_translation_control_active
-						&& vehicle_control_mode.flag_control_manual_enabled
-						&& manual_sp_fresh;
+					     && hnuter_translation_control_active
+					     && vehicle_control_mode.flag_control_manual_enabled
+					     && manual_sp_fresh;
 
 		if (rc_attitude_control_active) {
-			const Quatf q_cur{att.q};
+			const Quatf q_cur = normalizedQuaternion(Quatf{att.q});
 
 			if (!_rc_attitude_initialized) {
-				// A quaternion target preserves the complete attitude circle without
-				// the +/-90 degree Euler singularity or a hidden roll/yaw branch flip.
-				_rc_attitude_q_sp = q_cur;
-				_rc_attitude_q_sp.normalize();
-				_rc_level_yaw_sp = euler_cur.psi();
-				_rc_roll_command_angle = 0.f;
+				// Represent the target as heading plus a two-axis swing vector. This
+				// stays regular through +/-90 degree Pitch while keeping AUX1/AUX2
+				// independent from the held world-heading command.
+				_rc_yaw_sp = headingFromAttitude(q_cur, euler_cur.psi());
+				_rc_tilt_sp = tiltForFixedHeading(q_cur, _rc_yaw_sp);
+				_rc_attitude_q_sp = attitudeFromHeadingTilt(_rc_yaw_sp, _rc_tilt_sp);
 				_rc_attitude_initialized = true;
 				_rc_level_return_active = true;
 				_rc_level_switch_previous = PX4_ISFINITE(manual_sp.aux3) && manual_sp.aux3 > 0.5f;
@@ -473,7 +543,7 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 
 			if (level_switch && !_rc_level_switch_previous) {
 				_rc_level_return_active = true;
-				_rc_level_yaw_sp = euler_cur.psi();
+				_rc_yaw_sp = headingFromAttitude(q_cur, _rc_yaw_sp);
 			}
 
 			_rc_level_switch_previous = level_switch;
@@ -486,72 +556,111 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 				_rc_level_return_active = false;
 			}
 
-			// AUX1/AUX2 are body-rate commands. When either attitude channel is
-			// released, latch the complete attitude actually reached. This prevents
-			// a slow mechanism from continuing toward an integrated target ahead of
-			// the aircraft, including through vertical Pitch.
+			// Latch only the released swing component. The measured Yaw error and
+			// the other AUX target are deliberately not copied into the setpoint.
 			if ((!roll_input_active && _rc_roll_input_previous)
 			    || (!pitch_input_active && _rc_pitch_input_previous)) {
-				_rc_attitude_q_sp = q_cur;
-				_rc_attitude_q_sp.normalize();
-				_rc_roll_command_angle = 0.f;
+				const Vector2f measured_tilt = tiltForFixedHeading(q_cur, _rc_yaw_sp);
+
+				if (!roll_input_active && _rc_roll_input_previous) {
+					_rc_tilt_sp(0) = measured_tilt(0);
+				}
+
+				if (!pitch_input_active && _rc_pitch_input_previous) {
+					_rc_tilt_sp(1) = measured_tilt(1);
+				}
+
+				_rc_attitude_q_sp = attitudeFromHeadingTilt(_rc_yaw_sp, _rc_tilt_sp);
 			}
 
-			Vector3f requested_body_rate{};
+			const Quatf previous_target = _rc_attitude_q_sp;
+			Vector2f requested_tilt_delta{};
+			float requested_yaw_delta = 0.f;
+			bool level_return_would_finish = false;
 
 			if (_rc_level_return_active) {
 				const float level_rate = math::radians(math::max(_param_hntr_rc_lvl_r.get(), 0.f));
-				const Quatf q_level{Eulerf{0.f, 0.f, _rc_level_yaw_sp}};
-				const AxisAnglef level_error{normalizedCanonicalQuaternion(Quatf{_rc_attitude_q_sp.inversed() * q_level})};
-				const float level_error_angle = level_error.norm();
+				const float tilt_angle = _rc_tilt_sp.norm();
 
-				if (level_error_angle < 1e-4f || level_rate <= FLT_EPSILON) {
-					_rc_attitude_q_sp = q_level;
+				if (tilt_angle < 1e-4f || level_rate <= FLT_EPSILON) {
+					_rc_tilt_sp.setZero();
+					_rc_attitude_q_sp = attitudeFromHeadingTilt(_rc_yaw_sp, _rc_tilt_sp);
 					_rc_level_return_active = false;
-					_rc_roll_command_angle = 0.f;
 
 				} else {
-					requested_body_rate = level_error * (math::min(level_rate * dt, level_error_angle)
-							      / math::max(level_error_angle * dt, FLT_EPSILON));
+					const float level_step = math::min(level_rate * dt, tilt_angle);
+					requested_tilt_delta = -_rc_tilt_sp * (level_step / tilt_angle);
+					level_return_would_finish = level_step >= tilt_angle - 1e-5f;
 				}
 
 			} else {
-				requested_body_rate(0) = roll_input_active
-							? roll_input * math::radians(math::max(_param_hntr_rc_rate_r.get(), 0.f)) : 0.f;
-				requested_body_rate(1) = pitch_input_active
-							? pitch_input * math::radians(math::max(_param_hntr_rc_rate_p.get(), 0.f)) : 0.f;
-				requested_body_rate(2) = yaw_input_active
-							? yaw_input * math::radians(math::max(_param_hntr_rc_rate_y.get(), 0.f)) : 0.f;
+				requested_tilt_delta(0) = roll_input_active
+							  ? roll_input * math::radians(math::max(_param_hntr_rc_rate_r.get(), 0.f)) * dt : 0.f;
+				requested_tilt_delta(1) = pitch_input_active
+							  ? pitch_input * math::radians(math::max(_param_hntr_rc_rate_p.get(), 0.f)) * dt : 0.f;
+				requested_yaw_delta = yaw_input_active
+						      ? yaw_input * math::radians(math::max(_param_hntr_rc_rate_y.get(), 0.f)) * dt : 0.f;
 
-				// HNTR_RC_ANG_MAX remains a relative AUX1 travel guard. It is not
-				// derived from Euler roll, which is ambiguous around vertical Pitch.
+				// HNTR_RC_ANG_MAX remains an AUX1-only swing guard. Pitch is not
+				// given an artificial absolute angle limit.
 				const float roll_limit = math::radians(math::constrain(_param_hntr_rc_ang_max.get(), 0.f, 180.f));
-				const float next_roll_command = math::constrain(_rc_roll_command_angle
-							+ requested_body_rate(0) * dt, -roll_limit, roll_limit);
-				requested_body_rate(0) = dt > FLT_EPSILON
-							? (next_roll_command - _rc_roll_command_angle) / dt : 0.f;
-				_rc_roll_command_angle = next_roll_command;
+				const float next_roll = math::constrain(_rc_tilt_sp(0) + requested_tilt_delta(0),
+									-roll_limit, roll_limit);
+				requested_tilt_delta(0) = next_roll - _rc_tilt_sp(0);
+
+				// When the previous-cycle allocator residual says Motor5 could not
+				// realize Pitch, reject only a Pitch target step that increases the
+				// target-to-aircraft attitude error. Roll and held heading stay active.
+				if (pitch_actuator_limited && fabsf(requested_tilt_delta(1)) > FLT_EPSILON) {
+					const Quatf target_without_pitch = attitudeFromHeadingTilt(
+							wrapPi(_rc_yaw_sp + requested_yaw_delta),
+							Vector2f{_rc_tilt_sp(0) + requested_tilt_delta(0), _rc_tilt_sp(1)});
+					const Quatf target_with_pitch = attitudeFromHeadingTilt(
+										wrapPi(_rc_yaw_sp + requested_yaw_delta), _rc_tilt_sp + requested_tilt_delta);
+					const float error_without_pitch = AxisAnglef{normalizedCanonicalQuaternion(
+							Quatf{target_without_pitch.inversed() * q_cur})}.norm();
+					const float error_with_pitch = AxisAnglef{normalizedCanonicalQuaternion(
+							Quatf{target_with_pitch.inversed() * q_cur})}.norm();
+
+					if (error_with_pitch > error_without_pitch + 1e-4f) {
+						requested_tilt_delta(1) = 0.f;
+						pitch_target_blocked = true;
+					}
+				}
 			}
 
-			const Quatf full_candidate = normalizedQuaternion(Quatf{_rc_attitude_q_sp
-						     * Quatf{AxisAnglef{requested_body_rate * dt}}});
+			const Vector2f candidate_tilt = _rc_tilt_sp + requested_tilt_delta;
+			const float candidate_yaw = wrapPi(_rc_yaw_sp + requested_yaw_delta);
+			const Quatf full_candidate = attitudeFromHeadingTilt(candidate_yaw, candidate_tilt);
 			const float current_error = AxisAnglef{normalizedCanonicalQuaternion(
-							Quatf{_rc_attitude_q_sp.inversed() * q_cur})}.norm();
+					Quatf{previous_target.inversed() * q_cur})}.norm();
 			const float candidate_error = AxisAnglef{normalizedCanonicalQuaternion(
-							  Quatf{full_candidate.inversed() * q_cur})}.norm();
+					Quatf{full_candidate.inversed() * q_cur})}.norm();
 			const float governor_soft = math::radians(math::constrain(_param_hntr_rc_err_s.get(), 0.f, 179.f));
 			const float governor_hard = math::radians(math::constrain(_param_hntr_rc_err_h.get(),
-							math::degrees(governor_soft) + 1.f, 180.f));
+						    math::degrees(governor_soft) + 1.f, 180.f));
 			_rc_governor_scale = 1.f;
 
 			if (candidate_error > current_error && current_error > governor_soft) {
 				_rc_governor_scale = math::constrain((governor_hard - current_error)
-							/ math::max(governor_hard - governor_soft, math::radians(1.f)), 0.f, 1.f);
+								     / math::max(governor_hard - governor_soft, math::radians(1.f)), 0.f, 1.f);
 			}
 
-			target_attitude_rate = requested_body_rate * _rc_governor_scale;
-			_rc_attitude_q_sp = normalizedQuaternion(Quatf{_rc_attitude_q_sp
-							 * Quatf{AxisAnglef{target_attitude_rate * dt}}});
+			_rc_tilt_sp += requested_tilt_delta * _rc_governor_scale;
+			_rc_yaw_sp = wrapPi(_rc_yaw_sp + requested_yaw_delta * _rc_governor_scale);
+			_rc_attitude_q_sp = attitudeFromHeadingTilt(_rc_yaw_sp, _rc_tilt_sp);
+
+			if (dt > FLT_EPSILON) {
+				target_attitude_rate = Vector3f{AxisAnglef{normalizedCanonicalQuaternion(
+									Quatf{previous_target.inversed() * _rc_attitude_q_sp})}} / dt;
+			}
+
+			if (level_return_would_finish && _rc_governor_scale > 0.999f) {
+				_rc_tilt_sp.setZero();
+				_rc_attitude_q_sp = attitudeFromHeadingTilt(_rc_yaw_sp, _rc_tilt_sp);
+				_rc_level_return_active = false;
+			}
+
 			R_des = Dcmf{_rc_attitude_q_sp};
 			r_des_valid = true;
 			_rc_roll_input_previous = roll_input_active;
@@ -629,7 +738,7 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 	const Vector3f Domega{_param_hntr_att_d_r.get(), _param_hntr_att_d_p.get(), _param_hntr_att_d_y.get()};
 	const Vector3f Ki{_param_hntr_att_i_r.get(), _param_hntr_att_i_p.get(), _param_hntr_att_i_y.get()};
 	const Vector3f integral_torque_limit{_param_hntr_att_ilim_r.get(), _param_hntr_att_ilim_p.get(),
-			_param_hntr_att_ilim_y.get()};
+					     _param_hntr_att_ilim_y.get()};
 	const Eulerf euler_des{R_des};
 	const Vector3f omega_error = rates - R.transpose() * R_des * target_attitude_rate;
 	const Vector3f torque_p = -KR.emult(e_R);
@@ -665,11 +774,19 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 				continue;
 			}
 
+			if (i == 1 && pitch_actuator_limited) {
+				// The allocator status is one control cycle old. Freeze geometric
+				// Pitch I while Motor5 is ramping, dwelling or saturated so a missing
+				// actuator command cannot be stored and released later as a torque step.
+				pitch_integrator_blocked = true;
+				continue;
+			}
+
 			const float candidate_integral = math::constrain(_integral_e_R(i) + e_R(i) * dt,
-								   -integral_limit / integral_gain,
-								   integral_limit / integral_gain);
+							 -integral_limit / integral_gain,
+							 integral_limit / integral_gain);
 			const float candidate_torque = attitude_torque(i) + trim_torque(i)
-					       - integral_gain * candidate_integral;
+						       - integral_gain * candidate_integral;
 			const float integral_torque_step = -integral_gain * (candidate_integral - _integral_e_R(i));
 			const bool saturated = fabsf(candidate_torque) > torque_limit;
 			const bool drives_further_into_saturation = saturated && candidate_torque * integral_torque_step > 0.f;
@@ -703,7 +820,7 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 				  && (now >= vehicle_rates_setpoint.timestamp)
 				  && (now - vehicle_rates_setpoint.timestamp) < 500_ms;
 	const bool geometric_control_active = !(use_rates_sp && !hnuter_translation_control_active
-					      && !manual_attitude_altitude_mode);
+						&& !manual_attitude_altitude_mode);
 
 	if (use_rates_sp && !hnuter_translation_control_active && !manual_attitude_altitude_mode) {
 		const Vector3f rates_sp{
@@ -720,7 +837,7 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 		const float normalized_pitch_limit = math::constrain(tau_limit(1) / (max_tail_thrust * l2), 0.f, 1.f);
 		const float normalized_pitch_trim = math::constrain(-trim_torque(1) / (max_tail_thrust * l2), -1.f, 1.f);
 		torque_setpoint_normalized(1) = math::constrain(-rate_torque(1) + normalized_pitch_trim,
-						  -normalized_pitch_limit, normalized_pitch_limit);
+						-normalized_pitch_limit, normalized_pitch_limit);
 		torque_setpoint_normalized(2) = math::constrain(rate_torque(2), -1.f, 1.f);
 
 		rate_control.getRateControlStatus(output.rate_ctrl_status);
@@ -769,6 +886,16 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 
 	hnuter_status.attitude_error_angle = e_R.norm();
 	hnuter_status.governor_scale = _rc_governor_scale;
+	hnuter_status.allocator_pitch_residual = allocator_pitch_residual;
+	hnuter_status.allocator_force_residual_world[0] = allocator_force_residual_world(0);
+	hnuter_status.allocator_force_residual_world[1] = allocator_force_residual_world(1);
+	hnuter_status.allocator_force_residual_world[2] = allocator_force_residual_world(2);
+	hnuter_status.rc_tilt_setpoint[0] = _rc_tilt_sp(0);
+	hnuter_status.rc_tilt_setpoint[1] = _rc_tilt_sp(1);
+	hnuter_status.rc_yaw_setpoint = _rc_yaw_sp;
+	hnuter_status.pitch_integrator_blocked = pitch_integrator_blocked;
+	hnuter_status.position_integrator_blocked = position_integrator_blocked;
+	hnuter_status.pitch_target_blocked = pitch_target_blocked;
 	_hnuter_control_status_pub.publish(hnuter_status);
 
 	output.thrust_setpoint.timestamp_sample = angular_velocity.timestamp_sample;

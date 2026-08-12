@@ -5,6 +5,13 @@ float32[4] attitude_setpoint_q
 float32[3] attitude_error
 float32 attitude_error_angle
 float32 governor_scale
+float32 allocator_pitch_residual
+float32[3] allocator_force_residual_world
+float32[2] rc_tilt_setpoint
+float32 rc_yaw_setpoint
+bool pitch_integrator_blocked
+bool position_integrator_blocked
+bool pitch_target_blocked
 float32[3] rate_setpoint
 float32[3] torque_p
 float32[3] torque_d

@@ -13,6 +13,7 @@
 #include <uORB/Subscription.hpp>
 #include <uORB/Publication.hpp>
 #include <uORB/topics/debug_vect.h>
+#include <uORB/topics/control_allocator_status.h>
 #include <uORB/topics/hnuter_control_status.h>
 #include <uORB/topics/rate_ctrl_status.h>
 #include <uORB/topics/manual_control_setpoint.h>
@@ -59,6 +60,7 @@ private:
 	uORB::Subscription _trajectory_setpoint_sub{ORB_ID(trajectory_setpoint)};
 	uORB::Subscription _vehicle_rates_setpoint_sub{ORB_ID(vehicle_rates_setpoint)};
 	uORB::Subscription _manual_control_setpoint_sub{ORB_ID(manual_control_setpoint)};
+	uORB::Subscription _control_allocator_status_sub{ORB_ID(control_allocator_status)};
 	uORB::Publication<debug_vect_s> _hnuter_attitude_setpoint_debug_pub{ORB_ID(debug_vect)};
 	uORB::Publication<hnuter_control_status_s> _hnuter_control_status_pub{ORB_ID(hnuter_control_status)};
 
@@ -77,9 +79,9 @@ private:
 	bool _prev_armed{false};
 	hrt_abstime _armed_time{0};
 	float _manual_altitude_sp{0.f};
-	float _rc_level_yaw_sp{0.f};
-	float _rc_roll_command_angle{0.f};
+	float _rc_yaw_sp{0.f};
 	float _rc_governor_scale{1.f};
+	matrix::Vector2f _rc_tilt_sp{};
 	matrix::Quatf _rc_attitude_q_sp{};
 
 	DEFINE_PARAMETERS(

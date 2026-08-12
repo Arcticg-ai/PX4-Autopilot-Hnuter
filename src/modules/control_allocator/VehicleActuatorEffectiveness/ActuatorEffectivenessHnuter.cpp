@@ -142,6 +142,14 @@ ActuatorEffectivenessHnuter::ActuatorEffectivenessHnuter(ModuleParams *parent)
 	_param_hntr_roll_sign = param_find("HNTR_ROLL_SIGN");
 	_param_hntr_tail_sign = param_find("HNTR_TAIL_SIGN");
 	_param_hntr_tail_rev_t = param_find("HNTR_TAIL_REV_T");
+	_param_hntr_t_rev_min = param_find("HNTR_T_REV_MIN");
+	_param_hntr_t_force_ref = param_find("HNTR_T_FORCE_REF");
+	_param_hntr_t_slew_up = param_find("HNTR_T_SLEW_UP");
+	_param_hntr_t_slew_dn = param_find("HNTR_T_SLEW_DN");
+	_param_hntr_t_rev_slew = param_find("HNTR_T_REV_SLEW");
+	_param_hntr_t_rpm_max = param_find("HNTR_T_RPM_MAX");
+	_param_pwm_main_min5 = param_find("PWM_MAIN_MIN5");
+	_param_pwm_main_max5 = param_find("PWM_MAIN_MAX5");
 	_param_hntr_s1_rate = param_find("HNTR_S1_RATE");
 	_param_hntr_s2_rate = param_find("HNTR_S2_RATE");
 	_param_hntr_to_sup_t = param_find("HNTR_TO_SUP_T");
@@ -272,6 +280,49 @@ void ActuatorEffectivenessHnuter::updateParams()
 		}
 	}
 
+	if (_param_hntr_t_rev_min != PARAM_INVALID) {
+		float value = 0.f;
+
+		if (param_get(_param_hntr_t_rev_min, &value) == 0) {
+			_tail_reverse_min_delay_s = math::constrain(value, 0.f, _tail_reverse_delay_s);
+		}
+	}
+
+	if (_param_hntr_t_force_ref != PARAM_INVALID) {
+		param_get(_param_hntr_t_force_ref, &_tail_dynamic_force_ref);
+		_tail_dynamic_force_ref = math::constrain(_tail_dynamic_force_ref, 0.1f, 200.f);
+	}
+
+	if (_param_hntr_t_slew_up != PARAM_INVALID) {
+		param_get(_param_hntr_t_slew_up, &_tail_slew_up_norm_s);
+		_tail_slew_up_norm_s = math::constrain(_tail_slew_up_norm_s, 0.1f, 100.f);
+	}
+
+	if (_param_hntr_t_slew_dn != PARAM_INVALID) {
+		param_get(_param_hntr_t_slew_dn, &_tail_slew_down_norm_s);
+		_tail_slew_down_norm_s = math::constrain(_tail_slew_down_norm_s, 0.1f, 100.f);
+	}
+
+	if (_param_hntr_t_rev_slew != PARAM_INVALID) {
+		param_get(_param_hntr_t_rev_slew, &_tail_reverse_slew_norm_s);
+		_tail_reverse_slew_norm_s = math::constrain(_tail_reverse_slew_norm_s, 0.1f, 100.f);
+	}
+
+	if (_param_hntr_t_rpm_max != PARAM_INVALID) {
+		param_get(_param_hntr_t_rpm_max, &_tail_rpm_max);
+		_tail_rpm_max = math::constrain(_tail_rpm_max, 100.f, 100000.f);
+	}
+
+	int32_t pwm_value = 0;
+
+	if (_param_pwm_main_min5 != PARAM_INVALID && param_get(_param_pwm_main_min5, &pwm_value) == 0) {
+		_tail_pwm_min = pwm_value;
+	}
+
+	if (_param_pwm_main_max5 != PARAM_INVALID && param_get(_param_pwm_main_max5, &pwm_value) == 0) {
+		_tail_pwm_max = pwm_value;
+	}
+
 	if (_param_hntr_s1_rate != PARAM_INVALID) {
 		float value = 0.f;
 
@@ -329,64 +380,165 @@ void ActuatorEffectivenessHnuter::updateParams()
 	}
 }
 
+float ActuatorEffectivenessHnuter::slewTowards(float current, float target, float max_delta)
+{
+	return current + math::constrain(target - current, -math::max(max_delta, 0.f), math::max(max_delta, 0.f));
+}
+
 float ActuatorEffectivenessHnuter::applyTailReversalGuard(float desired_tail_force, hrt_abstime now)
 {
-	// Ignore tiny force sign changes around the reversible ESC neutral point.
-	const float force_deadband = math::max(0.005f * _max_tail_thrust, 0.1f);
-	const int8_t desired_direction = desired_tail_force > force_deadband ? 1
-					 : (desired_tail_force < -force_deadband ? -1 : 0);
-	const int8_t current_direction = _tail_force_command > force_deadband ? 1
-					 : (_tail_force_command < -force_deadband ? -1 : 0);
+	const float max_tail_force = math::max(_max_tail_thrust, 1.f);
+	const float dynamic_force_ref = math::constrain(_tail_dynamic_force_ref, 0.1f, max_tail_force);
+	const float force_deadband = math::constrain(0.005f * dynamic_force_ref, 0.02f, 0.1f);
+	const float dt = (_tail_last_update != 0 && now >= _tail_last_update)
+			 ? math::constrain((now - _tail_last_update) * 1e-6f, 0.f, 0.05f) : 0.004f;
+	_tail_last_update = now;
+	_tail_force_requested = math::constrain(desired_tail_force, -max_tail_force, max_tail_force);
+	_tail_limited = false;
+	_tail_reverse_dwell_elapsed_s = 0.f;
 
-	if (current_direction != 0) {
-		_tail_last_nonzero_direction = current_direction;
+	auto direction = [force_deadband](float force) {
+		return force > force_deadband ? int8_t{1} : (force < -force_deadband ? int8_t{-1} : int8_t{0});
+	};
 
-		if (desired_direction == current_direction) {
-			_tail_force_command = desired_tail_force;
+	auto reversalDwell = [&](float from_force, float to_force) {
+		const float severity = math::constrain(math::max(fabsf(from_force), fabsf(to_force)) / dynamic_force_ref, 0.f, 1.f);
+		return _tail_reverse_min_delay_s
+		       + (_tail_reverse_delay_s - _tail_reverse_min_delay_s) * severity * severity;
+	};
+
+	int8_t desired_direction = direction(_tail_force_requested);
+	int8_t current_direction = direction(_tail_force_command);
+
+	if (_tail_state == hnuter_allocator_status_s::TAIL_STATE_RAMP_DOWN) {
+		if (desired_direction != 0 && desired_direction == _tail_last_nonzero_direction) {
+			// The request returned to the original direction before reaching zero.
+			_tail_pending_direction = 0;
+			_tail_state = hnuter_allocator_status_s::TAIL_STATE_TRACKING;
+
+		} else {
+			_tail_force_command = slewTowards(_tail_force_command, 0.f,
+							  dynamic_force_ref * _tail_slew_down_norm_s * dt);
+			_tail_limited = true;
+
+			if (fabsf(_tail_force_command) <= force_deadband) {
+				_tail_force_command = 0.f;
+				_tail_zero_timestamp = now;
+				_tail_state = (_tail_pending_direction != 0)
+					      ? hnuter_allocator_status_s::TAIL_STATE_DWELL
+					      : hnuter_allocator_status_s::TAIL_STATE_TRACKING;
+			}
+
 			return _tail_force_command;
 		}
+	}
 
-		// Stop at neutral before either reversing or remaining stopped. The next
-		// direction is not enabled until the configured coast-down time expires.
-		_tail_force_command = 0.f;
-		_tail_zero_timestamp = now;
-		return 0.f;
+	if (_tail_state == hnuter_allocator_status_s::TAIL_STATE_DWELL) {
+		if (desired_direction == 0) {
+			_tail_pending_direction = 0;
+			_tail_state = hnuter_allocator_status_s::TAIL_STATE_TRACKING;
+			return 0.f;
+		}
+
+		if (desired_direction == _tail_last_nonzero_direction) {
+			_tail_pending_direction = 0;
+			_tail_state = hnuter_allocator_status_s::TAIL_STATE_TRACKING;
+
+		} else {
+			_tail_reverse_dwell_elapsed_s = (_tail_zero_timestamp != 0 && now >= _tail_zero_timestamp)
+							? (now - _tail_zero_timestamp) * 1e-6f : 0.f;
+
+			if (_tail_reverse_dwell_elapsed_s < _tail_reverse_dwell_required_s) {
+				_tail_limited = true;
+				return 0.f;
+			}
+
+			_tail_pending_direction = 0;
+			_tail_last_nonzero_direction = desired_direction;
+			_tail_state = hnuter_allocator_status_s::TAIL_STATE_RAMP_UP;
+		}
+	}
+
+	current_direction = direction(_tail_force_command);
+	desired_direction = direction(_tail_force_requested);
+
+	if (current_direction != 0 && desired_direction != 0 && desired_direction != current_direction) {
+		_tail_last_nonzero_direction = current_direction;
+		_tail_pending_direction = desired_direction;
+		_tail_reverse_dwell_required_s = reversalDwell(_tail_force_command, _tail_force_requested);
+		_tail_reversal_count++;
+		_tail_state = hnuter_allocator_status_s::TAIL_STATE_RAMP_DOWN;
+		_tail_force_command = slewTowards(_tail_force_command, 0.f,
+						  dynamic_force_ref * _tail_slew_down_norm_s * dt);
+		_tail_limited = true;
+
+		if (fabsf(_tail_force_command) <= force_deadband) {
+			_tail_force_command = 0.f;
+			_tail_zero_timestamp = now;
+			_tail_state = hnuter_allocator_status_s::TAIL_STATE_DWELL;
+		}
+
+		return _tail_force_command;
+	}
+
+	if (current_direction == 0 && desired_direction != 0 && _tail_last_nonzero_direction != 0
+	    && desired_direction != _tail_last_nonzero_direction) {
+		const float required_dwell = reversalDwell(0.f, _tail_force_requested);
+		const float neutral_time = (_tail_zero_timestamp != 0 && now >= _tail_zero_timestamp)
+					   ? (now - _tail_zero_timestamp) * 1e-6f : 0.f;
+
+		if (neutral_time < required_dwell) {
+			_tail_reverse_dwell_required_s = required_dwell;
+			_tail_reverse_dwell_elapsed_s = neutral_time;
+			_tail_pending_direction = desired_direction;
+			_tail_reversal_count++;
+			_tail_state = hnuter_allocator_status_s::TAIL_STATE_DWELL;
+			_tail_limited = true;
+			return 0.f;
+		}
+
+		_tail_last_nonzero_direction = desired_direction;
+		_tail_state = hnuter_allocator_status_s::TAIL_STATE_RAMP_UP;
 	}
 
 	if (desired_direction == 0) {
-		if (_tail_zero_timestamp == 0) {
+		_tail_force_command = slewTowards(_tail_force_command, 0.f,
+						  dynamic_force_ref * _tail_slew_down_norm_s * dt);
+		_tail_limited = fabsf(_tail_force_command) > force_deadband;
+		_tail_state = _tail_limited ? hnuter_allocator_status_s::TAIL_STATE_RAMP_DOWN
+			      : hnuter_allocator_status_s::TAIL_STATE_TRACKING;
+		_tail_pending_direction = 0;
+
+		if (!_tail_limited) {
+			_tail_force_command = 0.f;
 			_tail_zero_timestamp = now;
 		}
 
-		_tail_force_command = 0.f;
-		return 0.f;
-	}
-
-	// A first command, or restarting in the previous direction, does not need
-	// a reversal delay. Only a true sign reversal must dwell at zero thrust.
-	if (_tail_last_nonzero_direction == 0 || desired_direction == _tail_last_nonzero_direction) {
-		_tail_force_command = desired_tail_force;
-		_tail_last_nonzero_direction = desired_direction;
-		_tail_zero_timestamp = 0;
 		return _tail_force_command;
 	}
 
-	const float neutral_time_s = (_tail_zero_timestamp != 0 && now >= _tail_zero_timestamp)
-				     ? (now - _tail_zero_timestamp) * 1e-6f : 0.f;
+	const bool post_reversal_ramp = _tail_state == hnuter_allocator_status_s::TAIL_STATE_RAMP_UP;
+	const bool increasing_magnitude = fabsf(_tail_force_requested) > fabsf(_tail_force_command);
+	const float slew_rate = post_reversal_ramp ? _tail_reverse_slew_norm_s
+				: (increasing_magnitude ? _tail_slew_up_norm_s : _tail_slew_down_norm_s);
+	_tail_force_command = slewTowards(_tail_force_command, _tail_force_requested, dynamic_force_ref * slew_rate * dt);
+	_tail_limited = fabsf(_tail_force_requested - _tail_force_command) > force_deadband;
 
-	if (neutral_time_s >= _tail_reverse_delay_s) {
-		_tail_force_command = desired_tail_force;
-		_tail_last_nonzero_direction = desired_direction;
+	if (direction(_tail_force_command) != 0) {
+		_tail_last_nonzero_direction = direction(_tail_force_command);
 		_tail_zero_timestamp = 0;
-		return _tail_force_command;
 	}
 
-	_tail_force_command = 0.f;
-	return 0.f;
+	if (!_tail_limited) {
+		_tail_force_command = _tail_force_requested;
+		_tail_state = hnuter_allocator_status_s::TAIL_STATE_TRACKING;
+	}
+
+	return _tail_force_command;
 }
 
 bool ActuatorEffectivenessHnuter::getEffectivenessMatrix(Configuration &configuration,
-			EffectivenessUpdateReason external_update)
+		EffectivenessUpdateReason external_update)
 {
 	if (!_collective_tilt_updated && external_update == EffectivenessUpdateReason::NO_EXTERNAL_UPDATE) {
 		return false;
@@ -420,7 +572,7 @@ void ActuatorEffectivenessHnuter::allocateAuxilaryControls(const float dt, int m
 }
 
 void ActuatorEffectivenessHnuter::updateSetpoint(const matrix::Vector<float, NUM_AXES> &control_sp,
-			int matrix_index, ActuatorVector &actuator_sp, const ActuatorVector &actuator_min, const ActuatorVector &actuator_max)
+		int matrix_index, ActuatorVector &actuator_sp, const ActuatorVector &actuator_min, const ActuatorVector &actuator_max)
 {
 	if (matrix_index != 0) {
 		return;
@@ -466,8 +618,16 @@ void ActuatorEffectivenessHnuter::updateSetpoint(const matrix::Vector<float, NUM
 		_last_servo_update = 0;
 		_last_servo_sp.setZero();
 		_tail_force_command = 0.f;
+		_tail_force_requested = 0.f;
+		_tail_reverse_dwell_required_s = 0.f;
+		_tail_reverse_dwell_elapsed_s = 0.f;
 		_tail_zero_timestamp = 0;
+		_tail_last_update = 0;
 		_tail_last_nonzero_direction = 0;
+		_tail_pending_direction = 0;
+		_tail_state = hnuter_allocator_status_s::TAIL_STATE_TRACKING;
+		_tail_reversal_count = 0;
+		_tail_limited = false;
 		_unallocated_control.setZero();
 		_armed_time = 0;
 		_prev_armed = false;
@@ -481,10 +641,10 @@ void ActuatorEffectivenessHnuter::updateSetpoint(const matrix::Vector<float, NUM
 	const bool takeoff_xy_lock_active = (time_since_armed_s >= _takeoff_tilt_suppress_time_s)
 					    && (time_since_armed_s < _takeoff_xy_lock_time_s);
 	const float takeoff_release_progress = _takeoff_release_ramp_time_s > FLT_EPSILON
-			? math::constrain((time_since_armed_s - _takeoff_xy_lock_time_s) / _takeoff_release_ramp_time_s, 0.f, 1.f)
-			: 1.f;
+					       ? math::constrain((time_since_armed_s - _takeoff_xy_lock_time_s) / _takeoff_release_ramp_time_s, 0.f, 1.f)
+					       : 1.f;
 	const bool takeoff_release_ramp_active = time_since_armed_s >= _takeoff_xy_lock_time_s
-					 && takeoff_release_progress < 1.f;
+			&& takeoff_release_progress < 1.f;
 
 	const float l1 = _l1;
 	const float l2 = _l2;
@@ -533,8 +693,8 @@ void ActuatorEffectivenessHnuter::updateSetpoint(const matrix::Vector<float, NUM
 	float u3 = -W[1] / 2.0f;
 	float u6 = -W[1] / 2.0f;
 
-	float F1 = sqrtf(u1*u1 + u2*u2 + u3*u3);
-	float F2 = sqrtf(u4*u4 + u5*u5 + u6*u6);
+	float F1 = sqrtf(u1 * u1 + u2 * u2 + u3 * u3);
+	float F2 = sqrtf(u4 * u4 + u5 * u5 + u6 * u6);
 
 	const float eps = 1e-8f;
 	float F1_safe = fmaxf(F1, eps);
@@ -573,7 +733,7 @@ void ActuatorEffectivenessHnuter::updateSetpoint(const matrix::Vector<float, NUM
 	    && alpha_limit >= math::radians(179.0f)
 	    && theta_limit >= math::radians(179.0f)) {
 		auto select_continuous_gimbal_branch = [alpha_limit, theta_limit](
-				float &alpha, float &theta, float previous_alpha, float previous_theta) {
+		float & alpha, float & theta, float previous_alpha, float previous_theta) {
 			const float base_alpha = matrix::unwrap_pi(previous_alpha, alpha);
 			const float alternate_alpha = matrix::unwrap_pi(previous_alpha, alpha + M_PI_F);
 			const float alternate_positive_theta = M_PI_F - theta;
@@ -615,11 +775,11 @@ void ActuatorEffectivenessHnuter::updateSetpoint(const matrix::Vector<float, NUM
 		};
 
 		select_continuous_gimbal_branch(alpha1, theta1,
-					       _last_servo_sp(1) * alpha1_angle_max,
-					       _last_servo_sp(3) * theta1_servo_angle_max / _secondary_servo_gear_ratio);
+						_last_servo_sp(1) * alpha1_angle_max,
+						_last_servo_sp(3) * theta1_servo_angle_max / _secondary_servo_gear_ratio);
 		select_continuous_gimbal_branch(alpha2, theta2,
-					       _last_servo_sp(0) * alpha2_angle_max,
-					       _last_servo_sp(2) * theta2_servo_angle_max / _secondary_servo_gear_ratio);
+						_last_servo_sp(0) * alpha2_angle_max,
+						_last_servo_sp(2) * theta2_servo_angle_max / _secondary_servo_gear_ratio);
 	}
 
 	if (_last_servo_update != 0 && alpha_limit >= math::radians(179.0f)) {
@@ -633,11 +793,13 @@ void ActuatorEffectivenessHnuter::updateSetpoint(const matrix::Vector<float, NUM
 		alpha1 = math::constrain(alpha1, -alpha_limit, alpha_limit);
 		alpha2 = math::constrain(alpha2, -alpha_limit, alpha_limit);
 	}
+
 	theta1 = math::constrain(theta1, -theta_limit, theta_limit);
 	theta2 = math::constrain(theta2, -theta_limit, theta_limit);
 
 	const int num_rotors = _mc_rotors.geometry().num_rotors;
 	const int num_tilts = _tilts.count();
+	float normalized_tail_output = 0.f;
 
 	if (num_rotors >= 4) {
 		const float right_single = 0.5f * F2;
@@ -645,12 +807,12 @@ void ActuatorEffectivenessHnuter::updateSetpoint(const matrix::Vector<float, NUM
 
 		float norm_right = 0.f;
 		float norm_left = 0.f;
-		float norm_tail = 0.f;
 
 		if (_simulation_motor_model) {
 			norm_right = thrustToNormalizedMotorControl(right_single, _motor_constant, _sim_min_velocity, _sim_max_velocity);
 			norm_left = thrustToNormalizedMotorControl(left_single, _motor_constant, _sim_min_velocity, _sim_max_velocity);
-			norm_tail = signedThrustToNormalizedMotorControl(F3, _motor_constant, _sim_min_velocity, _sim_max_velocity);
+			normalized_tail_output = signedThrustToNormalizedMotorControl(F3, _motor_constant,
+						 _sim_min_velocity, _sim_max_velocity);
 
 		} else {
 			// A hover anchor is measurable in flight and avoids pretending that the
@@ -659,8 +821,9 @@ void ActuatorEffectivenessHnuter::updateSetpoint(const matrix::Vector<float, NUM
 			norm_right = thrustToHoverAnchoredMotorControl(right_single, hover_force_per_motor,
 					_motor_hover_control, _motor_thrust_exponent);
 			norm_left = thrustToHoverAnchoredMotorControl(left_single, hover_force_per_motor,
-				       _motor_hover_control, _motor_thrust_exponent);
-			norm_tail = signedForceToNormalizedMotorControl(F3, max_tail_thrust, _motor_thrust_exponent);
+					_motor_hover_control, _motor_thrust_exponent);
+			normalized_tail_output = signedForceToNormalizedMotorControl(F3, max_tail_thrust,
+						 _motor_thrust_exponent);
 		}
 
 		actuator_sp(0) = norm_right;
@@ -669,7 +832,7 @@ void ActuatorEffectivenessHnuter::updateSetpoint(const matrix::Vector<float, NUM
 		actuator_sp(3) = norm_left;
 
 		if (num_rotors >= 5) {
-			actuator_sp(4) = norm_tail;
+			actuator_sp(4) = normalized_tail_output;
 		}
 	}
 
@@ -692,13 +855,13 @@ void ActuatorEffectivenessHnuter::updateSetpoint(const matrix::Vector<float, NUM
 			const float theta2_max_delta = (_secondary_servo_rate_rad_s * dt) / theta2_servo_angle_max;
 			const float theta1_max_delta = (_secondary_servo_rate_rad_s * dt) / theta1_servo_angle_max;
 			servo_sp(0) = math::constrain(servo_sp(0), _last_servo_sp(0) - alpha2_max_delta,
-						     _last_servo_sp(0) + alpha2_max_delta);
+						      _last_servo_sp(0) + alpha2_max_delta);
 			servo_sp(1) = math::constrain(servo_sp(1), _last_servo_sp(1) - alpha1_max_delta,
-						     _last_servo_sp(1) + alpha1_max_delta);
+						      _last_servo_sp(1) + alpha1_max_delta);
 			servo_sp(2) = math::constrain(servo_sp(2), _last_servo_sp(2) - theta2_max_delta,
-						     _last_servo_sp(2) + theta2_max_delta);
+						      _last_servo_sp(2) + theta2_max_delta);
 			servo_sp(3) = math::constrain(servo_sp(3), _last_servo_sp(3) - theta1_max_delta,
-						     _last_servo_sp(3) + theta1_max_delta);
+						      _last_servo_sp(3) + theta1_max_delta);
 		}
 
 		actuator_sp(_first_tilt_idx + 0) = servo_sp(0);
@@ -748,6 +911,36 @@ void ActuatorEffectivenessHnuter::updateSetpoint(const matrix::Vector<float, NUM
 	achieved_control(4) = -fy_achieved / math::max(max_thrust_per_arm, 1.f);
 	achieved_control(5) = -fz_achieved / math::max(max_vertical_thrust, 1.f);
 	_unallocated_control = control_sp - achieved_control;
+
+	hnuter_allocator_status_s allocator_status{};
+	allocator_status.timestamp = now;
+	allocator_status.simulation_model = _simulation_motor_model;
+	allocator_status.tail_limited = _tail_limited || fabsf(F3_desired - F3) > 0.02f;
+	allocator_status.tail_state = _tail_state;
+	allocator_status.reversal_count = _tail_reversal_count;
+	allocator_status.tail_force_requested = F3_desired;
+	allocator_status.tail_force_commanded = F3;
+	allocator_status.tail_force_error = F3_desired - F3;
+	allocator_status.tail_output_normalized = normalized_tail_output;
+	allocator_status.reversal_dwell_required = _tail_reverse_dwell_required_s;
+	allocator_status.reversal_dwell_elapsed = _tail_reverse_dwell_elapsed_s;
+	allocator_status.pitch_unallocated = _unallocated_control(1);
+
+	if (_simulation_motor_model) {
+		const float angular_speed = fabsf(normalized_tail_output) > FLT_EPSILON
+					    ? _sim_min_velocity + fabsf(normalized_tail_output)
+					    * (_sim_max_velocity - _sim_min_velocity) : 0.f;
+		allocator_status.tail_pwm_estimate = NAN;
+		allocator_status.tail_rpm_estimate = math::signNoZero(normalized_tail_output)
+						     * angular_speed * 60.f / (2.f * M_PI_F);
+
+	} else {
+		allocator_status.tail_pwm_estimate = 0.5f * (_tail_pwm_min + _tail_pwm_max)
+						     + 0.5f * (_tail_pwm_max - _tail_pwm_min) * normalized_tail_output;
+		allocator_status.tail_rpm_estimate = normalized_tail_output * _tail_rpm_max;
+	}
+
+	_hnuter_allocator_status_pub.publish(allocator_status);
 }
 
 void ActuatorEffectivenessHnuter::setFlightPhase(const FlightPhase &flight_phase)

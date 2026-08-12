@@ -312,7 +312,16 @@ param set-default HNTR_L2 0.664
 param set-default HNTR_CG_X 0.105
 param set-default HNTR_CG_Z -0.013
 param set-default HNTR_S2_GEAR 2.0
+# Real 4006 / 12-inch three-blade / 40 A bidirectional tail actuator.
+# Low-force reversals use the short dwell while high-force reversals approach
+# HNTR_TAIL_REV_T. Force slew limits also protect large same-direction steps.
 param set-default HNTR_TAIL_REV_T 0.30
+param set-default HNTR_T_REV_MIN 0.05
+param set-default HNTR_T_FORCE_REF 12.8
+param set-default HNTR_T_SLEW_UP 5.0
+param set-default HNTR_T_SLEW_DN 10.0
+param set-default HNTR_T_REV_SLEW 4.0
+param set-default HNTR_T_RPM_MAX 20650
 # Conservative no-load servo-shaft rate. The 2:1 secondary transmission makes
 # the physical second-stage joint limit 2.35 rad/s.
 param set-default HNTR_S1_RATE 4.7
@@ -365,11 +374,10 @@ param set-default HNTR_ATT_ILIM_Y 1.0
 param set-default HNTR_TAU_R 15.0
 param set-default HNTR_TAU_P 8.0
 param set-default HNTR_TAU_Y 1.8
-# Residual trim after attitude-dependent gravity compensation. At level,
-# HNTR_CG_X=0.105 m contributes about 0.082 normalized tail torque; the 0.02
-# residual matches the remaining log134 equilibrium without retaining a large
-# constant command near vertical Pitch.
-param set-default HNTR_PITCH_BIAS 0.02
+# Do not hide unmeasured CG or actuator offsets in a maximum-thrust fraction.
+# Reintroduce residual trim only after the real CG and tail force model are
+# measured, and keep it inside the final Pitch torque limit.
+param set-default HNTR_PITCH_BIAS 0.0
 param set-default HNTR_RC_ATT_EN 1
 param set-default HNTR_RC_RATE_R 20.0
 param set-default HNTR_RC_RATE_P 8.0
