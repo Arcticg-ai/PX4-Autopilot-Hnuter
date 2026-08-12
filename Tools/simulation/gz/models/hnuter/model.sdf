@@ -1,7 +1,10 @@
 <sdf version='1.11'>
   <model name='hnuter'>
     <self_collide>false</self_collide>
-    <pose>0 0 1.0 0 0 0</pose>
+    <!-- Spawn on the landing pads. Starting one metre above ground lets the
+         disarmed model free-fall and occasionally settle at a large attitude
+         before PX4 completes preflight checks. -->
+    <pose>0 0 0.36 0 0 0</pose>
 
     <link name='base_link'>
       <inertial>
