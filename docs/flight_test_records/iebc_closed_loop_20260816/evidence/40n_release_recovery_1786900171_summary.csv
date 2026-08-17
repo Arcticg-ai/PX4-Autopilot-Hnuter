@@ -1,0 +1,14 @@
+metric,value,unit
+release_force_filtered,40.591107,N
+post_release_peak_vehicle_speed,1.305738,m/s
+maximum_forward_excursion,0.965928,m
+hold_latch_time,7.344009,s_after_release
+position_settle_time,10.544012,s_after_release
+position_change_over_settle_window,0.010701,m_per_1s
+final_forward_velocity,0.002490,m/s
+minimum_energy_barrier,30.507610,J
+minimum_stopping_distance_barrier,0.639011,m
+maximum_qp_slack,0.000000,W
+recovery_rate_infeasible_count,0,count
+terminal_hold_target_x,2.393368,m
+settled_vehicle_x,2.829724,m

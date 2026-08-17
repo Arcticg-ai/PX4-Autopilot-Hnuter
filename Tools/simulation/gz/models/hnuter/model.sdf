@@ -5,7 +5,11 @@
 
     <link name='base_link'>
       <inertial>
-        <pose>-0.15 0 0 0 0 0</pose>
+        <!-- The real airframe's main-thrust resultant passes close to its CG.
+             The imported mesh originally placed the assembled simulation CG
+             about 0.105 m aft of that axis, creating a nonphysical collective
+             pitch moment after real-aircraft tail compensation was removed. -->
+        <pose>0.004 0 0 0 0 0</pose>
         <mass>3.0552478</mass>
         <inertia>
           <ixx>0.076945537</ixx> <ixy>0</ixy>
@@ -717,7 +721,10 @@
       <rotorVelocitySlowdownSim>10</rotorVelocitySlowdownSim>
       <motorType>velocity</motorType>
     </plugin>
-    <plugin filename="gz-sim-multicopter-motor-model-system" name="gz::sim::systems::MulticopterMotorModel">
+    <!-- The tail ESC is bidirectional. Gazebo's stock multicopter plugin
+         ignores bidirectionalMotor, so use PX4's signed-thrust implementation
+         for this motor only. The four main motors remain on the stock plugin. -->
+    <plugin filename="libGenericMotorModelPlugin.so" name="gz::sim::systems::GenericMotorModel">
       <jointName>xyj5</jointName>
       <linkName>xy5</linkName>
       <turningDirection>ccw</turningDirection>

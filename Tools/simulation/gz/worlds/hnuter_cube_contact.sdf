@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<sdf version="1.9">
+  <world name="hnuter_cube_contact">
+    <physics type="ode">
+      <max_step_size>0.004</max_step_size>
+      <real_time_factor>1.0</real_time_factor>
+      <real_time_update_rate>250</real_time_update_rate>
+    </physics>
+    <gravity>0 0 -9.8</gravity>
+    <magnetic_field>6e-06 2.3e-05 -4.2e-05</magnetic_field>
+    <atmosphere type="adiabatic"/>
+
+    <!-- Declaring any system plugin disables Gazebo's implicit defaults, so
+         keep the complete PX4 sensor / spawn set here in addition to the two
+         systems used by this experiment. -->
+    <plugin name="gz::sim::systems::Physics" filename="gz-sim-physics-system"/>
+    <plugin name="gz::sim::systems::UserCommands" filename="gz-sim-user-commands-system"/>
+    <plugin name="gz::sim::systems::SceneBroadcaster" filename="gz-sim-scene-broadcaster-system"/>
+    <plugin name="gz::sim::systems::Contact" filename="gz-sim-contact-system"/>
+    <plugin name="gz::sim::systems::Imu" filename="gz-sim-imu-system"/>
+    <plugin name="gz::sim::systems::Magnetometer" filename="gz-sim-magnetometer-system"/>
+    <plugin name="gz::sim::systems::AirPressure" filename="gz-sim-air-pressure-system"/>
+    <plugin name="gz::sim::systems::AirSpeed" filename="gz-sim-air-speed-system"/>
+    <plugin name="gz::sim::systems::ApplyLinkWrench" filename="gz-sim-apply-link-wrench-system"/>
+    <plugin name="gz::sim::systems::NavSat" filename="gz-sim-navsat-system"/>
+    <plugin name="gz::sim::systems::Sensors" filename="gz-sim-sensors-system">
+      <render_engine>ogre2</render_engine>
+    </plugin>
+
+    <scene>
+      <grid>true</grid>
+      <ambient>0.45 0.45 0.45 1</ambient>
+      <background>0.72 0.76 0.82 1</background>
+      <shadows>true</shadows>
+    </scene>
+
+    <model name="ground_plane">
+      <static>true</static>
+      <link name="link">
+        <collision name="collision">
+          <geometry><plane><normal>0 0 1</normal><size>100 100</size></plane></geometry>
+          <surface><friction><ode/></friction><bounce/><contact/></surface>
+        </collision>
+        <visual name="visual">
+          <geometry><plane><normal>0 0 1</normal><size>100 100</size></plane></geometry>
+          <material>
+            <ambient>0.76 0.76 0.74 1</ambient>
+            <diffuse>0.80 0.80 0.78 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="start_pad">
+      <static>true</static>
+      <pose>0 0 0.01 0 0 0</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry><box><size>2.5 2.5 0.02</size></box></geometry>
+          <material>
+            <ambient>0.12 0.38 0.30 1</ambient>
+            <diffuse>0.15 0.48 0.37 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- A visually large, very light 0.05 kg door proxy constrained to a
+         world-X rail.  Its displacement is diagnostic only: the experiment
+         releases the virtual resistance from measured contact force, so
+         object inertia cannot define the force threshold.  The initial pose
+         is the rail's lower stop; a -X virtual load pins it until the aircraft
+         overcomes that load. -->
+    <model name="interaction_cube">
+      <pose>3.0 0 1.50 0 0 0</pose>
+      <link name="cube_link">
+        <inertial>
+          <mass>0.05</mass>
+          <inertia>
+            <ixx>0.0333333</ixx>
+            <ixy>0</ixy>
+            <ixz>0</ixz>
+            <iyy>0.0193333</iyy>
+            <iyz>0</iyz>
+            <izz>0.0193333</izz>
+          </inertia>
+        </inertial>
+        <collision name="cube_collision">
+          <geometry><box><size>0.8 2.0 2.0</size></box></geometry>
+          <surface>
+            <friction><ode><mu>0.15</mu><mu2>0.15</mu2></ode></friction>
+            <contact><ode><kp>25000</kp><kd>120</kd></ode></contact>
+          </surface>
+        </collision>
+        <visual name="cube_visual">
+          <geometry><box><size>0.8 2.0 2.0</size></box></geometry>
+          <material>
+            <ambient>0.18 0.38 0.78 0.82</ambient>
+            <diffuse>0.20 0.46 0.92 0.82</diffuse>
+            <specular>0.25 0.25 0.30 1</specular>
+          </material>
+          <transparency>0.18</transparency>
+        </visual>
+        <sensor name="cube_contact_sensor" type="contact">
+          <contact>
+            <collision>cube_collision</collision>
+            <topic>/hnuter/cube_contact</topic>
+          </contact>
+          <always_on>true</always_on>
+          <update_rate>250</update_rate>
+        </sensor>
+      </link>
+
+      <joint name="cube_x_rail" type="prismatic">
+        <parent>world</parent>
+        <child>cube_link</child>
+        <axis>
+          <xyz>1 0 0</xyz>
+          <limit><lower>0.0</lower><upper>4.0</upper></limit>
+          <dynamics><damping>0.02</damping><friction>0.0</friction></dynamics>
+        </axis>
+      </joint>
+    </model>
+
+    <!-- The experiment controller creates a red Gazebo GUI marker only while
+         the persistent -X EntityWrench is active. Keeping it out of the SDF
+         prevents a static decoration from being mistaken for measured force. -->
+
+    <light name="sunUTC" type="directional">
+      <pose>0 0 500 0 0 0</pose>
+      <cast_shadows>true</cast_shadows>
+      <intensity>1.0</intensity>
+      <direction>-0.2 0.5 -0.84</direction>
+      <diffuse>0.92 0.92 0.90 1</diffuse>
+      <specular>0.28 0.28 0.28 1</specular>
+      <attenuation><range>2000</range><linear>0</linear><constant>1</constant><quadratic>0</quadratic></attenuation>
+    </light>
+
+    <spherical_coordinates>
+      <surface_model>EARTH_WGS84</surface_model>
+      <world_frame_orientation>ENU</world_frame_orientation>
+      <latitude_deg>47.397971057728974</latitude_deg>
+      <longitude_deg>8.546163739800146</longitude_deg>
+      <elevation>0</elevation>
+    </spherical_coordinates>
+  </world>
+</sdf>

@@ -1,0 +1,30 @@
+#!/bin/sh
+#
+# @name HNUTER contact probe (Gazebo only)
+# @class VTOL
+# @type tiltrotor
+#
+# @maintainer hnuter <arcticg@foxmail.com>
+#
+
+# This airframe intentionally reuses all HNUTER SITL controller/allocator
+# defaults. PX4_SIM_MODEL is already gz_hnuter_contact when selected, so the
+# default assignment inside 4051 does not replace the experiment model name.
+. ${R}etc/init.d-posix/airframes/4051_gz_hnuter
+
+# The signed-thrust tail plugin and the HNUTER allocator use the same direction
+# under this SDF. The explicit assignment prevents a saved A/B-test value from
+# leaking into the experiment. Keep both overrides local to this Gazebo model.
+param set HNTR_TAIL_SIGN 1.0
+param set HNTR_TAU_P 8.0
+
+# The shortened probe tip is 0.75 m ahead of the vehicle origin. At the 17 N
+# validation load its geometric negative yaw stiffness is about 12.75 N m/rad,
+# so KR_Y=15 retains margin without the aggressive free-flight response seen at
+# KR_Y=20. D_Y=3.5 brings the simulated yaw axis close to critical damping.
+# These overrides remain local to the Gazebo contact model.
+param set HNTR_ATT_KR_Y 15.0
+param set HNTR_ATT_D_Y 3.5
+param set HNTR_ATT_I_Y 0.0
+param set HNTR_ATT_ILIM_Y 0.0
+param set HNTR_TAU_Y 1.8
