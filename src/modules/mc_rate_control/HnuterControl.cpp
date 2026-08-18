@@ -212,7 +212,6 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 		allocator_force_residual_world = R * allocator_force_residual_body / mass;
 	}
 
-	bool position_integrator_blocked = false;
 	bool pitch_integrator_blocked = false;
 	bool pitch_target_blocked = false;
 
@@ -411,15 +410,9 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 		for (int i = 0; i < 3; i++) {
 			const bool drives_further_into_saturation = saturation_residual(i) * vel_error(i) > 0.f;
 			const float integral_step = velocity_i(i) * vel_error(i) * dt;
-			const bool drives_further_into_allocator_limit = allocator_status_valid
-					&& allocator_force_residual_world(i) * integral_step > 0.f;
 
-			if (velocity_sp_valid[i] && !drives_further_into_saturation
-			    && !drives_further_into_allocator_limit) {
+			if (velocity_sp_valid[i] && !drives_further_into_saturation) {
 				_velocity_integral(i) += integral_step;
-
-			} else if (velocity_sp_valid[i] && drives_further_into_allocator_limit) {
-				position_integrator_blocked = true;
 			}
 		}
 
@@ -894,7 +887,9 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 	hnuter_status.rc_tilt_setpoint[1] = _rc_tilt_sp(1);
 	hnuter_status.rc_yaw_setpoint = _rc_yaw_sp;
 	hnuter_status.pitch_integrator_blocked = pitch_integrator_blocked;
-	hnuter_status.position_integrator_blocked = position_integrator_blocked;
+	// Retain the field in the log schema for compatibility. Position I now uses
+	// only the acceleration saturation anti-windup above, not model residuals.
+	hnuter_status.position_integrator_blocked = false;
 	hnuter_status.pitch_target_blocked = pitch_target_blocked;
 	_hnuter_control_status_pub.publish(hnuter_status);
 

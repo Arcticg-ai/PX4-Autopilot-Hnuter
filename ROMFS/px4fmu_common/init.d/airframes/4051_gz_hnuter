@@ -360,13 +360,13 @@ param set-default HNTR_LOCK_TILT 12.0
 param set-default HNTR_LOCK_ACC 1.0
 param set-default HNTR_LOCK_KP 0.4
 param set-default HNTR_ATT_KR_R 10.0
-param set-default HNTR_ATT_KR_P 5.0
+param set-default HNTR_ATT_KR_P 8.0
 param set-default HNTR_ATT_KR_Y 1.5
 param set-default HNTR_ATT_D_R 4.0
-param set-default HNTR_ATT_D_P 2.5
+param set-default HNTR_ATT_D_P 4.0
 param set-default HNTR_ATT_D_Y 1.2
 param set-default HNTR_ATT_I_R 0.0
-param set-default HNTR_ATT_I_P 0.01
+param set-default HNTR_ATT_I_P 0.03
 param set-default HNTR_ATT_I_Y 0.0
 param set-default HNTR_ATT_ILIM_R 1.0
 param set-default HNTR_ATT_ILIM_P 0.5
@@ -374,10 +374,9 @@ param set-default HNTR_ATT_ILIM_Y 1.0
 param set-default HNTR_TAU_R 15.0
 param set-default HNTR_TAU_P 8.0
 param set-default HNTR_TAU_Y 1.8
-# Do not hide unmeasured CG or actuator offsets in a maximum-thrust fraction.
-# Reintroduce residual trim only after the real CG and tail force model are
-# measured, and keep it inside the final Pitch torque limit.
-param set-default HNTR_PITCH_BIAS 0.0
+# Small residual trim identified from the level-flight sections of log142.
+# Keep it inside the final Pitch torque limit and independent of collective.
+param set-default HNTR_PITCH_BIAS 0.008
 param set-default HNTR_RC_ATT_EN 1
 param set-default HNTR_RC_RATE_R 20.0
 param set-default HNTR_RC_RATE_P 8.0
