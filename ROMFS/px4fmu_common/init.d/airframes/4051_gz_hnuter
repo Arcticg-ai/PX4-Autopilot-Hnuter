@@ -349,8 +349,8 @@ param set-default HNTR_VEL_ILIM_Z 2.5
 param set-default HNTR_VEL_XY 3.0
 param set-default HNTR_VEL_UP 1.5
 param set-default HNTR_VEL_DN 1.0
-# 4.5 kg * 10 m/s^2 gives a 45 N horizontal command envelope for contact work.
-param set-default HNTR_ACC_XY 10.0
+# 4.5 kg * 8 m/s^2 gives a 36 N horizontal command envelope for contact work.
+param set-default HNTR_ACC_XY 8.0
 param set-default HNTR_ACC_Z 45.6
 param set-default HNTR_STAB_Z_P 2.0
 param set-default HNTR_STAB_Z_D 1.2
