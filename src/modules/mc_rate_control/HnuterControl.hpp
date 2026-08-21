@@ -17,6 +17,7 @@
 #include <uORB/topics/hnuter_control_status.h>
 #include <uORB/topics/rate_ctrl_status.h>
 #include <uORB/topics/manual_control_setpoint.h>
+#include <uORB/topics/takeoff_status.h>
 #include <uORB/topics/trajectory_setpoint.h>
 #include <uORB/topics/vehicle_angular_velocity.h>
 #include <uORB/topics/vehicle_attitude.h>
@@ -60,6 +61,7 @@ private:
 	uORB::Subscription _trajectory_setpoint_sub{ORB_ID(trajectory_setpoint)};
 	uORB::Subscription _vehicle_rates_setpoint_sub{ORB_ID(vehicle_rates_setpoint)};
 	uORB::Subscription _manual_control_setpoint_sub{ORB_ID(manual_control_setpoint)};
+	uORB::Subscription _takeoff_status_sub{ORB_ID(takeoff_status)};
 	uORB::Subscription _control_allocator_status_sub{ORB_ID(control_allocator_status)};
 	uORB::Publication<debug_vect_s> _hnuter_attitude_setpoint_debug_pub{ORB_ID(debug_vect)};
 	uORB::Publication<hnuter_control_status_s> _hnuter_control_status_pub{ORB_ID(hnuter_control_status)};
@@ -68,7 +70,7 @@ private:
 	matrix::Vector3f _integral_e_R{};
 	matrix::Vector2f _xy_lock_position{};
 	bool _xy_lock_initialized{false};
-	bool _takeoff_ramp_started{false};
+	bool _manual_takeoff_started{false};
 	bool _manual_altitude_initialized{false};
 	bool _rc_attitude_initialized{false};
 	bool _rc_level_return_active{false};
@@ -77,7 +79,11 @@ private:
 	bool _rc_pitch_input_previous{false};
 	bool _rc_yaw_input_previous{false};
 	bool _prev_armed{false};
+	bool _pitch_residual_limited{false};
 	hrt_abstime _armed_time{0};
+	hrt_abstime _takeoff_ramp_start{0};
+	hrt_abstime _takeoff_release_start{0};
+	uint8_t _takeoff_state_previous{takeoff_status_s::TAKEOFF_STATE_UNINITIALIZED};
 	float _manual_altitude_sp{0.f};
 	float _rc_yaw_sp{0.f};
 	float _rc_governor_scale{1.f};
@@ -88,7 +94,8 @@ private:
 		(ParamInt<px4::params::HNTR_CTRL_MODE>) _param_hntr_ctrl_mode,
 		(ParamFloat<px4::params::HNTR_MASS>) _param_hntr_mass,
 		(ParamFloat<px4::params::HNTR_MAX_ARM_T>) _param_hntr_max_arm_t,
-		(ParamFloat<px4::params::HNTR_MAX_TAIL_T>) _param_hntr_max_tail_t,
+		(ParamFloat<px4::params::HNTR_TAIL_T_POS>) _param_hntr_tail_t_pos,
+		(ParamFloat<px4::params::HNTR_TAIL_T_NEG>) _param_hntr_tail_t_neg,
 		(ParamFloat<px4::params::HNTR_L1>) _param_hntr_l1,
 		(ParamFloat<px4::params::HNTR_L2>) _param_hntr_l2,
 		(ParamFloat<px4::params::HNTR_CG_X>) _param_hntr_cg_x,
@@ -117,11 +124,9 @@ private:
 		(ParamFloat<px4::params::HNTR_TILT_MAX>) _param_hntr_tilt_max,
 		(ParamFloat<px4::params::HNTR_TO_SUP_T>) _param_hntr_to_sup_t,
 		(ParamFloat<px4::params::HNTR_TO_LOCK_T>) _param_hntr_to_lock_t,
-		(ParamFloat<px4::params::HNTR_TO_RAMP_T>) _param_hntr_to_ramp_t,
 		(ParamFloat<px4::params::HNTR_TO_TILT>) _param_hntr_to_tilt,
 		(ParamFloat<px4::params::HNTR_LOCK_TILT>) _param_hntr_lock_tilt,
-		(ParamFloat<px4::params::HNTR_LOCK_ACC>) _param_hntr_lock_acc,
-		(ParamFloat<px4::params::HNTR_LOCK_KP>) _param_hntr_lock_kp,
+		(ParamFloat<px4::params::MPC_TKO_RAMP_T>) _param_mpc_tko_ramp_t,
 		(ParamFloat<px4::params::HNTR_ATT_KR_R>) _param_hntr_att_kr_r,
 		(ParamFloat<px4::params::HNTR_ATT_KR_P>) _param_hntr_att_kr_p,
 		(ParamFloat<px4::params::HNTR_ATT_KR_Y>) _param_hntr_att_kr_y,

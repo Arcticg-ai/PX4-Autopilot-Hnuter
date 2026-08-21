@@ -55,7 +55,6 @@
 #include <uORB/Publication.hpp>
 #include <uORB/topics/hnuter_allocator_status.h>
 #include <uORB/topics/vehicle_control_mode.h>
-#include <uORB/topics/vehicle_land_detected.h>
 
 class ActuatorEffectivenessHnuter : public ModuleParams, public ActuatorEffectiveness
 {
@@ -99,13 +98,7 @@ private:
 
 	uORB::Subscription _vehicle_control_mode_sub{ORB_ID(vehicle_control_mode)};
 	bool _armed{false};
-	bool _offboard_enabled{false};
-	bool _prev_armed{false};
-	hrt_abstime _armed_time{0};
-
-	uORB::Subscription _vehicle_land_detected_sub{ORB_ID(vehicle_land_detected)};
 	uORB::Publication<hnuter_allocator_status_s> _hnuter_allocator_status_pub{ORB_ID(hnuter_allocator_status)};
-	bool _landed{true};
 
 	param_t _param_sim_gz_ec_min1{PARAM_INVALID};
 	param_t _param_sim_gz_ec_max1{PARAM_INVALID};
@@ -113,10 +106,12 @@ private:
 	param_t _param_hntr_mot_expo{PARAM_INVALID};
 	param_t _param_hntr_mass{PARAM_INVALID};
 	param_t _param_hntr_max_arm_t{PARAM_INVALID};
-	param_t _param_hntr_max_tail_t{PARAM_INVALID};
+	param_t _param_hntr_tail_t_pos{PARAM_INVALID};
+	param_t _param_hntr_tail_t_neg{PARAM_INVALID};
+	param_t _param_hntr_tail_exp_p{PARAM_INVALID};
+	param_t _param_hntr_tail_exp_n{PARAM_INVALID};
 	param_t _param_hntr_l1{PARAM_INVALID};
 	param_t _param_hntr_l2{PARAM_INVALID};
-	param_t _param_hntr_cg_x{PARAM_INVALID};
 	param_t _param_hntr_cg_z{PARAM_INVALID};
 	param_t _param_hntr_s2_gear{PARAM_INVALID};
 	param_t _param_hntr_roll_sign{PARAM_INVALID};
@@ -132,11 +127,6 @@ private:
 	param_t _param_pwm_main_max5{PARAM_INVALID};
 	param_t _param_hntr_s1_rate{PARAM_INVALID};
 	param_t _param_hntr_s2_rate{PARAM_INVALID};
-	param_t _param_hntr_to_sup_t{PARAM_INVALID};
-	param_t _param_hntr_to_lock_t{PARAM_INVALID};
-	param_t _param_hntr_to_ramp_t{PARAM_INVALID};
-	param_t _param_hntr_to_tilt{PARAM_INVALID};
-	param_t _param_hntr_lock_tilt{PARAM_INVALID};
 	float _sim_min_velocity{10.f};
 	float _sim_max_velocity{1000.f};
 	float _motor_hover_control{0.4f};
@@ -144,16 +134,18 @@ private:
 	bool _simulation_motor_model{false};
 	float _mass{4.5f};
 	float _max_thrust_per_arm{85.48f * 2.0f};
-	float _max_tail_thrust{85.48f};
+	float _max_tail_thrust_positive{12.78f};
+	float _max_tail_thrust_negative{6.04f};
+	float _tail_force_exponent_positive{0.55f};
+	float _tail_force_exponent_negative{0.68f};
 	float _l1{0.33f};
-	float _l2{0.664f};
-	float _cg_x{0.105f};
-	float _cg_z{-0.013f};
+	float _l2{0.720f};
+	float _cg_z{0.f};
 	float _secondary_servo_gear_ratio{2.f};
 	float _roll_torque_sign{1.f};
 	float _tail_torque_sign{1.f};
-	float _tail_reverse_delay_s{0.3f};
-	float _tail_reverse_min_delay_s{0.05f};
+	float _tail_reverse_delay_s{0.10f};
+	float _tail_reverse_min_delay_s{0.02f};
 	float _tail_dynamic_force_ref{12.8f};
 	float _tail_slew_up_norm_s{5.f};
 	float _tail_slew_down_norm_s{10.f};
@@ -163,11 +155,6 @@ private:
 	float _tail_pwm_max{2000.f};
 	float _primary_servo_rate_rad_s{4.7f};
 	float _secondary_servo_rate_rad_s{4.7f};
-	float _takeoff_tilt_suppress_time_s{1.f};
-	float _takeoff_xy_lock_time_s{3.f};
-	float _takeoff_release_ramp_time_s{4.f};
-	float _takeoff_tilt_limit{0.349066f};
-	float _xy_lock_tilt_limit{0.523599f};
 	float _motor_constant{8.54858e-05f};
 
 	hrt_abstime _last_servo_update{0};

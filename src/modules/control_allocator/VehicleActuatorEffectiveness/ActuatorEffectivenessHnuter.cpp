@@ -84,11 +84,14 @@ static float thrustToHoverAnchoredMotorControl(float thrust, float hover_force, 
 	return math::constrain(control, 0.f, 1.f);
 }
 
-static float signedForceToNormalizedMotorControl(float thrust, float max_force, float exponent)
+static float signedForceToNormalizedMotorControl(float thrust, float max_force_positive, float max_force_negative,
+		float exponent_positive, float exponent_negative)
 {
 	const float sign = thrust < 0.f ? -1.f : 1.f;
-	const float force_ratio = math::constrain(fabsf(thrust) / math::max(max_force, 1.f), 0.f, 1.f);
-	return sign * powf(force_ratio, math::constrain(exponent, 0.2f, 1.5f));
+	const float max_force = thrust < 0.f ? max_force_negative : max_force_positive;
+	const float exponent = thrust < 0.f ? exponent_negative : exponent_positive;
+	const float force_ratio = math::constrain(fabsf(thrust) / math::max(max_force, 0.1f), 0.f, 1.f);
+	return sign * powf(force_ratio, math::constrain(exponent, 0.1f, 2.f));
 }
 
 static float tiltAngleAbsLimit(const ActuatorEffectivenessTilts &tilts, int tilt_index, float fallback)
@@ -133,10 +136,12 @@ ActuatorEffectivenessHnuter::ActuatorEffectivenessHnuter(ModuleParams *parent)
 	_param_hntr_mot_expo = param_find("HNTR_MOT_EXPO");
 	_param_hntr_mass = param_find("HNTR_MASS");
 	_param_hntr_max_arm_t = param_find("HNTR_MAX_ARM_T");
-	_param_hntr_max_tail_t = param_find("HNTR_MAX_TAIL_T");
+	_param_hntr_tail_t_pos = param_find("HNTR_TAIL_T_POS");
+	_param_hntr_tail_t_neg = param_find("HNTR_TAIL_T_NEG");
+	_param_hntr_tail_exp_p = param_find("HNTR_TAIL_EXP_P");
+	_param_hntr_tail_exp_n = param_find("HNTR_TAIL_EXP_N");
 	_param_hntr_l1 = param_find("HNTR_L1");
 	_param_hntr_l2 = param_find("HNTR_L2");
-	_param_hntr_cg_x = param_find("HNTR_CG_X");
 	_param_hntr_cg_z = param_find("HNTR_CG_Z");
 	_param_hntr_s2_gear = param_find("HNTR_S2_GEAR");
 	_param_hntr_roll_sign = param_find("HNTR_ROLL_SIGN");
@@ -152,11 +157,6 @@ ActuatorEffectivenessHnuter::ActuatorEffectivenessHnuter(ModuleParams *parent)
 	_param_pwm_main_max5 = param_find("PWM_MAIN_MAX5");
 	_param_hntr_s1_rate = param_find("HNTR_S1_RATE");
 	_param_hntr_s2_rate = param_find("HNTR_S2_RATE");
-	_param_hntr_to_sup_t = param_find("HNTR_TO_SUP_T");
-	_param_hntr_to_lock_t = param_find("HNTR_TO_LOCK_T");
-	_param_hntr_to_ramp_t = param_find("HNTR_TO_RAMP_T");
-	_param_hntr_to_tilt = param_find("HNTR_TO_TILT");
-	_param_hntr_lock_tilt = param_find("HNTR_LOCK_TILT");
 
 	updateParams();
 	setFlightPhase(FlightPhase::HOVER_FLIGHT);
@@ -214,11 +214,35 @@ void ActuatorEffectivenessHnuter::updateParams()
 		}
 	}
 
-	if (_param_hntr_max_tail_t != PARAM_INVALID) {
+	if (_param_hntr_tail_t_pos != PARAM_INVALID) {
 		float value = 0.f;
 
-		if (param_get(_param_hntr_max_tail_t, &value) == 0) {
-			_max_tail_thrust = math::max(value, 1.f);
+		if (param_get(_param_hntr_tail_t_pos, &value) == 0) {
+			_max_tail_thrust_positive = math::max(value, 0.1f);
+		}
+	}
+
+	if (_param_hntr_tail_t_neg != PARAM_INVALID) {
+		float value = 0.f;
+
+		if (param_get(_param_hntr_tail_t_neg, &value) == 0) {
+			_max_tail_thrust_negative = math::max(value, 0.1f);
+		}
+	}
+
+	if (_param_hntr_tail_exp_p != PARAM_INVALID) {
+		float value = 0.f;
+
+		if (param_get(_param_hntr_tail_exp_p, &value) == 0) {
+			_tail_force_exponent_positive = math::constrain(value, 0.1f, 2.f);
+		}
+	}
+
+	if (_param_hntr_tail_exp_n != PARAM_INVALID) {
+		float value = 0.f;
+
+		if (param_get(_param_hntr_tail_exp_n, &value) == 0) {
+			_tail_force_exponent_negative = math::constrain(value, 0.1f, 2.f);
 		}
 	}
 
@@ -236,11 +260,6 @@ void ActuatorEffectivenessHnuter::updateParams()
 		if (param_get(_param_hntr_l2, &value) == 0) {
 			_l2 = math::max(value, 0.01f);
 		}
-	}
-
-	if (_param_hntr_cg_x != PARAM_INVALID) {
-		param_get(_param_hntr_cg_x, &_cg_x);
-		_cg_x = math::constrain(_cg_x, -1.f, 1.f);
 	}
 
 	if (_param_hntr_cg_z != PARAM_INVALID) {
@@ -339,45 +358,6 @@ void ActuatorEffectivenessHnuter::updateParams()
 		}
 	}
 
-	if (_param_hntr_to_sup_t != PARAM_INVALID) {
-		float value = 0.f;
-
-		if (param_get(_param_hntr_to_sup_t, &value) == 0) {
-			_takeoff_tilt_suppress_time_s = math::max(value, 0.f);
-		}
-	}
-
-	if (_param_hntr_to_lock_t != PARAM_INVALID) {
-		float value = 0.f;
-
-		if (param_get(_param_hntr_to_lock_t, &value) == 0) {
-			_takeoff_xy_lock_time_s = math::max(value, _takeoff_tilt_suppress_time_s);
-		}
-	}
-
-	if (_param_hntr_to_ramp_t != PARAM_INVALID) {
-		float value = 0.f;
-
-		if (param_get(_param_hntr_to_ramp_t, &value) == 0) {
-			_takeoff_release_ramp_time_s = math::max(value, 0.f);
-		}
-	}
-
-	if (_param_hntr_to_tilt != PARAM_INVALID) {
-		float value = 0.f;
-
-		if (param_get(_param_hntr_to_tilt, &value) == 0) {
-			_takeoff_tilt_limit = math::radians(math::constrain(value, 0.f, 185.f));
-		}
-	}
-
-	if (_param_hntr_lock_tilt != PARAM_INVALID) {
-		float value = 0.f;
-
-		if (param_get(_param_hntr_lock_tilt, &value) == 0) {
-			_xy_lock_tilt_limit = math::radians(math::constrain(value, 0.f, 185.f));
-		}
-	}
 }
 
 float ActuatorEffectivenessHnuter::slewTowards(float current, float target, float max_delta)
@@ -387,13 +367,15 @@ float ActuatorEffectivenessHnuter::slewTowards(float current, float target, floa
 
 float ActuatorEffectivenessHnuter::applyTailReversalGuard(float desired_tail_force, hrt_abstime now)
 {
-	const float max_tail_force = math::max(_max_tail_thrust, 1.f);
+	const float max_tail_force_positive = math::max(_max_tail_thrust_positive, 0.1f);
+	const float max_tail_force_negative = math::max(_max_tail_thrust_negative, 0.1f);
+	const float max_tail_force = math::max(max_tail_force_positive, max_tail_force_negative);
 	const float dynamic_force_ref = math::constrain(_tail_dynamic_force_ref, 0.1f, max_tail_force);
 	const float force_deadband = math::constrain(0.005f * dynamic_force_ref, 0.02f, 0.1f);
 	const float dt = (_tail_last_update != 0 && now >= _tail_last_update)
 			 ? math::constrain((now - _tail_last_update) * 1e-6f, 0.f, 0.05f) : 0.004f;
 	_tail_last_update = now;
-	_tail_force_requested = math::constrain(desired_tail_force, -max_tail_force, max_tail_force);
+	_tail_force_requested = math::constrain(desired_tail_force, -max_tail_force_negative, max_tail_force_positive);
 	_tail_limited = false;
 	_tail_reverse_dwell_elapsed_s = 0.f;
 
@@ -582,22 +564,9 @@ void ActuatorEffectivenessHnuter::updateSetpoint(const matrix::Vector<float, NUM
 
 	if (_vehicle_control_mode_sub.update(&vehicle_control_mode)) {
 		_armed = vehicle_control_mode.flag_armed;
-		_offboard_enabled = vehicle_control_mode.flag_control_offboard_enabled;
 	}
 
 	const hrt_abstime now = hrt_absolute_time();
-
-	if (_armed && !_prev_armed) {
-		_armed_time = now;
-	}
-
-	_prev_armed = _armed;
-
-	vehicle_land_detected_s land_detected{};
-
-	if (_vehicle_land_detected_sub.update(&land_detected)) {
-		_landed = land_detected.landed;
-	}
 
 	if (!_armed) {
 		const int num_tilts = _tilts.count();
@@ -629,29 +598,18 @@ void ActuatorEffectivenessHnuter::updateSetpoint(const matrix::Vector<float, NUM
 		_tail_reversal_count = 0;
 		_tail_limited = false;
 		_unallocated_control.setZero();
-		_armed_time = 0;
-		_prev_armed = false;
 		return;
 	}
 
 	updateParams();
 
-	const float time_since_armed_s = (_armed_time != 0) ? math::constrain(((now - _armed_time) * 1e-6f), 0.f, 100.f) : 100.f;
-	const bool takeoff_tilt_suppress_active = time_since_armed_s < _takeoff_tilt_suppress_time_s;
-	const bool takeoff_xy_lock_active = (time_since_armed_s >= _takeoff_tilt_suppress_time_s)
-					    && (time_since_armed_s < _takeoff_xy_lock_time_s);
-	const float takeoff_release_progress = _takeoff_release_ramp_time_s > FLT_EPSILON
-					       ? math::constrain((time_since_armed_s - _takeoff_xy_lock_time_s) / _takeoff_release_ramp_time_s, 0.f, 1.f)
-					       : 1.f;
-	const bool takeoff_release_ramp_active = time_since_armed_s >= _takeoff_xy_lock_time_s
-			&& takeoff_release_progress < 1.f;
-
 	const float l1 = _l1;
 	const float l2 = _l2;
-	const float r_x = _cg_x;
 	const float r_z = _cg_z;
 	const float max_thrust_per_arm = _max_thrust_per_arm;
-	const float max_tail_thrust = _max_tail_thrust;
+	const float max_tail_thrust_positive = _max_tail_thrust_positive;
+	const float max_tail_thrust_negative = _max_tail_thrust_negative;
+	const float max_tail_thrust_reference = math::max(max_tail_thrust_positive, max_tail_thrust_negative);
 	const float max_front_vertical_thrust = max_thrust_per_arm * 2.0f;
 	const float mass = _mass;
 	const float gravity = 9.81f;
@@ -661,15 +619,10 @@ void ActuatorEffectivenessHnuter::updateSetpoint(const matrix::Vector<float, NUM
 	const float fy = -control_sp(4) * max_thrust_per_arm;
 	const float fz = normalizedThrustToForce(-control_sp(5), max_vertical_thrust);
 	const float tx =  _roll_torque_sign * control_sp(0) * (max_thrust_per_arm * l1);
-	const float ty =  _tail_torque_sign * control_sp(1) * (max_tail_thrust * l2);
+	const float ty =  _tail_torque_sign * control_sp(1) * (max_tail_thrust_reference * l2);
 	const float tz = -control_sp(2) * (max_thrust_per_arm * l1);
 
 	float W[6] {fx, fy, fz, tx, ty, tz};
-
-	if (takeoff_tilt_suppress_active) {
-		W[0] = 0.f;
-		W[1] = 0.f;
-	}
 
 	float u1 = W[0] / 2.0f - W[5] / (2.0f * l1);
 	float u4 = W[0] / 2.0f + W[5] / (2.0f * l1);
@@ -679,8 +632,11 @@ void ActuatorEffectivenessHnuter::updateSetpoint(const matrix::Vector<float, NUM
 	// Do not include vertical force or collective thrust here: attitude-dependent
 	// gravity trim is handled by HnuterControl and must not follow throttle.
 	const float pitch_torque_from_horizontal_force = r_z * W[0];
-	const float F3_desired = (W[4] - pitch_torque_from_horizontal_force) / (r_x + l2);
-	const float F3 = math::constrain(applyTailReversalGuard(F3_desired, now), -max_tail_thrust, max_tail_thrust);
+	// HNTR_L2 is already the direct Motor5 thrust-line to CG distance. HNTR_CG_X
+	// belongs only to gravity feed-forward and must not be added to this arm.
+	const float F3_desired = (W[4] - pitch_torque_from_horizontal_force) / l2;
+	const float F3 = math::constrain(applyTailReversalGuard(F3_desired, now),
+					 -max_tail_thrust_negative, max_tail_thrust_positive);
 
 	// Compensate the front vertical force using the guarded tail force that is
 	// actually commanded, not the unavailable opposite-direction request.
@@ -715,21 +671,8 @@ void ActuatorEffectivenessHnuter::updateSetpoint(const matrix::Vector<float, NUM
 	const float theta1_angle_max = theta1_servo_angle_max / _secondary_servo_gear_ratio;
 	const float alpha_angle_max = math::min(alpha1_angle_max, alpha2_angle_max);
 	const float theta_angle_max = math::min(theta1_angle_max, theta2_angle_max);
-	float alpha_limit = alpha_angle_max;
-	float theta_limit = theta_angle_max;
-
-	if (takeoff_tilt_suppress_active) {
-		alpha_limit = _takeoff_tilt_limit;
-		theta_limit = _takeoff_tilt_limit;
-
-	} else if (takeoff_xy_lock_active) {
-		alpha_limit = _xy_lock_tilt_limit;
-		theta_limit = _xy_lock_tilt_limit;
-
-	} else if (takeoff_release_ramp_active) {
-		alpha_limit = _xy_lock_tilt_limit + (alpha_angle_max - _xy_lock_tilt_limit) * takeoff_release_progress;
-		theta_limit = _xy_lock_tilt_limit + (theta_angle_max - _xy_lock_tilt_limit) * takeoff_release_progress;
-	}
+	const float alpha_limit = alpha_angle_max;
+	const float theta_limit = theta_angle_max;
 
 	if (_last_servo_update != 0
 	    && alpha_limit >= math::radians(179.0f)
@@ -824,8 +767,9 @@ void ActuatorEffectivenessHnuter::updateSetpoint(const matrix::Vector<float, NUM
 					_motor_hover_control, _motor_thrust_exponent);
 			norm_left = thrustToHoverAnchoredMotorControl(left_single, hover_force_per_motor,
 					_motor_hover_control, _motor_thrust_exponent);
-			normalized_tail_output = signedForceToNormalizedMotorControl(F3, max_tail_thrust,
-						 _motor_thrust_exponent);
+			normalized_tail_output = signedForceToNormalizedMotorControl(F3,
+						 max_tail_thrust_positive, max_tail_thrust_negative,
+						 _tail_force_exponent_positive, _tail_force_exponent_negative);
 		}
 
 		actuator_sp(0) = norm_right;
@@ -903,11 +847,11 @@ void ActuatorEffectivenessHnuter::updateSetpoint(const matrix::Vector<float, NUM
 	const float fy_achieved = -(u3_achieved + u6_achieved);
 	const float fz_achieved = u2_achieved + u5_achieved + F3;
 	const float tx_achieved = l1 * (u2_achieved - u5_achieved) - r_z * fy_achieved;
-	const float ty_achieved = F3 * (r_x + l2) + r_z * fx_achieved;
+	const float ty_achieved = F3 * l2 + r_z * fx_achieved;
 	const float tz_achieved = l1 * (u4_achieved - u1_achieved);
 	matrix::Vector<float, NUM_AXES> achieved_control{};
 	achieved_control(0) = _roll_torque_sign * tx_achieved / math::max(max_thrust_per_arm * l1, 1.f);
-	achieved_control(1) = _tail_torque_sign * ty_achieved / math::max(max_tail_thrust * l2, 1.f);
+	achieved_control(1) = _tail_torque_sign * ty_achieved / math::max(max_tail_thrust_reference * l2, 0.1f);
 	achieved_control(2) = -tz_achieved / math::max(max_thrust_per_arm * l1, 1.f);
 	achieved_control(3) = fx_achieved / math::max(max_thrust_per_arm, 1.f);
 	achieved_control(4) = -fy_achieved / math::max(max_thrust_per_arm, 1.f);
@@ -927,6 +871,7 @@ void ActuatorEffectivenessHnuter::updateSetpoint(const matrix::Vector<float, NUM
 	allocator_status.reversal_dwell_required = _tail_reverse_dwell_required_s;
 	allocator_status.reversal_dwell_elapsed = _tail_reverse_dwell_elapsed_s;
 	allocator_status.pitch_unallocated = _unallocated_control(1);
+	allocator_status.pitch_unallocated_nm = _unallocated_control(1) * max_tail_thrust_reference * l2;
 
 	if (_simulation_motor_model) {
 		const float angular_speed = fabsf(normalized_tail_output) > FLT_EPSILON

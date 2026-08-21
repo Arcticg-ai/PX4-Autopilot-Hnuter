@@ -110,7 +110,7 @@ void HnuterControl::reset()
 	_velocity_integral.setZero();
 	_integral_e_R.setZero();
 	_xy_lock_initialized = false;
-	_takeoff_ramp_started = false;
+	_manual_takeoff_started = false;
 	_manual_altitude_initialized = false;
 	_rc_attitude_initialized = false;
 	_rc_level_return_active = false;
@@ -119,7 +119,11 @@ void HnuterControl::reset()
 	_rc_pitch_input_previous = false;
 	_rc_yaw_input_previous = false;
 	_prev_armed = false;
+	_pitch_residual_limited = false;
 	_armed_time = 0;
+	_takeoff_ramp_start = 0;
+	_takeoff_release_start = 0;
+	_takeoff_state_previous = takeoff_status_s::TAKEOFF_STATE_UNINITIALIZED;
 	_manual_altitude_sp = 0.f;
 	_rc_yaw_sp = 0.f;
 	_rc_governor_scale = 1.f;
@@ -144,6 +148,7 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 	vehicle_attitude_setpoint_s att_sp{};
 	vehicle_local_position_s local_pos{};
 	manual_control_setpoint_s manual_sp{};
+	takeoff_status_s takeoff_status{};
 
 	const bool have_odom = _vehicle_odometry_sub.copy(&odom);
 	const bool have_att = _vehicle_attitude_sub.copy(&att);
@@ -151,6 +156,7 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 	const bool have_att_sp = _vehicle_attitude_setpoint_sub.copy(&att_sp);
 	const bool have_local_pos = _vehicle_local_position_sub.copy(&local_pos);
 	const bool have_manual_sp = _manual_control_setpoint_sub.copy(&manual_sp);
+	const bool have_takeoff_status = _takeoff_status_sub.copy(&takeoff_status) && takeoff_status.timestamp > 0;
 
 	const bool manual_attitude_altitude_mode = vehicle_control_mode.flag_control_manual_enabled
 			&& vehicle_control_mode.flag_control_attitude_enabled
@@ -174,10 +180,14 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 	if (vehicle_control_mode.flag_armed && !_prev_armed) {
 		_armed_time = now;
 		_xy_lock_initialized = false;
-		_takeoff_ramp_started = false;
+		_manual_takeoff_started = false;
+		_takeoff_ramp_start = 0;
+		_takeoff_release_start = 0;
+		_takeoff_state_previous = takeoff_status_s::TAKEOFF_STATE_UNINITIALIZED;
 		_manual_altitude_initialized = false;
 		_velocity_integral.setZero();
 		_integral_e_R.setZero();
+		_pitch_residual_limited = false;
 	}
 
 	if (_armed_time == 0) {
@@ -189,7 +199,9 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 	const float mass = math::max(_param_hntr_mass.get(), 0.1f);
 	const float gravity = 9.81f;
 	const float max_thrust_per_arm = math::max(_param_hntr_max_arm_t.get(), 1.f);
-	const float max_tail_thrust = math::max(_param_hntr_max_tail_t.get(), 1.f);
+	const float max_tail_thrust_positive = math::max(_param_hntr_tail_t_pos.get(), 0.1f);
+	const float max_tail_thrust_negative = math::max(_param_hntr_tail_t_neg.get(), 0.1f);
+	const float max_tail_thrust_reference = math::max(max_tail_thrust_positive, max_tail_thrust_negative);
 	const float max_front_vertical_thrust = max_thrust_per_arm * 2.f;
 	const float l1 = math::max(_param_hntr_l1.get(), 0.01f);
 	const float l2 = math::max(_param_hntr_l2.get(), 0.01f);
@@ -200,7 +212,18 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 					    && allocator_status.timestamp > 0 && now >= allocator_status.timestamp
 					    && (now - allocator_status.timestamp) < 100_ms;
 	const float allocator_pitch_residual = allocator_status_valid ? allocator_status.unallocated_torque[1] : 0.f;
-	const bool pitch_actuator_limited = allocator_status_valid && fabsf(allocator_pitch_residual) > 1e-3f;
+	// HnuterControl maps physical body-y torque to the allocator with a minus
+	// sign. Convert the allocator's normalized residual back to this controller's
+	// physical Nm convention before anti-windup decisions.
+	const float allocator_pitch_residual_nm = -allocator_pitch_residual * max_tail_thrust_reference * l2;
+
+	if (!allocator_status_valid || fabsf(allocator_pitch_residual_nm) < 0.05f) {
+		_pitch_residual_limited = false;
+
+	} else if (fabsf(allocator_pitch_residual_nm) > 0.10f) {
+		_pitch_residual_limited = true;
+	}
+
 	Vector3f allocator_force_residual_world{};
 
 	if (allocator_status_valid) {
@@ -213,7 +236,9 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 	}
 
 	bool pitch_integrator_blocked = false;
-	bool pitch_target_blocked = false;
+	// Kept in the log schema for compatibility. AUX2 target motion is no longer
+	// blocked by a model residual.
+	constexpr bool pitch_target_blocked = false;
 
 	const Vector3f pos{odom.position};
 	const Vector3f vel{odom.velocity};
@@ -255,6 +280,32 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 			    || vehicle_control_mode.flag_control_altitude_enabled
 			    || vehicle_control_mode.flag_control_climb_rate_enabled);
 
+	float manual_throttle_stick = 0.f;
+	const float throttle_deadband = math::constrain(_param_hntr_stab_thr_db.get(), 0.f, 0.8f);
+
+	if (have_manual_sp && manual_sp.valid && PX4_ISFINITE(manual_sp.throttle)
+	    && (now >= manual_sp.timestamp) && (now - manual_sp.timestamp) < 500_ms) {
+		manual_throttle_stick = math::constrain(manual_sp.throttle, -1.f, 1.f);
+	}
+
+	if (fabsf(manual_throttle_stick) < throttle_deadband) {
+		manual_throttle_stick = 0.f;
+
+	} else {
+		const float sign = manual_throttle_stick > 0.f ? 1.f : -1.f;
+		manual_throttle_stick = sign * (fabsf(manual_throttle_stick) - throttle_deadband)
+					/ (1.f - throttle_deadband);
+	}
+
+	if (manual_attitude_altitude_mode && !_manual_takeoff_started && manual_throttle_stick > FLT_EPSILON) {
+		_manual_takeoff_started = true;
+		_takeoff_ramp_start = now;
+		_xy_lock_position = pos.xy();
+		_xy_lock_initialized = true;
+		_velocity_integral.setZero();
+		_integral_e_R.setZero();
+	}
+
 	if (manual_attitude_altitude_mode) {
 		if (!_manual_altitude_initialized) {
 			_manual_altitude_sp = pos(2);
@@ -262,25 +313,12 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 			_velocity_integral.setZero();
 		}
 
-		float throttle_stick = 0.f;
-
-		if (have_manual_sp && manual_sp.valid && PX4_ISFINITE(manual_sp.throttle)
-		    && (now >= manual_sp.timestamp) && (now - manual_sp.timestamp) < 500_ms) {
-			throttle_stick = math::constrain(manual_sp.throttle, -1.f, 1.f);
-		}
-
-		const float throttle_deadband = math::constrain(_param_hntr_stab_thr_db.get(), 0.f, 0.8f);
-
-		if (fabsf(throttle_stick) < throttle_deadband) {
-			throttle_stick = 0.f;
-
-		} else {
-			const float sign = throttle_stick > 0.f ? 1.f : -1.f;
-			throttle_stick = sign * (fabsf(throttle_stick) - throttle_deadband) / (1.f - throttle_deadband);
-		}
-
 		const float max_climb_rate = math::max(_param_hntr_stab_z_vel.get(), 0.f);
-		_manual_altitude_sp -= throttle_stick * max_climb_rate * dt;
+
+		if (_manual_takeoff_started) {
+			_manual_altitude_sp -= manual_throttle_stick * max_climb_rate * dt;
+		}
+
 		pos_sp = pos;
 		pos_sp(2) = _manual_altitude_sp;
 		position_sp_valid[2] = true;
@@ -288,47 +326,124 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 		acc_ff.zero();
 	}
 
-	const float takeoff_tilt_suppress_time_s = math::max(_param_hntr_to_sup_t.get(), 0.f);
-	const float takeoff_xy_lock_time_s = math::max(_param_hntr_to_lock_t.get(), takeoff_tilt_suppress_time_s);
-	const float takeoff_release_ramp_time_s = math::max(_param_hntr_to_ramp_t.get(), 0.f);
-	const float xy_lock_kp_scale = math::constrain(_param_hntr_lock_kp.get(), 0.f, 1.f);
 	const float max_acc_xy_default = math::max(_param_hntr_acc_xy.get(), 0.1f);
-	const float xy_lock_max_acc_xy = math::max(_param_hntr_lock_acc.get(), 0.1f);
 	const float takeoff_tilt_limit_rad = math::radians(math::constrain(_param_hntr_to_tilt.get(), 0.f, 185.f));
 	const float xy_lock_tilt_limit_rad = math::radians(math::constrain(_param_hntr_lock_tilt.get(), 0.f, 185.f));
 	const float default_tilt_limit_rad = math::radians(math::constrain(_param_hntr_tilt_max.get(), 0.f, 185.f));
+	const float standard_takeoff_ramp_time_s = math::max(_param_mpc_tko_ramp_t.get(), 0.1f);
+	const bool px4_takeoff_managed = hnuter_translation_control_active && have_takeoff_status;
+	uint8_t takeoff_state = takeoff_status_s::TAKEOFF_STATE_UNINITIALIZED;
+	bool takeoff_idle = false;
+	bool takeoff_rampup = false;
+	float takeoff_output_scale = 1.f;
+	float takeoff_release_progress = 1.f;
 
-	const float time_since_armed_s = (_armed_time != 0) ? math::constrain(((now - _armed_time) * 1e-6f), 0.f, 100.f) : 100.f;
-	const bool tilt_suppress_active = time_since_armed_s < takeoff_tilt_suppress_time_s;
-	const bool xy_lock_active = (time_since_armed_s >= takeoff_tilt_suppress_time_s)
-				    && (time_since_armed_s < takeoff_xy_lock_time_s);
-	const float takeoff_release_progress = takeoff_release_ramp_time_s > FLT_EPSILON
-					       ? math::constrain((time_since_armed_s - takeoff_xy_lock_time_s) / takeoff_release_ramp_time_s, 0.f, 1.f)
-					       : 1.f;
-	const bool takeoff_release_ramp_active = time_since_armed_s >= takeoff_xy_lock_time_s
-			&& takeoff_release_progress < 1.f;
-	const float takeoff_xy_gain_scale = xy_lock_active ? xy_lock_kp_scale
-					    : (takeoff_release_ramp_active
-					       ? xy_lock_kp_scale + (1.f - xy_lock_kp_scale) * takeoff_release_progress : 1.f);
+	if (px4_takeoff_managed) {
+		takeoff_state = takeoff_status.takeoff_state;
+		takeoff_idle = takeoff_state < takeoff_status_s::TAKEOFF_STATE_RAMPUP;
+		takeoff_rampup = takeoff_state == takeoff_status_s::TAKEOFF_STATE_RAMPUP;
 
-	if (takeoff_release_ramp_active && !_takeoff_ramp_started) {
-		// Do not carry the locked-phase XY integrator into the newly released
-		// position target. The normal controller rebuilds it smoothly afterwards.
-		_velocity_integral(0) = 0.f;
-		_velocity_integral(1) = 0.f;
-		_takeoff_ramp_started = true;
-	}
+		if (takeoff_rampup && _takeoff_state_previous != takeoff_status_s::TAKEOFF_STATE_RAMPUP) {
+			_takeoff_ramp_start = now;
+			_takeoff_release_start = 0;
+			_xy_lock_position = pos.xy();
+			_xy_lock_initialized = true;
+			_velocity_integral.setZero();
+			_integral_e_R.setZero();
+		}
 
-	if (xy_lock_active) {
-		if (!_xy_lock_initialized) {
+		if (takeoff_rampup) {
+			const float ramp_elapsed_s = _takeoff_ramp_start > 0 ? (now - _takeoff_ramp_start) * 1e-6f : 0.f;
+			takeoff_output_scale = math::constrain(ramp_elapsed_s / standard_takeoff_ramp_time_s, 0.f, 1.f);
+
+		} else if (takeoff_idle) {
+			takeoff_output_scale = 0.f;
+		}
+
+		if (takeoff_state >= takeoff_status_s::TAKEOFF_STATE_FLIGHT) {
+			if (_takeoff_state_previous < takeoff_status_s::TAKEOFF_STATE_FLIGHT) {
+				_takeoff_release_start = now;
+			}
+
+			const float release_elapsed_s = _takeoff_release_start > 0
+							? (now - _takeoff_release_start) * 1e-6f : standard_takeoff_ramp_time_s;
+			takeoff_release_progress = math::constrain(release_elapsed_s / standard_takeoff_ramp_time_s, 0.f, 1.f);
+
+		} else {
+			takeoff_release_progress = 0.f;
+		}
+
+	} else if (manual_attitude_altitude_mode) {
+		if (!_manual_takeoff_started) {
+			takeoff_state = takeoff_status_s::TAKEOFF_STATE_READY_FOR_TAKEOFF;
+			takeoff_idle = true;
+			takeoff_output_scale = 0.f;
+			takeoff_release_progress = 0.f;
+
+		} else {
+			const float ramp_elapsed_s = (now - _takeoff_ramp_start) * 1e-6f;
+			takeoff_rampup = ramp_elapsed_s < standard_takeoff_ramp_time_s;
+			takeoff_state = takeoff_rampup ? takeoff_status_s::TAKEOFF_STATE_RAMPUP
+					: takeoff_status_s::TAKEOFF_STATE_FLIGHT;
+			takeoff_output_scale = math::constrain(ramp_elapsed_s / standard_takeoff_ramp_time_s, 0.f, 1.f);
+			takeoff_release_progress = takeoff_output_scale;
+		}
+
+	} else {
+		// Standard takeoff_status is expected in Position/Offboard. Retain a
+		// deterministic fallback for startup or unusual modes where it is absent.
+		const float suppress_time_s = math::max(_param_hntr_to_sup_t.get(), 0.f);
+		const float lock_end_time_s = math::max(_param_hntr_to_lock_t.get(), suppress_time_s + 0.1f);
+		const float time_since_armed_s = _armed_time > 0 ? (now - _armed_time) * 1e-6f : 0.f;
+		takeoff_idle = time_since_armed_s < suppress_time_s;
+		takeoff_rampup = !takeoff_idle && time_since_armed_s < lock_end_time_s;
+		takeoff_state = takeoff_idle ? takeoff_status_s::TAKEOFF_STATE_READY_FOR_TAKEOFF
+				: (takeoff_rampup ? takeoff_status_s::TAKEOFF_STATE_RAMPUP : takeoff_status_s::TAKEOFF_STATE_FLIGHT);
+		takeoff_output_scale = takeoff_idle ? 0.f
+				       : math::constrain((time_since_armed_s - suppress_time_s)
+						       / (lock_end_time_s - suppress_time_s), 0.f, 1.f);
+		takeoff_release_progress = takeoff_output_scale;
+
+		if (takeoff_rampup && !_xy_lock_initialized) {
 			_xy_lock_position = pos.xy();
 			_xy_lock_initialized = true;
 		}
+	}
 
-		pos_sp(0) = _xy_lock_position(0);
-		pos_sp(1) = _xy_lock_position(1);
+	_takeoff_state_previous = takeoff_state;
+
+	if (takeoff_idle) {
+		_xy_lock_initialized = false;
+		_takeoff_ramp_start = 0;
+		_takeoff_release_start = 0;
+		_velocity_integral.setZero();
+		_integral_e_R.setZero();
+	}
+
+	const bool takeoff_xy_lock_active = _xy_lock_initialized
+					    && (takeoff_rampup || takeoff_release_progress < 1.f);
+
+	if (takeoff_xy_lock_active) {
+		const bool external_xy_position_valid = position_sp_valid[0] && position_sp_valid[1];
+
+		if (takeoff_rampup || !external_xy_position_valid) {
+			pos_sp(0) = _xy_lock_position(0);
+			pos_sp(1) = _xy_lock_position(1);
+
+		} else {
+			pos_sp(0) = _xy_lock_position(0) * (1.f - takeoff_release_progress)
+				    + pos_sp(0) * takeoff_release_progress;
+			pos_sp(1) = _xy_lock_position(1) * (1.f - takeoff_release_progress)
+				    + pos_sp(1) * takeoff_release_progress;
+		}
+
+		vel_sp(0) *= takeoff_release_progress;
+		vel_sp(1) *= takeoff_release_progress;
 		position_sp_valid[0] = true;
 		position_sp_valid[1] = true;
+
+	} else if (takeoff_release_progress >= 1.f) {
+		_xy_lock_initialized = false;
 	}
 
 	Vector3f pos_error{};
@@ -345,9 +460,6 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 	position_p(0, 0) = manual_attitude_altitude_mode ? 0.f : _param_hntr_pos_p_xy.get();
 	position_p(1, 1) = manual_attitude_altitude_mode ? 0.f : _param_hntr_pos_p_xy.get();
 	position_p(2, 2) = manual_attitude_altitude_mode ? _param_hntr_stab_z_p.get() : _param_hntr_pos_p_z.get();
-
-	position_p(0, 0) *= takeoff_xy_gain_scale;
-	position_p(1, 1) *= takeoff_xy_gain_scale;
 
 	vel_sp += position_p * pos_error;
 	constrainXY(vel_sp, manual_attitude_altitude_mode ? 0.f : math::max(_param_hntr_vel_xy.get(), 0.f));
@@ -383,11 +495,7 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 					 - velocity_d.emult(measured_acceleration);
 	Vector3f acc_des = acc_unsaturated;
 
-	const float takeoff_max_acc_xy = xy_lock_active ? xy_lock_max_acc_xy
-					 : (takeoff_release_ramp_active
-					    ? xy_lock_max_acc_xy + (max_acc_xy_default - xy_lock_max_acc_xy) * takeoff_release_progress
-					    : max_acc_xy_default);
-	const float max_acc_xy = manual_attitude_altitude_mode ? 0.f : takeoff_max_acc_xy;
+	const float max_acc_xy = manual_attitude_altitude_mode ? 0.f : max_acc_xy_default;
 	constrainXY(acc_des, max_acc_xy);
 	const float requested_max_acc_z = manual_attitude_altitude_mode ? math::max(_param_hntr_stab_acc_z.get(), 0.1f) :
 					  math::max(_param_hntr_acc_z.get(), 0.1f);
@@ -396,7 +504,7 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 	const float max_acc_down = math::min(requested_max_acc_z, gravity);
 	acc_des(2) = math::constrain(acc_des(2), -max_acc_up, max_acc_down);
 
-	if (landed || maybe_landed) {
+	if (takeoff_output_scale < 1.f || landed || maybe_landed) {
 		_velocity_integral.setZero();
 
 	} else {
@@ -426,14 +534,14 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 	const Vector3f f_world = mass * (acc_des - gravity_vec);
 	Vector3f f_body = R.transpose() * f_world;
 
-	if (manual_attitude_altitude_mode || tilt_suppress_active) {
+	if (manual_attitude_altitude_mode || takeoff_idle) {
 		f_body(0) = 0.f;
 		f_body(1) = 0.f;
 	}
 
-	const bool takeoff_force_limit_active = tilt_suppress_active || xy_lock_active || takeoff_release_ramp_active;
-	const float takeoff_force_limit = tilt_suppress_active ? takeoff_tilt_limit_rad
-					  : (xy_lock_active ? xy_lock_tilt_limit_rad
+	const bool takeoff_force_limit_active = takeoff_idle || takeoff_rampup || takeoff_release_progress < 1.f;
+	const float takeoff_force_limit = takeoff_idle ? takeoff_tilt_limit_rad
+					  : (takeoff_rampup ? xy_lock_tilt_limit_rad
 					     : xy_lock_tilt_limit_rad + (default_tilt_limit_rad - xy_lock_tilt_limit_rad)
 					     * takeoff_release_progress);
 
@@ -601,25 +709,6 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 									-roll_limit, roll_limit);
 				requested_tilt_delta(0) = next_roll - _rc_tilt_sp(0);
 
-				// When the previous-cycle allocator residual says Motor5 could not
-				// realize Pitch, reject only a Pitch target step that increases the
-				// target-to-aircraft attitude error. Roll and held heading stay active.
-				if (pitch_actuator_limited && fabsf(requested_tilt_delta(1)) > FLT_EPSILON) {
-					const Quatf target_without_pitch = attitudeFromHeadingTilt(
-							wrapPi(_rc_yaw_sp + requested_yaw_delta),
-							Vector2f{_rc_tilt_sp(0) + requested_tilt_delta(0), _rc_tilt_sp(1)});
-					const Quatf target_with_pitch = attitudeFromHeadingTilt(
-										wrapPi(_rc_yaw_sp + requested_yaw_delta), _rc_tilt_sp + requested_tilt_delta);
-					const float error_without_pitch = AxisAnglef{normalizedCanonicalQuaternion(
-							Quatf{target_without_pitch.inversed() * q_cur})}.norm();
-					const float error_with_pitch = AxisAnglef{normalizedCanonicalQuaternion(
-							Quatf{target_with_pitch.inversed() * q_cur})}.norm();
-
-					if (error_with_pitch > error_without_pitch + 1e-4f) {
-						requested_tilt_delta(1) = 0.f;
-						pitch_target_blocked = true;
-					}
-				}
 			}
 
 			const Vector2f candidate_tilt = _rc_tilt_sp + requested_tilt_delta;
@@ -749,11 +838,11 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 	// contribution instead of retaining the level-flight tail command.
 	gravity_torque(1) = cg_z * gravity_force_body(0) - cg_x * gravity_force_body(2);
 	Vector3f bias_torque{};
-	bias_torque(1) = -pitch_bias_normalized * max_tail_thrust * l2;
+	bias_torque(1) = -pitch_bias_normalized * max_tail_thrust_reference * l2;
 	Vector3f trim_torque{};
 	trim_torque = gravity_torque + bias_torque;
 
-	if (landed || maybe_landed) {
+	if (takeoff_output_scale < 1.f || landed || maybe_landed) {
 		_integral_e_R.setZero();
 
 	} else {
@@ -767,14 +856,6 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 				continue;
 			}
 
-			if (i == 1 && pitch_actuator_limited) {
-				// The allocator status is one control cycle old. Freeze geometric
-				// Pitch I while Motor5 is ramping, dwelling or saturated so a missing
-				// actuator command cannot be stored and released later as a torque step.
-				pitch_integrator_blocked = true;
-				continue;
-			}
-
 			const float candidate_integral = math::constrain(_integral_e_R(i) + e_R(i) * dt,
 							 -integral_limit / integral_gain,
 							 integral_limit / integral_gain);
@@ -782,10 +863,17 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 						       - integral_gain * candidate_integral;
 			const float integral_torque_step = -integral_gain * (candidate_integral - _integral_e_R(i));
 			const bool saturated = fabsf(candidate_torque) > torque_limit;
-			const bool drives_further_into_saturation = saturated && candidate_torque * integral_torque_step > 0.f;
+			const bool drives_further_into_local_saturation = saturated && candidate_torque * integral_torque_step > 0.f;
+			const bool drives_further_into_allocator_residual = i == 1 && _pitch_residual_limited
+					&& allocator_pitch_residual_nm * integral_torque_step > 0.f;
 
-			if (!drives_further_into_saturation) {
+			if (!drives_further_into_local_saturation && !drives_further_into_allocator_residual) {
 				_integral_e_R(i) = candidate_integral;
+
+			} else if (drives_further_into_allocator_residual) {
+				// Only block an increment that asks for more torque in the already
+				// unavailable direction. Opposite-direction de-windup always passes.
+				pitch_integrator_blocked = true;
 			}
 		}
 	}
@@ -801,7 +889,7 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 
 	Vector3f torque_setpoint_normalized{
 		math::constrain(tau_c(0) / (max_thrust_per_arm * l1), -1.f, 1.f),
-		math::constrain(-tau_c(1) / (max_tail_thrust * l2), -1.f, 1.f),
+		math::constrain(-tau_c(1) / (max_tail_thrust_reference * l2), -1.f, 1.f),
 		math::constrain(tau_c(2) / (max_thrust_per_arm * l1), -1.f, 1.f)
 	};
 
@@ -827,8 +915,8 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 		rate_torque(2) = yaw_torque_filter.update(rate_torque(2), dt);
 
 		torque_setpoint_normalized(0) = math::constrain(rate_torque(0), -1.f, 1.f);
-		const float normalized_pitch_limit = math::constrain(tau_limit(1) / (max_tail_thrust * l2), 0.f, 1.f);
-		const float normalized_pitch_trim = math::constrain(-trim_torque(1) / (max_tail_thrust * l2), -1.f, 1.f);
+		const float normalized_pitch_limit = math::constrain(tau_limit(1) / (max_tail_thrust_reference * l2), 0.f, 1.f);
+		const float normalized_pitch_trim = math::constrain(-trim_torque(1) / (max_tail_thrust_reference * l2), -1.f, 1.f);
 		torque_setpoint_normalized(1) = math::constrain(-rate_torque(1) + normalized_pitch_trim,
 						-normalized_pitch_limit, normalized_pitch_limit);
 		torque_setpoint_normalized(2) = math::constrain(rate_torque(2), -1.f, 1.f);
@@ -837,6 +925,13 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 		output.rate_ctrl_status.timestamp = hrt_absolute_time();
 		output.rate_ctrl_status_updated = true;
 	}
+
+	// Before takeoff, zero means PWM_MAIN_MIN for the four one-way main ESCs and
+	// the reversible Motor5 midpoint. During RAMPUP, scale force and torque
+	// together so the controller cannot jump directly to hover thrust at arming.
+	f_body *= takeoff_output_scale;
+	tau_c *= takeoff_output_scale;
+	torque_setpoint_normalized *= takeoff_output_scale;
 
 	const float normalized_vertical_thrust = forceToNormalizedThrust(-f_body(2), max_front_vertical_thrust);
 
@@ -880,6 +975,7 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 	hnuter_status.attitude_error_angle = e_R.norm();
 	hnuter_status.governor_scale = _rc_governor_scale;
 	hnuter_status.allocator_pitch_residual = allocator_pitch_residual;
+	hnuter_status.allocator_pitch_residual_nm = allocator_pitch_residual_nm;
 	hnuter_status.allocator_force_residual_world[0] = allocator_force_residual_world(0);
 	hnuter_status.allocator_force_residual_world[1] = allocator_force_residual_world(1);
 	hnuter_status.allocator_force_residual_world[2] = allocator_force_residual_world(2);
@@ -887,10 +983,15 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 	hnuter_status.rc_tilt_setpoint[1] = _rc_tilt_sp(1);
 	hnuter_status.rc_yaw_setpoint = _rc_yaw_sp;
 	hnuter_status.pitch_integrator_blocked = pitch_integrator_blocked;
+	hnuter_status.pitch_residual_limited = _pitch_residual_limited;
 	// Retain the field in the log schema for compatibility. Position I now uses
 	// only the acceleration saturation anti-windup above, not model residuals.
 	hnuter_status.position_integrator_blocked = false;
 	hnuter_status.pitch_target_blocked = pitch_target_blocked;
+	hnuter_status.takeoff_state = takeoff_state;
+	hnuter_status.takeoff_status_valid = px4_takeoff_managed;
+	hnuter_status.takeoff_output_scale = takeoff_output_scale;
+	hnuter_status.takeoff_release_progress = takeoff_release_progress;
 	_hnuter_control_status_pub.publish(hnuter_status);
 
 	output.thrust_setpoint.timestamp_sample = angular_velocity.timestamp_sample;

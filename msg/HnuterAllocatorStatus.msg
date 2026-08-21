@@ -19,3 +19,4 @@ float32 tail_rpm_estimate
 float32 reversal_dwell_required
 float32 reversal_dwell_elapsed
 float32 pitch_unallocated
+float32 pitch_unallocated_nm

@@ -176,7 +176,12 @@ param set-default CA_SV_TL3_CT 0
 param set-default HNTR_CTRL_MODE 0
 param set-default HNTR_MASS 4.5
 param set-default HNTR_MAX_ARM_T 170.96
-param set-default HNTR_MAX_TAIL_T 85.48
+# Gazebo keeps its own symmetric rotor capability and motor-constant mapping;
+# these limits are intentionally independent of the real Motor5 bench model.
+param set-default HNTR_TAIL_T_POS 85.48
+param set-default HNTR_TAIL_T_NEG 85.48
+param set-default HNTR_TAIL_EXP_P 0.50
+param set-default HNTR_TAIL_EXP_N 0.50
 param set-default HNTR_L1 0.33
 param set-default HNTR_L2 0.664
 # Gazebo integrates gravity about the model center of mass. Keep the real
@@ -221,12 +226,11 @@ param set-default HNTR_VEL_DN 1.5
 param set-default HNTR_ACC_XY 12.0
 param set-default HNTR_ACC_Z 20.0
 param set-default HNTR_TILT_MAX 185.0
+# Fallback timing is used only if PX4 takeoff_status is unavailable.
 param set-default HNTR_TO_SUP_T 1.0
 param set-default HNTR_TO_LOCK_T 3.0
 param set-default HNTR_TO_TILT 20.0
 param set-default HNTR_LOCK_TILT 30.0
-param set-default HNTR_LOCK_ACC 3.0
-param set-default HNTR_LOCK_KP 0.8
 param set-default HNTR_ATT_KR_R 8.0
 param set-default HNTR_ATT_KR_P 8.0
 param set-default HNTR_ATT_KR_Y 3.2
