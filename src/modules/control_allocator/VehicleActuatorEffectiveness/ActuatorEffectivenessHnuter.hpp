@@ -119,7 +119,6 @@ private:
 	param_t _param_hntr_tail_rev_t{PARAM_INVALID};
 	param_t _param_hntr_t_rev_min{PARAM_INVALID};
 	param_t _param_hntr_t_force_ref{PARAM_INVALID};
-	param_t _param_hntr_t_slew_up{PARAM_INVALID};
 	param_t _param_hntr_t_slew_dn{PARAM_INVALID};
 	param_t _param_hntr_t_rev_slew{PARAM_INVALID};
 	param_t _param_hntr_t_rpm_max{PARAM_INVALID};
@@ -147,7 +146,6 @@ private:
 	float _tail_reverse_delay_s{0.10f};
 	float _tail_reverse_min_delay_s{0.02f};
 	float _tail_dynamic_force_ref{12.8f};
-	float _tail_slew_up_norm_s{5.f};
 	float _tail_slew_down_norm_s{10.f};
 	float _tail_reverse_slew_norm_s{4.f};
 	float _tail_rpm_max{20650.f};

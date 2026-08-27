@@ -115,9 +115,6 @@ void HnuterControl::reset()
 	_rc_attitude_initialized = false;
 	_rc_level_return_active = false;
 	_rc_level_switch_previous = false;
-	_rc_roll_input_previous = false;
-	_rc_pitch_input_previous = false;
-	_rc_yaw_input_previous = false;
 	_prev_armed = false;
 	_pitch_residual_limited = false;
 	_armed_time = 0;
@@ -631,9 +628,6 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 				_rc_attitude_initialized = true;
 				_rc_level_return_active = true;
 				_rc_level_switch_previous = PX4_ISFINITE(manual_sp.aux3) && manual_sp.aux3 > 0.5f;
-				_rc_roll_input_previous = false;
-				_rc_pitch_input_previous = false;
-				_rc_yaw_input_previous = false;
 			}
 
 			const float deadband = _param_hntr_rc_db.get();
@@ -657,22 +651,10 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 				_rc_level_return_active = false;
 			}
 
-			// Latch only the released swing component. The measured Yaw error and
-			// the other AUX target are deliberately not copied into the setpoint.
-			if ((!roll_input_active && _rc_roll_input_previous)
-			    || (!pitch_input_active && _rc_pitch_input_previous)) {
-				const Vector2f measured_tilt = tiltForFixedHeading(q_cur, _rc_yaw_sp);
-
-				if (!roll_input_active && _rc_roll_input_previous) {
-					_rc_tilt_sp(0) = measured_tilt(0);
-				}
-
-				if (!pitch_input_active && _rc_pitch_input_previous) {
-					_rc_tilt_sp(1) = measured_tilt(1);
-				}
-
-				_rc_attitude_q_sp = attitudeFromHeadingTilt(_rc_yaw_sp, _rc_tilt_sp);
-			}
+			// AUX1/AUX2 are attitude-target-rate commands. When a stick returns to
+			// deadband, stop integrating and hold the last continuous target. Do not
+			// overwrite it with the instantaneous measured attitude: tracking lag or
+			// overshoot can otherwise create a large setpoint step at stick release.
 
 			const Quatf previous_target = _rc_attitude_q_sp;
 			Vector2f requested_tilt_delta{};
@@ -745,17 +727,11 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 
 			R_des = Dcmf{_rc_attitude_q_sp};
 			r_des_valid = true;
-			_rc_roll_input_previous = roll_input_active;
-			_rc_pitch_input_previous = pitch_input_active;
-			_rc_yaw_input_previous = yaw_input_active;
 
 		} else {
 			_rc_attitude_initialized = false;
 			_rc_level_return_active = false;
 			_rc_level_switch_previous = false;
-			_rc_roll_input_previous = false;
-			_rc_pitch_input_previous = false;
-			_rc_yaw_input_previous = false;
 			_rc_governor_scale = 1.f;
 
 			// Hnuter extension for Offboard: trajectory_setpoint carries

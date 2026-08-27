@@ -149,7 +149,6 @@ ActuatorEffectivenessHnuter::ActuatorEffectivenessHnuter(ModuleParams *parent)
 	_param_hntr_tail_rev_t = param_find("HNTR_TAIL_REV_T");
 	_param_hntr_t_rev_min = param_find("HNTR_T_REV_MIN");
 	_param_hntr_t_force_ref = param_find("HNTR_T_FORCE_REF");
-	_param_hntr_t_slew_up = param_find("HNTR_T_SLEW_UP");
 	_param_hntr_t_slew_dn = param_find("HNTR_T_SLEW_DN");
 	_param_hntr_t_rev_slew = param_find("HNTR_T_REV_SLEW");
 	_param_hntr_t_rpm_max = param_find("HNTR_T_RPM_MAX");
@@ -310,11 +309,6 @@ void ActuatorEffectivenessHnuter::updateParams()
 	if (_param_hntr_t_force_ref != PARAM_INVALID) {
 		param_get(_param_hntr_t_force_ref, &_tail_dynamic_force_ref);
 		_tail_dynamic_force_ref = math::constrain(_tail_dynamic_force_ref, 0.1f, 200.f);
-	}
-
-	if (_param_hntr_t_slew_up != PARAM_INVALID) {
-		param_get(_param_hntr_t_slew_up, &_tail_slew_up_norm_s);
-		_tail_slew_up_norm_s = math::constrain(_tail_slew_up_norm_s, 0.1f, 100.f);
 	}
 
 	if (_param_hntr_t_slew_dn != PARAM_INVALID) {
@@ -484,27 +478,32 @@ float ActuatorEffectivenessHnuter::applyTailReversalGuard(float desired_tail_for
 	}
 
 	if (desired_direction == 0) {
-		_tail_force_command = slewTowards(_tail_force_command, 0.f,
-						  dynamic_force_ref * _tail_slew_down_norm_s * dt);
-		_tail_limited = fabsf(_tail_force_command) > force_deadband;
-		_tail_state = _tail_limited ? hnuter_allocator_status_s::TAIL_STATE_RAMP_DOWN
-			      : hnuter_allocator_status_s::TAIL_STATE_TRACKING;
+		// A same-direction unload is not a reversal and does not need an
+		// artificial force-command slope. The motor/ESC follows its own dynamics.
+		_tail_force_command = 0.f;
+		_tail_limited = false;
+		_tail_state = hnuter_allocator_status_s::TAIL_STATE_TRACKING;
 		_tail_pending_direction = 0;
-
-		if (!_tail_limited) {
-			_tail_force_command = 0.f;
-			_tail_zero_timestamp = now;
-		}
+		_tail_zero_timestamp = now;
 
 		return _tail_force_command;
 	}
 
 	const bool post_reversal_ramp = _tail_state == hnuter_allocator_status_s::TAIL_STATE_RAMP_UP;
-	const bool increasing_magnitude = fabsf(_tail_force_requested) > fabsf(_tail_force_command);
-	const float slew_rate = post_reversal_ramp ? _tail_reverse_slew_norm_s
-				: (increasing_magnitude ? _tail_slew_up_norm_s : _tail_slew_down_norm_s);
-	_tail_force_command = slewTowards(_tail_force_command, _tail_force_requested, dynamic_force_ref * slew_rate * dt);
-	_tail_limited = fabsf(_tail_force_requested - _tail_force_command) > force_deadband;
+
+	if (post_reversal_ramp) {
+		// Keep only the protected ramp after a genuine sign reversal.
+		_tail_force_command = slewTowards(_tail_force_command, _tail_force_requested,
+						  dynamic_force_ref * _tail_reverse_slew_norm_s * dt);
+		_tail_limited = fabsf(_tail_force_requested - _tail_force_command) > force_deadband;
+
+	} else {
+		// Normal same-direction Pitch regulation must not pass through an
+		// additional software slew limiter: it adds phase lag to the D feedback
+		// path and can form a low-frequency limit cycle.
+		_tail_force_command = _tail_force_requested;
+		_tail_limited = false;
+	}
 
 	if (direction(_tail_force_command) != 0) {
 		_tail_last_nonzero_direction = direction(_tail_force_command);

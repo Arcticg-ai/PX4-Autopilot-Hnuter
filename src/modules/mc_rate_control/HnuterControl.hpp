@@ -75,9 +75,6 @@ private:
 	bool _rc_attitude_initialized{false};
 	bool _rc_level_return_active{false};
 	bool _rc_level_switch_previous{false};
-	bool _rc_roll_input_previous{false};
-	bool _rc_pitch_input_previous{false};
-	bool _rc_yaw_input_previous{false};
 	bool _prev_armed{false};
 	bool _pitch_residual_limited{false};
 	hrt_abstime _armed_time{0};

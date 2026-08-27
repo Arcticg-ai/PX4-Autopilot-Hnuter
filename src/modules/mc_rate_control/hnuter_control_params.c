@@ -220,11 +220,12 @@ PARAM_DEFINE_FLOAT(HNTR_T_REV_MIN, 0.02f);
 PARAM_DEFINE_FLOAT(HNTR_T_FORCE_REF, 12.8f);
 
 /**
- * Hnuter tail normal rise slew rate
+ * Legacy Hnuter tail normal rise slew rate
  *
- * Maximum Motor5 force-command rise rate as a fraction of HNTR_T_FORCE_REF per
- * second. Small commands therefore remain responsive while a
- * full-scale step is spread over multiple control cycles.
+ * Retained for compatibility with existing parameter files. Normal
+ * same-direction Motor5 force commands are no longer software slew limited,
+ * so this parameter has no effect. Reversal protection remains controlled by
+ * HNTR_T_SLEW_DN, HNTR_T_REV_MIN, HNTR_TAIL_REV_T and HNTR_T_REV_SLEW.
  *
  * @unit normalized_thrust/s
  * @min 0.1
@@ -235,11 +236,11 @@ PARAM_DEFINE_FLOAT(HNTR_T_FORCE_REF, 12.8f);
 PARAM_DEFINE_FLOAT(HNTR_T_SLEW_UP, 5.0f);
 
 /**
- * Hnuter tail reduction slew rate
+ * Hnuter tail reversal unload rate
  *
- * Maximum Motor5 force-command reduction rate as a fraction of
- * HNTR_T_FORCE_REF per second. This is normally faster than the rise rate so a
- * reversal can unload the propeller promptly without an instantaneous step.
+ * Maximum Motor5 force-command reduction rate used only while unloading the
+ * propeller for a genuine sign reversal. Normal same-direction Pitch
+ * regulation and a command to zero are not software slew limited.
  *
  * @unit normalized_thrust/s
  * @min 0.1
