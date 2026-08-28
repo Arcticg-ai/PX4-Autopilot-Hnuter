@@ -1,0 +1,3 @@
+log,duration_s,ulog_dropouts,in_flight_parameter_changes,failsafe_seen,failure_detector_seen,battery_voltage_min_v,battery_current_max_a,horizontal_force_max_n,pitch_torque_abs_max_nm,tail_pwm_min_us,tail_pwm_median_us,tail_pwm_max_us,tail_limited_fraction,tail_reversal_count_final,tail_force_error_rms_n,pitch_residual_rms_nm
+log_181,325.947,0,0,0,0,22.032,37.518,15.926,4.694,1500.0,1711.3,1831.8,0.001227,10,0.0233,0.0177
+log_182,335.694,0,0,0,0,21.916,37.663,19.401,5.0,1256.4,1715.0,1857.2,0.001489,16,0.0539,0.0382

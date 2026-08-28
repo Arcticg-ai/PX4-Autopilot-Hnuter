@@ -1,0 +1,3 @@
+log,sample_duration_s,dominant_pitch_rate_0p8_to_2p2_hz,pitch_angle_1_to_2p2_hz_rms_deg,pitch_target_1_to_2p2_hz_rms_deg,pitch_rate_rms_dps,tail_pwm_std_us
+log_181,106.5,1.605,0.304,0.0,4.211,12.435
+log_182,123.82,1.535,0.311,0.001,3.931,11.819

@@ -1,0 +1,9 @@
+{
+  "artifact": "build/cuav_7-nano_default/cuav_7-nano_default.px4",
+  "sha256": "019728f8065d5787f61f6b99aac5f272d41d241fd873ac30d69ce98ab618c07d",
+  "board_id": 7000,
+  "git_hash": "cfba38c68e403dcc63ee3e5d90e3b238f8918afd",
+  "git_identity": "hnuter-servo-pwm-gear-20260804-12-gcfba38c6",
+  "build_time_epoch": 1787813941,
+  "build_time_local": "2026-08-27T14:59:01+08:00"
+}
