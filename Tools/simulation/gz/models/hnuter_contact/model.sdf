@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<sdf version="1.9">
+  <model name="hnuter_contact">
+    <!-- Merge keeps the original HNUTER rotor, servo and sensor model as the
+         single source of truth. Only this experiment model gains the probe. -->
+    <include merge="true">
+      <uri>model://hnuter</uri>
+    </include>
+
+    <!-- Cylinder axes are local +Z, so pitch by +90 deg aligns the probe with
+         body +X. Keep the probe short so contact does not create an artificial
+         long-lever yaw instability: 0.5 m spans x=0.25..0.75 m. -->
+    <link name="contact_probe">
+      <pose relative_to="base_link">0.50 0 0 0 1.57079632679 0</pose>
+      <inertial>
+        <mass>0.01</mass>
+        <inertia>
+          <ixx>0.000212333</ixx>
+          <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyy>0.000212333</iyy>
+          <iyz>0</iyz>
+          <izz>0.000008</izz>
+        </inertia>
+      </inertial>
+      <collision name="contact_probe_collision">
+        <geometry>
+            <cylinder>
+              <radius>0.04</radius>
+              <length>0.5</length>
+          </cylinder>
+        </geometry>
+        <surface>
+          <friction>
+            <ode><mu>0.20</mu><mu2>0.20</mu2></ode>
+          </friction>
+          <contact>
+            <ode><kp>25000</kp><kd>120</kd></ode>
+          </contact>
+        </surface>
+      </collision>
+      <visual name="contact_probe_visual">
+        <geometry>
+            <cylinder>
+              <radius>0.04</radius>
+              <length>0.5</length>
+          </cylinder>
+        </geometry>
+        <material>
+          <ambient>0.95 0.56 0.08 1</ambient>
+          <diffuse>1.00 0.64 0.10 1</diffuse>
+          <specular>0.35 0.35 0.35 1</specular>
+        </material>
+      </visual>
+    </link>
+
+    <joint name="contact_probe_fixed_joint" type="fixed">
+      <parent>base_link</parent>
+      <child>contact_probe</child>
+    </joint>
+  </model>
+</sdf>

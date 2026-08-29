@@ -92,6 +92,33 @@ void MulticopterLandDetector::_update_topics()
 		_vehicle_thrust_setpoint_throttle = -vehicle_thrust_setpoint.xyz[2];
 	}
 
+	if (_param_ca_airframe.get() == 16) {
+		actuator_motors_s actuator_motors{};
+
+		if (_actuator_motors_sub.update(&actuator_motors)) {
+			float motor_sum = 0.f;
+			int valid_motors = 0;
+
+			for (int i = 0; i < 4; i++) {
+				if (PX4_ISFINITE(actuator_motors.control[i])) {
+					motor_sum += math::constrain(actuator_motors.control[i], 0.f, 1.f);
+					valid_motors++;
+				}
+			}
+
+			if (valid_motors == 4) {
+				_hnuter_motor_throttle = motor_sum * 0.25f;
+				_hnuter_motor_timestamp = actuator_motors.timestamp;
+			}
+		}
+
+		if (hrt_elapsed_time(&_hnuter_motor_timestamp) < 500_ms) {
+			// Hnuter maps physical force to the real motor command in its custom
+			// allocator. Land detection must use that post-allocation command.
+			_vehicle_thrust_setpoint_throttle = _hnuter_motor_throttle;
+		}
+	}
+
 	vehicle_control_mode_s vehicle_control_mode;
 
 	if (_vehicle_control_mode_sub.update(&vehicle_control_mode)) {
@@ -215,7 +242,11 @@ bool MulticopterLandDetector::_get_ground_contact_state()
 
 	// low thrust: 30% of throttle range between min and hover, relaxed to 60% if hover thrust estimate available
 	const float thr_pct_hover = _hover_thrust_estimate_valid ? 0.6f : 0.3f;
-	const float sys_low_throttle = _params.minThrottle + (_params.hoverThrottle - _params.minThrottle) * thr_pct_hover;
+	const bool hnuter_airframe = _param_ca_airframe.get() == 16;
+	const float hnuter_hover_throttle = math::constrain(_param_hntr_mot_hov.get(), 0.05f, 0.95f);
+	const float sys_low_throttle = hnuter_airframe
+				     ? hnuter_hover_throttle * math::constrain(_param_hntr_lnd_gc_r.get(), 0.5f, 1.f)
+				     : _params.minThrottle + (_params.hoverThrottle - _params.minThrottle) * thr_pct_hover;
 	_has_low_throttle = (_vehicle_thrust_setpoint_throttle <= sys_low_throttle);
 	bool ground_contact = _has_low_throttle;
 
@@ -257,7 +288,14 @@ bool MulticopterLandDetector::_get_maybe_landed_state()
 
 	float minimum_thrust_threshold{0.f};
 
-	if (_flag_control_climb_rate_enabled) {
+	if (_param_ca_airframe.get() == 16) {
+		const float hover_throttle = math::constrain(_param_hntr_mot_hov.get(), 0.05f, 0.95f);
+		const float ground_contact_ratio = math::constrain(_param_hntr_lnd_gc_r.get(), 0.5f, 1.f);
+		const float minimum_thrust_ratio = math::constrain(_param_hntr_lnd_min_r.get(), 0.4f,
+									 ground_contact_ratio);
+		minimum_thrust_threshold = hover_throttle * minimum_thrust_ratio;
+
+	} else if (_flag_control_climb_rate_enabled) {
 		// 10% of throttle range between min and hover
 		minimum_thrust_threshold = _params.minThrottle + (_params.hoverThrottle - _params.minThrottle) * 0.1f;
 

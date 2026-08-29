@@ -1,0 +1,60 @@
+{
+  "logs": [
+    {
+      "log": "log_181",
+      "source_ulog": "/home/hnuter/文档/QGroundControl Daily/Logs/程序开门，成功，两次/log_181_2026-8-27-17-28-02.ulg",
+      "source_ulog_sha256": "7d7e189bad0850eaa0ee6072cdf7300862dbefbb25684a8f5427a2b109f27079",
+      "firmware_git_hash": "cfba38c68e403dcc63ee3e5d90e3b238f8918afd",
+      "firmware_branch": "codex/hnuter-pitch-tail-safety-20260808",
+      "hardware": "CUAV_7_NANO",
+      "duration_s": 327.166,
+      "dropouts": 0,
+      "initial_parameter_count": 1182,
+      "in_flight_parameter_change_count": 0,
+      "aux4_event_windows_s": [
+        [
+          110.061,
+          133.182
+        ],
+        [
+          186.462,
+          208.643
+        ]
+      ]
+    },
+    {
+      "log": "log_182",
+      "source_ulog": "/home/hnuter/文档/QGroundControl Daily/Logs/程序开门，成功，两次/log_182_2026-8-27-19-10-30.ulg",
+      "source_ulog_sha256": "3e9d7a143611c90b7d6c7c78ef7be12433a5918357447020b130866d880a83ed",
+      "firmware_git_hash": "cfba38c68e403dcc63ee3e5d90e3b238f8918afd",
+      "firmware_branch": "codex/hnuter-pitch-tail-safety-20260808",
+      "hardware": "CUAV_7_NANO",
+      "duration_s": 336.747,
+      "dropouts": 0,
+      "initial_parameter_count": 1182,
+      "in_flight_parameter_change_count": 0,
+      "aux4_event_windows_s": [
+        [
+          112.101,
+          126.402
+        ],
+        [
+          189.483,
+          199.783
+        ],
+        [
+          208.302,
+          210.562
+        ],
+        [
+          240.26,
+          257.243
+        ],
+        [
+          295.462,
+          320.222
+        ]
+      ]
+    }
+  ]
+}

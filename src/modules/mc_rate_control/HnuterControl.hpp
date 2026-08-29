@@ -11,8 +11,13 @@
 #include <matrix/matrix/math.hpp>
 #include <px4_platform_common/module_params.h>
 #include <uORB/Subscription.hpp>
+#include <uORB/Publication.hpp>
+#include <uORB/topics/debug_vect.h>
+#include <uORB/topics/control_allocator_status.h>
+#include <uORB/topics/hnuter_control_status.h>
 #include <uORB/topics/rate_ctrl_status.h>
 #include <uORB/topics/manual_control_setpoint.h>
+#include <uORB/topics/takeoff_status.h>
 #include <uORB/topics/trajectory_setpoint.h>
 #include <uORB/topics/vehicle_angular_velocity.h>
 #include <uORB/topics/vehicle_attitude.h>
@@ -39,14 +44,17 @@ public:
 	void parametersUpdated() { ModuleParams::updateParams(); }
 
 	bool update(const vehicle_angular_velocity_s &angular_velocity, const vehicle_control_mode_s &vehicle_control_mode,
-		    bool landed, bool maybe_landed, RateControl &rate_control, AlphaFilter<float> &yaw_torque_filter,
-		    float dt, const matrix::Vector3f &rates, Output &output);
+		    bool landed, bool maybe_landed, bool ground_contact, RateControl &rate_control,
+		    AlphaFilter<float> &yaw_torque_filter, float dt, const matrix::Vector3f &rates, Output &output);
 
 	void reset();
 
 private:
+	static constexpr float LANDING_OUTPUT_RAMP_TIME_S{0.3f};
+
 	static float forceToNormalizedThrust(float force, float max_force);
 	static void constrainXY(matrix::Vector3f &vector, float limit);
+	static float applyDeadband(float input, float deadband);
 
 	uORB::Subscription _vehicle_odometry_sub{ORB_ID(vehicle_odometry)};
 	uORB::Subscription _vehicle_attitude_sub{ORB_ID(vehicle_attitude)};
@@ -55,23 +63,44 @@ private:
 	uORB::Subscription _trajectory_setpoint_sub{ORB_ID(trajectory_setpoint)};
 	uORB::Subscription _vehicle_rates_setpoint_sub{ORB_ID(vehicle_rates_setpoint)};
 	uORB::Subscription _manual_control_setpoint_sub{ORB_ID(manual_control_setpoint)};
+	uORB::Subscription _takeoff_status_sub{ORB_ID(takeoff_status)};
+	uORB::Subscription _control_allocator_status_sub{ORB_ID(control_allocator_status)};
+	uORB::Publication<debug_vect_s> _hnuter_attitude_setpoint_debug_pub{ORB_ID(debug_vect)};
+	uORB::Publication<hnuter_control_status_s> _hnuter_control_status_pub{ORB_ID(hnuter_control_status)};
 
 	matrix::Vector3f _velocity_integral{};
 	matrix::Vector3f _integral_e_R{};
 	matrix::Vector2f _xy_lock_position{};
 	bool _xy_lock_initialized{false};
+	bool _manual_takeoff_started{false};
 	bool _manual_altitude_initialized{false};
+	bool _rc_attitude_initialized{false};
+	bool _rc_level_return_active{false};
+	bool _rc_level_switch_previous{false};
 	bool _prev_armed{false};
+	bool _pitch_residual_limited{false};
+	bool _airborne_since_arming{false};
 	hrt_abstime _armed_time{0};
+	hrt_abstime _takeoff_ramp_start{0};
+	hrt_abstime _takeoff_release_start{0};
+	uint8_t _takeoff_state_previous{takeoff_status_s::TAKEOFF_STATE_UNINITIALIZED};
 	float _manual_altitude_sp{0.f};
+	float _rc_yaw_sp{0.f};
+	float _rc_governor_scale{1.f};
+	float _landing_output_scale{1.f};
+	matrix::Vector2f _rc_tilt_sp{};
+	matrix::Quatf _rc_attitude_q_sp{};
 
 	DEFINE_PARAMETERS(
 		(ParamInt<px4::params::HNTR_CTRL_MODE>) _param_hntr_ctrl_mode,
 		(ParamFloat<px4::params::HNTR_MASS>) _param_hntr_mass,
 		(ParamFloat<px4::params::HNTR_MAX_ARM_T>) _param_hntr_max_arm_t,
-		(ParamFloat<px4::params::HNTR_MAX_TAIL_T>) _param_hntr_max_tail_t,
+		(ParamFloat<px4::params::HNTR_TAIL_T_POS>) _param_hntr_tail_t_pos,
+		(ParamFloat<px4::params::HNTR_TAIL_T_NEG>) _param_hntr_tail_t_neg,
 		(ParamFloat<px4::params::HNTR_L1>) _param_hntr_l1,
 		(ParamFloat<px4::params::HNTR_L2>) _param_hntr_l2,
+		(ParamFloat<px4::params::HNTR_CG_X>) _param_hntr_cg_x,
+		(ParamFloat<px4::params::HNTR_CG_Z>) _param_hntr_cg_z,
 		(ParamFloat<px4::params::HNTR_POS_P_XY>) _param_hntr_pos_p_xy,
 		(ParamFloat<px4::params::HNTR_POS_P_Z>) _param_hntr_pos_p_z,
 		(ParamFloat<px4::params::HNTR_VEL_P_XY>) _param_hntr_vel_p_xy,
@@ -98,19 +127,31 @@ private:
 		(ParamFloat<px4::params::HNTR_TO_LOCK_T>) _param_hntr_to_lock_t,
 		(ParamFloat<px4::params::HNTR_TO_TILT>) _param_hntr_to_tilt,
 		(ParamFloat<px4::params::HNTR_LOCK_TILT>) _param_hntr_lock_tilt,
-		(ParamFloat<px4::params::HNTR_LOCK_ACC>) _param_hntr_lock_acc,
-		(ParamFloat<px4::params::HNTR_LOCK_KP>) _param_hntr_lock_kp,
+		(ParamFloat<px4::params::MPC_TKO_RAMP_T>) _param_mpc_tko_ramp_t,
 		(ParamFloat<px4::params::HNTR_ATT_KR_R>) _param_hntr_att_kr_r,
 		(ParamFloat<px4::params::HNTR_ATT_KR_P>) _param_hntr_att_kr_p,
 		(ParamFloat<px4::params::HNTR_ATT_KR_Y>) _param_hntr_att_kr_y,
 		(ParamFloat<px4::params::HNTR_ATT_D_R>) _param_hntr_att_d_r,
 		(ParamFloat<px4::params::HNTR_ATT_D_P>) _param_hntr_att_d_p,
 		(ParamFloat<px4::params::HNTR_ATT_D_Y>) _param_hntr_att_d_y,
+		(ParamFloat<px4::params::HNTR_ATT_I_R>) _param_hntr_att_i_r,
 		(ParamFloat<px4::params::HNTR_ATT_I_P>) _param_hntr_att_i_p,
+		(ParamFloat<px4::params::HNTR_ATT_I_Y>) _param_hntr_att_i_y,
+		(ParamFloat<px4::params::HNTR_ATT_ILIM_R>) _param_hntr_att_ilim_r,
 		(ParamFloat<px4::params::HNTR_ATT_ILIM_P>) _param_hntr_att_ilim_p,
+		(ParamFloat<px4::params::HNTR_ATT_ILIM_Y>) _param_hntr_att_ilim_y,
 		(ParamFloat<px4::params::HNTR_TAU_R>) _param_hntr_tau_r,
 		(ParamFloat<px4::params::HNTR_TAU_P>) _param_hntr_tau_p,
 		(ParamFloat<px4::params::HNTR_TAU_Y>) _param_hntr_tau_y,
-		(ParamFloat<px4::params::HNTR_PITCH_BIAS>) _param_hntr_pitch_bias
+		(ParamFloat<px4::params::HNTR_PITCH_BIAS>) _param_hntr_pitch_bias,
+		(ParamBool<px4::params::HNTR_RC_ATT_EN>) _param_hntr_rc_att_en,
+		(ParamFloat<px4::params::HNTR_RC_RATE_R>) _param_hntr_rc_rate_r,
+		(ParamFloat<px4::params::HNTR_RC_RATE_P>) _param_hntr_rc_rate_p,
+		(ParamFloat<px4::params::HNTR_RC_RATE_Y>) _param_hntr_rc_rate_y,
+		(ParamFloat<px4::params::HNTR_RC_DB>) _param_hntr_rc_db,
+		(ParamFloat<px4::params::HNTR_RC_ANG_MAX>) _param_hntr_rc_ang_max,
+		(ParamFloat<px4::params::HNTR_RC_ERR_S>) _param_hntr_rc_err_s,
+		(ParamFloat<px4::params::HNTR_RC_ERR_H>) _param_hntr_rc_err_h,
+		(ParamFloat<px4::params::HNTR_RC_LVL_R>) _param_hntr_rc_lvl_r
 	)
 };

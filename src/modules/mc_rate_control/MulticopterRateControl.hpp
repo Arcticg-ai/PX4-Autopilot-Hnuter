@@ -122,6 +122,7 @@ private:
 
 	bool _landed{true};
 	bool _maybe_landed{true};
+	bool _ground_contact{true};
 
 	hrt_abstime _last_run{0};
 

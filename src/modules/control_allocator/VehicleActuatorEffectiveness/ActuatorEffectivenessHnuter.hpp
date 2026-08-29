@@ -49,9 +49,12 @@
 #include <matrix/matrix/math.hpp>
 #include <drivers/drv_hrt.h>
 
+#include <cstdint>
+
 #include <uORB/Subscription.hpp>
+#include <uORB/Publication.hpp>
+#include <uORB/topics/hnuter_allocator_status.h>
 #include <uORB/topics/vehicle_control_mode.h>
-#include <uORB/topics/vehicle_land_detected.h>
 
 class ActuatorEffectivenessHnuter : public ModuleParams, public ActuatorEffectiveness
 {
@@ -72,7 +75,7 @@ public:
 	void allocateAuxilaryControls(const float dt, int matrix_index, ActuatorVector &actuator_sp) override;
 
 	void updateSetpoint(const matrix::Vector<float, NUM_AXES> &control_sp, int matrix_index, ActuatorVector &actuator_sp,
-			const ActuatorVector &actuator_min, const ActuatorVector &actuator_max) override;
+			    const ActuatorVector &actuator_min, const ActuatorVector &actuator_max) override;
 
 	void getUnallocatedControl(int matrix_index, control_allocator_status_s &status) override;
 
@@ -81,6 +84,8 @@ public:
 private:
 
 	void updateParams() override;
+	float applyTailReversalGuard(float desired_tail_force, hrt_abstime now);
+	static float slewTowards(float current, float target, float max_delta);
 
 	bool _collective_tilt_updated{true};
 	ActuatorEffectivenessRotors _mc_rotors;
@@ -93,12 +98,7 @@ private:
 
 	uORB::Subscription _vehicle_control_mode_sub{ORB_ID(vehicle_control_mode)};
 	bool _armed{false};
-	bool _offboard_enabled{false};
-	bool _prev_armed{false};
-	hrt_abstime _armed_time{0};
-
-	uORB::Subscription _vehicle_land_detected_sub{ORB_ID(vehicle_land_detected)};
-	bool _landed{true};
+	uORB::Publication<hnuter_allocator_status_s> _hnuter_allocator_status_pub{ORB_ID(hnuter_allocator_status)};
 
 	param_t _param_sim_gz_ec_min1{PARAM_INVALID};
 	param_t _param_sim_gz_ec_max1{PARAM_INVALID};
@@ -106,16 +106,26 @@ private:
 	param_t _param_hntr_mot_expo{PARAM_INVALID};
 	param_t _param_hntr_mass{PARAM_INVALID};
 	param_t _param_hntr_max_arm_t{PARAM_INVALID};
-	param_t _param_hntr_max_tail_t{PARAM_INVALID};
+	param_t _param_hntr_tail_t_pos{PARAM_INVALID};
+	param_t _param_hntr_tail_t_neg{PARAM_INVALID};
+	param_t _param_hntr_tail_exp_p{PARAM_INVALID};
+	param_t _param_hntr_tail_exp_n{PARAM_INVALID};
 	param_t _param_hntr_l1{PARAM_INVALID};
 	param_t _param_hntr_l2{PARAM_INVALID};
+	param_t _param_hntr_cg_z{PARAM_INVALID};
+	param_t _param_hntr_s2_gear{PARAM_INVALID};
 	param_t _param_hntr_roll_sign{PARAM_INVALID};
 	param_t _param_hntr_tail_sign{PARAM_INVALID};
-	param_t _param_hntr_tail_comp{PARAM_INVALID};
-	param_t _param_hntr_to_sup_t{PARAM_INVALID};
-	param_t _param_hntr_to_lock_t{PARAM_INVALID};
-	param_t _param_hntr_to_tilt{PARAM_INVALID};
-	param_t _param_hntr_lock_tilt{PARAM_INVALID};
+	param_t _param_hntr_tail_rev_t{PARAM_INVALID};
+	param_t _param_hntr_t_rev_min{PARAM_INVALID};
+	param_t _param_hntr_t_force_ref{PARAM_INVALID};
+	param_t _param_hntr_t_slew_dn{PARAM_INVALID};
+	param_t _param_hntr_t_rev_slew{PARAM_INVALID};
+	param_t _param_hntr_t_rpm_max{PARAM_INVALID};
+	param_t _param_pwm_main_min5{PARAM_INVALID};
+	param_t _param_pwm_main_max5{PARAM_INVALID};
+	param_t _param_hntr_s1_rate{PARAM_INVALID};
+	param_t _param_hntr_s2_rate{PARAM_INVALID};
 	float _sim_min_velocity{10.f};
 	float _sim_max_velocity{1000.f};
 	float _motor_hover_control{0.4f};
@@ -123,18 +133,40 @@ private:
 	bool _simulation_motor_model{false};
 	float _mass{4.5f};
 	float _max_thrust_per_arm{85.48f * 2.0f};
-	float _max_tail_thrust{85.48f};
+	float _max_tail_thrust_positive{12.78f};
+	float _max_tail_thrust_negative{6.04f};
+	float _tail_force_exponent_positive{0.55f};
+	float _tail_force_exponent_negative{0.68f};
 	float _l1{0.33f};
-	float _l2{0.664f};
+	float _l2{0.720f};
+	float _cg_z{0.f};
+	float _secondary_servo_gear_ratio{2.f};
 	float _roll_torque_sign{1.f};
 	float _tail_torque_sign{1.f};
-	float _tail_collective_comp{0.f};
-	float _takeoff_tilt_suppress_time_s{1.f};
-	float _takeoff_xy_lock_time_s{3.f};
-	float _takeoff_tilt_limit{0.349066f};
-	float _xy_lock_tilt_limit{0.523599f};
+	float _tail_reverse_delay_s{0.10f};
+	float _tail_reverse_min_delay_s{0.02f};
+	float _tail_dynamic_force_ref{12.8f};
+	float _tail_slew_down_norm_s{10.f};
+	float _tail_reverse_slew_norm_s{4.f};
+	float _tail_rpm_max{20650.f};
+	float _tail_pwm_min{900.f};
+	float _tail_pwm_max{2000.f};
+	float _primary_servo_rate_rad_s{4.7f};
+	float _secondary_servo_rate_rad_s{4.7f};
 	float _motor_constant{8.54858e-05f};
 
 	hrt_abstime _last_servo_update{0};
 	matrix::Vector<float, 4> _last_servo_sp{};
+	float _tail_force_command{0.f};
+	float _tail_force_requested{0.f};
+	float _tail_reverse_dwell_required_s{0.f};
+	float _tail_reverse_dwell_elapsed_s{0.f};
+	hrt_abstime _tail_zero_timestamp{0};
+	hrt_abstime _tail_last_update{0};
+	int8_t _tail_last_nonzero_direction{0};
+	int8_t _tail_pending_direction{0};
+	uint8_t _tail_state{hnuter_allocator_status_s::TAIL_STATE_TRACKING};
+	uint32_t _tail_reversal_count{0};
+	bool _tail_limited{false};
+	matrix::Vector<float, NUM_AXES> _unallocated_control{};
 };

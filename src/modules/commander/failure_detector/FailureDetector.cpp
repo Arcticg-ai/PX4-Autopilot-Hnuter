@@ -139,7 +139,19 @@ void FailureDetector::updateAttitudeStatus(const vehicle_status_s &vehicle_statu
 		const float max_pitch(fabsf(math::radians(max_pitch_deg)));
 
 		const bool roll_status = (max_roll > FLT_EPSILON) && (fabsf(roll) > max_roll);
-		const bool pitch_status = (max_pitch > FLT_EPSILON) && (fabsf(pitch) > max_pitch);
+		bool pitch_status = (max_pitch > FLT_EPSILON) && (fabsf(pitch) > max_pitch);
+		hnuter_control_status_s hnuter_status{};
+
+		// Intentional large-angle Hnuter flight must be checked against its target,
+		// not against level. Fall back to the standard absolute check if the
+		// controller status is disabled or stale.
+		if (_param_hntr_fd_err.get() > FLT_EPSILON
+		    && _hnuter_control_status_sub.copy(&hnuter_status)
+		    && hnuter_status.active && hnuter_status.timestamp > 0
+		    && hrt_elapsed_time(&hnuter_status.timestamp) < 500_ms) {
+			const float max_command_error = math::radians(_param_hntr_fd_err.get());
+			pitch_status = fabsf(hnuter_status.attitude_error[1]) > max_command_error;
+		}
 
 		hrt_abstime time_now = hrt_absolute_time();
 

@@ -44,7 +44,11 @@ PARAM_DEFINE_FLOAT(HNTR_MASS, 4.5f);
 PARAM_DEFINE_FLOAT(HNTR_MAX_ARM_T, 170.96f);
 
 /**
- * Hnuter maximum tail thrust
+ * Hnuter maximum positive tail thrust
+ *
+ * Maximum Motor5 force in the allocator's positive tail-force direction.
+ * Hardware uses the value identified on the tail-motor thrust stand. Gazebo
+ * airframes override this with their simulated rotor capability.
  *
  * @unit N
  * @min 1.0
@@ -52,7 +56,49 @@ PARAM_DEFINE_FLOAT(HNTR_MAX_ARM_T, 170.96f);
  * @decimal 1
  * @group Hnuter Control
  */
-PARAM_DEFINE_FLOAT(HNTR_MAX_TAIL_T, 85.48f);
+PARAM_DEFINE_FLOAT(HNTR_TAIL_T_POS, 12.78f);
+
+/**
+ * Hnuter maximum negative tail thrust
+ *
+ * Maximum Motor5 force magnitude in the allocator's negative tail-force
+ * direction. This is independent of HNTR_TAIL_T_POS because the measured
+ * reversible propeller is strongly asymmetric.
+ *
+ * @unit N
+ * @min 0.1
+ * @max 500.0
+ * @decimal 2
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_TAIL_T_NEG, 6.04f);
+
+/**
+ * Hnuter positive tail inverse exponent
+ *
+ * Maps requested positive tail force to normalized Motor5 command as
+ * u=(F/HNTR_TAIL_T_POS)^exponent. The default is fitted from the 4006,
+ * 12-inch three-blade propeller and 40 A bidirectional ESC bench data.
+ *
+ * @min 0.1
+ * @max 2.0
+ * @decimal 3
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_TAIL_EXP_P, 0.55f);
+
+/**
+ * Hnuter negative tail inverse exponent
+ *
+ * Maps requested negative tail-force magnitude to normalized Motor5 command as
+ * |u|=(|F|/HNTR_TAIL_T_NEG)^exponent.
+ *
+ * @min 0.1
+ * @max 2.0
+ * @decimal 3
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_TAIL_EXP_N, 0.68f);
 
 /**
  * Hnuter front arm moment arm
@@ -66,7 +112,10 @@ PARAM_DEFINE_FLOAT(HNTR_MAX_TAIL_T, 85.48f);
 PARAM_DEFINE_FLOAT(HNTR_L1, 0.33f);
 
 /**
- * Hnuter tail moment arm
+ * Hnuter tail-to-CG moment arm
+ *
+ * Direct distance from the aircraft center of mass to the Motor5 thrust line.
+ * Do not add HNTR_CG_X to this value.
  *
  * @unit m
  * @min 0.01
@@ -74,7 +123,23 @@ PARAM_DEFINE_FLOAT(HNTR_L1, 0.33f);
  * @decimal 3
  * @group Hnuter Control
  */
-PARAM_DEFINE_FLOAT(HNTR_L2, 0.664f);
+PARAM_DEFINE_FLOAT(HNTR_L2, 0.720f);
+
+/**
+ * Hnuter second-stage servo gear ratio
+ *
+ * Ratio of servo-shaft angle to second-stage output-joint angle. A value of
+ * 2.0 means the servo must rotate 2 degrees for 1 degree of second-stage joint
+ * motion. The allocator applies this ratio only to Servo 3/4 (rj1/lj1); the
+ * primary tilt servos remain direct-drive. Set this to 1.0 for a direct-drive
+ * simulation model.
+ *
+ * @min 0.1
+ * @max 10.0
+ * @decimal 2
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_S2_GEAR, 2.0f);
 
 /**
  * Hnuter roll torque direction
@@ -111,19 +176,137 @@ PARAM_DEFINE_FLOAT(HNTR_ROLL_SIGN, 1.0f);
 PARAM_DEFINE_FLOAT(HNTR_TAIL_SIGN, 1.0f);
 
 /**
- * Hnuter tail collective pitch compensation
+ * Hnuter tail motor reversal neutral time
  *
- * Blends in the old Motor5 compensation for pitch moment caused by collective
- * vertical front thrust and model center-of-mass offset. Keep this at 0 on the
- * real aircraft so Motor5 does not follow throttle. Set to 1 in SITL when the
- * Gazebo model still needs tail thrust to cancel collective pitch moment.
+ * Minimum time Motor5 must remain at zero thrust before changing thrust
+ * direction. This protects a reversible ESC and propeller from an immediate
+ * positive-to-negative command. Set from measured motor/ESC coast-down time.
  *
+ * @unit s
+ * @min 0.0
+ * @max 2.0
+ * @decimal 2
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_TAIL_REV_T, 0.10f);
+
+/**
+ * Hnuter tail minimum reversal neutral time
+ *
+ * Minimum neutral dwell for a low-force Motor5 sign change. The allocator
+ * interpolates from this value to HNTR_TAIL_REV_T as reversal severity grows.
+ *
+ * @unit s
  * @min 0.0
  * @max 1.0
  * @decimal 2
  * @group Hnuter Control
  */
-PARAM_DEFINE_FLOAT(HNTR_TAIL_COMP, 0.0f);
+PARAM_DEFINE_FLOAT(HNTR_T_REV_MIN, 0.02f);
+
+/**
+ * Hnuter tail dynamic force reference
+ *
+ * Force scale used only by the Motor5 reversal-severity and slew-rate
+ * protection. This remains independently configurable because the real tail
+ * actuator and the Gazebo rotor have different dynamic ranges.
+ *
+ * @unit N
+ * @min 0.1
+ * @max 200.0
+ * @decimal 1
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_T_FORCE_REF, 12.8f);
+
+/**
+ * Legacy Hnuter tail normal rise slew rate
+ *
+ * Retained for compatibility with existing parameter files. Normal
+ * same-direction Motor5 force commands are no longer software slew limited,
+ * so this parameter has no effect. Reversal protection remains controlled by
+ * HNTR_T_SLEW_DN, HNTR_T_REV_MIN, HNTR_TAIL_REV_T and HNTR_T_REV_SLEW.
+ *
+ * @unit normalized_thrust/s
+ * @min 0.1
+ * @max 100.0
+ * @decimal 1
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_T_SLEW_UP, 5.0f);
+
+/**
+ * Hnuter tail reversal unload rate
+ *
+ * Maximum Motor5 force-command reduction rate used only while unloading the
+ * propeller for a genuine sign reversal. Normal same-direction Pitch
+ * regulation and a command to zero are not software slew limited.
+ *
+ * @unit normalized_thrust/s
+ * @min 0.1
+ * @max 100.0
+ * @decimal 1
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_T_SLEW_DN, 10.0f);
+
+/**
+ * Hnuter tail post-reversal rise slew rate
+ *
+ * Maximum Motor5 command rise after the neutral dwell, expressed as a fraction
+ * of HNTR_T_FORCE_REF per second.
+ *
+ * @unit normalized_thrust/s
+ * @min 0.1
+ * @max 100.0
+ * @decimal 1
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_T_REV_SLEW, 4.0f);
+
+/**
+ * Hnuter tail maximum RPM estimate
+ *
+ * Motor5 speed at full normalized command. This is used only for allocator
+ * telemetry; it is not a measured RPM and does not affect control.
+ *
+ * @unit rpm
+ * @min 100.0
+ * @max 100000.0
+ * @decimal 0
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_T_RPM_MAX, 20650.0f);
+
+/**
+ * Hnuter primary servo shaft rate limit
+ *
+ * Maximum shaft rate for Servo 1/2. This limit is applied inside the Hnuter
+ * allocator so its commanded servo state cannot move faster than the measured
+ * actuator. The 4.7 rad/s default is the conservative no-load rating.
+ *
+ * @unit rad/s
+ * @min 0.1
+ * @max 50.0
+ * @decimal 2
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_S1_RATE, 4.7f);
+
+/**
+ * Hnuter secondary servo shaft rate limit
+ *
+ * Maximum shaft rate for Servo 3/4 before the HNTR_S2_GEAR reduction. With a
+ * 2:1 ratio and a 4.7 rad/s shaft rate, the secondary output joint is limited
+ * to 2.35 rad/s.
+ *
+ * @unit rad/s
+ * @min 0.1
+ * @max 50.0
+ * @decimal 2
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_S2_RATE, 4.7f);
 
 /**
  * Hnuter legacy hover thrust
@@ -165,6 +348,33 @@ PARAM_DEFINE_FLOAT(HNTR_MOT_HOV, 0.40f);
  * @group Hnuter Control
  */
 PARAM_DEFINE_FLOAT(HNTR_MOT_EXPO, 0.50f);
+
+/**
+ * Hnuter ground-contact motor ratio
+ *
+ * Mean front-motor command below this fraction of HNTR_MOT_HOV is treated as
+ * low thrust by the ground-contact detector. Ground contact additionally
+ * requires a commanded descent and no measured vehicle motion.
+ *
+ * @min 0.5
+ * @max 1.0
+ * @decimal 2
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_LND_GC_R, 0.85f);
+
+/**
+ * Hnuter landed motor ratio
+ *
+ * Mean front-motor command below this fraction of HNTR_MOT_HOV satisfies the
+ * tighter maybe-landed thrust condition. Keep this below HNTR_LND_GC_R.
+ *
+ * @min 0.4
+ * @max 1.0
+ * @decimal 2
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_LND_MIN_R, 0.80f);
 
 /**
  * Hnuter legacy XY position P gain
@@ -479,7 +689,10 @@ PARAM_DEFINE_FLOAT(HNTR_STAB_THR_DB, 0.15f);
 PARAM_DEFINE_FLOAT(HNTR_TILT_MAX, 185.0f);
 
 /**
- * Hnuter takeoff tilt suppression time
+ * Hnuter takeoff-status fallback idle time
+ *
+ * Used only when PX4 takeoff_status is unavailable. Position and Offboard
+ * flight normally use the standard PX4 takeoff state machine instead.
  *
  * @unit s
  * @min 0.0
@@ -490,7 +703,10 @@ PARAM_DEFINE_FLOAT(HNTR_TILT_MAX, 185.0f);
 PARAM_DEFINE_FLOAT(HNTR_TO_SUP_T, 1.0f);
 
 /**
- * Hnuter takeoff XY lock end time
+ * Hnuter takeoff-status fallback ramp end time
+ *
+ * Used only when PX4 takeoff_status is unavailable. The controller ramps from
+ * zero output at HNTR_TO_SUP_T to full output at this time.
  *
  * @unit s
  * @min 0.0
@@ -521,27 +737,6 @@ PARAM_DEFINE_FLOAT(HNTR_TO_TILT, 20.0f);
  * @group Hnuter Control
  */
 PARAM_DEFINE_FLOAT(HNTR_LOCK_TILT, 30.0f);
-
-/**
- * Hnuter XY lock acceleration limit
- *
- * @unit m/s^2
- * @min 0.1
- * @max 100.0
- * @decimal 1
- * @group Hnuter Control
- */
-PARAM_DEFINE_FLOAT(HNTR_LOCK_ACC, 3.0f);
-
-/**
- * Hnuter XY lock position gain scale
- *
- * @min 0.0
- * @max 1.0
- * @decimal 2
- * @group Hnuter Control
- */
-PARAM_DEFINE_FLOAT(HNTR_LOCK_KP, 0.8f);
 
 /**
  * Hnuter geometric roll attitude gain
@@ -604,6 +799,16 @@ PARAM_DEFINE_FLOAT(HNTR_ATT_D_P, 1.2f);
 PARAM_DEFINE_FLOAT(HNTR_ATT_D_Y, 1.2f);
 
 /**
+ * Hnuter geometric roll attitude integral gain
+ *
+ * @min 0.0
+ * @max 20.0
+ * @decimal 2
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_ATT_I_R, 0.0f);
+
+/**
  * Hnuter geometric pitch attitude integral gain
  *
  * Integral pitch attitude gain used to remove steady pitch error from CG offset
@@ -615,6 +820,27 @@ PARAM_DEFINE_FLOAT(HNTR_ATT_D_Y, 1.2f);
  * @group Hnuter Control
  */
 PARAM_DEFINE_FLOAT(HNTR_ATT_I_P, 0.0f);
+
+/**
+ * Hnuter geometric yaw attitude integral gain
+ *
+ * @min 0.0
+ * @max 20.0
+ * @decimal 2
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_ATT_I_Y, 0.0f);
+
+/**
+ * Hnuter geometric roll integral torque limit
+ *
+ * @unit Nm
+ * @min 0.0
+ * @max 50.0
+ * @decimal 2
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_ATT_ILIM_R, 1.0f);
 
 /**
  * Hnuter geometric pitch integral torque limit
@@ -630,6 +856,17 @@ PARAM_DEFINE_FLOAT(HNTR_ATT_I_P, 0.0f);
 PARAM_DEFINE_FLOAT(HNTR_ATT_ILIM_P, 3.0f);
 
 /**
+ * Hnuter geometric yaw integral torque limit
+ *
+ * @unit Nm
+ * @min 0.0
+ * @max 50.0
+ * @decimal 2
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_ATT_ILIM_Y, 1.0f);
+
+/**
  * Hnuter geometric roll torque limit
  *
  * @min 0.0
@@ -642,12 +879,16 @@ PARAM_DEFINE_FLOAT(HNTR_TAU_R, 0.9f);
 /**
  * Hnuter geometric pitch torque limit
  *
+ * Final absolute body-y torque limit after P/D/I, gravity feed-forward and
+ * HNTR_PITCH_BIAS are combined. Trim cannot bypass this limit.
+ *
+ * @unit Nm
  * @min 0.0
  * @max 100.0
  * @decimal 2
  * @group Hnuter Control
  */
-PARAM_DEFINE_FLOAT(HNTR_TAU_P, 0.9f);
+PARAM_DEFINE_FLOAT(HNTR_TAU_P, 10.0f);
 
 /**
  * Hnuter geometric yaw torque limit
@@ -662,11 +903,12 @@ PARAM_DEFINE_FLOAT(HNTR_TAU_Y, 1.8f);
 /**
  * Hnuter pitch torque bias
  *
- * Constant normalized pitch torque added after the pitch attitude controller.
- * This is used to trim a rear/front CG offset so Motor5 does not have to sit at
- * the bidirectional ESC neutral point in level attitude. Positive values move
- * Motor5 toward the positive pitch-torque direction; use the opposite sign if
- * pitch trim moves the vehicle the wrong way.
+ * Small constant normalized residual trim applied after the attitude-dependent
+ * gravity torque calculated from HNTR_MASS and HNTR_CG_X/Z. It compensates
+ * remaining tail-thrust model error without retaining the full level-flight
+ * command near vertical Pitch. The equivalent physical torque is combined
+ * with P/D/I and gravity feed-forward before the final HNTR_TAU_P limit.
+ * Positive values move Motor5 toward the positive pitch-torque direction.
  *
  * @min -1.0
  * @max 1.0
@@ -674,3 +916,163 @@ PARAM_DEFINE_FLOAT(HNTR_TAU_Y, 1.8f);
  * @group Hnuter Control
  */
 PARAM_DEFINE_FLOAT(HNTR_PITCH_BIAS, 0.0f);
+
+/**
+ * Enable Hnuter RC attitude hold channels
+ *
+ * Uses AUX1 as roll-rate command, AUX2 as pitch-rate command and the rising
+ * edge of AUX3 to start a gradual return to level. This is active only in
+ * manual position/velocity control modes; Offboard and Stabilized are not
+ * overridden.
+ *
+ * @boolean
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_INT32(HNTR_RC_ATT_EN, 0);
+
+/**
+ * Hnuter AUX1 maximum roll command rate
+ *
+ * @unit deg/s
+ * @min 0.0
+ * @max 360.0
+ * @decimal 1
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_RC_RATE_R, 30.0f);
+
+/**
+ * Hnuter AUX2 maximum pitch command rate
+ *
+ * @unit deg/s
+ * @min 0.0
+ * @max 360.0
+ * @decimal 1
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_RC_RATE_P, 30.0f);
+
+/**
+ * Hnuter yaw stick maximum command rate
+ *
+ * In manual position modes the yaw stick integrates an internal heading
+ * setpoint. Centering the stick holds the current heading setpoint instead of
+ * accepting a trajectory yaw value that follows estimator drift.
+ *
+ * @unit deg/s
+ * @min 0.0
+ * @max 360.0
+ * @decimal 1
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_RC_RATE_Y, 30.0f);
+
+/**
+ * Hnuter auxiliary attitude channel deadband
+ *
+ * @min 0.0
+ * @max 0.5
+ * @decimal 2
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_RC_DB, 0.08f);
+
+/**
+ * Hnuter RC held roll limit
+ *
+ * Maximum absolute roll setpoint accumulated from AUX1. AUX2 Pitch is not
+ * magnitude-limited by this parameter and can command the full attitude
+ * circle; its internal target is wrapped to the canonical -180..180 degree
+ * range.
+ *
+ * @unit deg
+ * @min 0.0
+ * @max 180.0
+ * @decimal 1
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_RC_ANG_MAX, 90.0f);
+
+/**
+ * Hnuter RC attitude governor soft error
+ *
+ * The full quaternion attitude target starts slowing when its shortest-path
+ * error from the measured attitude exceeds this value. This is a tracking
+ * error governor, not an absolute Pitch angle limit.
+ *
+ * @unit deg
+ * @min 0.0
+ * @max 180.0
+ * @decimal 1
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_RC_ERR_S, 20.0f);
+
+/**
+ * Hnuter RC attitude governor hard error
+ *
+ * Commands that would increase attitude error are stopped at this error;
+ * commands that reduce error remain available. Must exceed HNTR_RC_ERR_S.
+ *
+ * @unit deg
+ * @min 1.0
+ * @max 180.0
+ * @decimal 1
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_RC_ERR_H, 35.0f);
+
+/**
+ * Hnuter gradual return-to-level rate
+ *
+ * Maximum roll and pitch setpoint slew rate after an AUX3 rising edge.
+ *
+ * @unit deg/s
+ * @min 1.0
+ * @max 180.0
+ * @decimal 1
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_RC_LVL_R, 20.0f);
+
+/**
+ * Hnuter commanded-attitude failure error
+ *
+ * In active Hnuter geometric control, failure detection compares measured
+ * attitude with the commanded attitude instead of treating intentional large
+ * Pitch as a failure. Set to zero to use the standard absolute-angle check.
+ *
+ * @unit deg
+ * @min 0.0
+ * @max 180.0
+ * @decimal 1
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_FD_ERR, 45.0f);
+
+/**
+ * Hnuter body-X center-of-mass offset
+ *
+ * Used with attitude and HNTR_MASS to calculate Pitch gravity feed-forward.
+ * Set both HNTR_CG_X and HNTR_CG_Z to zero to disable gravity compensation.
+ * @unit m
+ * @min -1.0
+ * @max 1.0
+ * @decimal 3
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_CG_X, 0.013f);
+
+/**
+ * Hnuter body-Z center-of-mass offset
+ *
+ * Used with attitude and HNTR_MASS to calculate Pitch gravity feed-forward and
+ * the Pitch moment generated by body-X force. Keep the model term available,
+ * but use zero when the measured vertical offset is negligible.
+ * @unit m
+ * @min -1.0
+ * @max 1.0
+ * @decimal 3
+ * @group Hnuter Control
+ */
+PARAM_DEFINE_FLOAT(HNTR_CG_Z, 0.0f);

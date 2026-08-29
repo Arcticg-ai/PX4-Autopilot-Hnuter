@@ -176,13 +176,39 @@ param set-default CA_SV_TL3_CT 0
 param set-default HNTR_CTRL_MODE 0
 param set-default HNTR_MASS 4.5
 param set-default HNTR_MAX_ARM_T 170.96
-param set-default HNTR_MAX_TAIL_T 85.48
+# Gazebo keeps its own symmetric rotor capability and motor-constant mapping;
+# these limits are intentionally independent of the real Motor5 bench model.
+param set-default HNTR_TAIL_T_POS 85.48
+param set-default HNTR_TAIL_T_NEG 85.48
+param set-default HNTR_TAIL_EXP_P 0.50
+param set-default HNTR_TAIL_EXP_N 0.50
 param set-default HNTR_L1 0.33
 param set-default HNTR_L2 0.664
+# Gazebo integrates gravity about the model center of mass. Keep the real
+# aircraft's primary-axis-to-CG gravity trim disabled in this direct model.
+param set-default HNTR_CG_X 0.0
+param set-default HNTR_CG_Z 0.0
+# The current Gazebo model commands the second-stage joints directly and does
+# not contain the real aircraft's 2:1 reduction gearing.
+param set-default HNTR_S2_GEAR 1.0
+# Gazebo has its own rotor dynamics and must not inherit the real Motor5
+# reversal dwell or slew limits.
+param set-default HNTR_TAIL_REV_T 0.05
+param set-default HNTR_T_REV_MIN 0.01
+param set-default HNTR_T_FORCE_REF 85.48
+param set-default HNTR_T_SLEW_UP 30.0
+param set-default HNTR_T_SLEW_DN 40.0
+param set-default HNTR_T_REV_SLEW 25.0
+param set-default HNTR_T_RPM_MAX 9549
+param set-default HNTR_S1_RATE 4.7
+# Direct-drive Gazebo joint rate corresponding to the real 4.7 rad/s servo
+# shaft after its 2:1 secondary transmission.
+param set-default HNTR_S2_RATE 2.35
 param set-default HNTR_ROLL_SIGN 1.0
 param set-default HNTR_TAIL_SIGN 1.0
-param set-default HNTR_TAIL_COMP 1.0
 param set-default HNTR_MOT_HOV 0.40
+param set-default HNTR_LND_GC_R 0.85
+param set-default HNTR_LND_MIN_R 0.80
 param set-default HNTR_MOT_EXPO 0.50
 param set-default HNTR_POS_P_XY 1.0
 param set-default HNTR_POS_P_Z 1.5
@@ -200,24 +226,34 @@ param set-default HNTR_VEL_DN 1.5
 param set-default HNTR_ACC_XY 12.0
 param set-default HNTR_ACC_Z 20.0
 param set-default HNTR_TILT_MAX 185.0
+# Fallback timing is used only if PX4 takeoff_status is unavailable.
 param set-default HNTR_TO_SUP_T 1.0
 param set-default HNTR_TO_LOCK_T 3.0
 param set-default HNTR_TO_TILT 20.0
 param set-default HNTR_LOCK_TILT 30.0
-param set-default HNTR_LOCK_ACC 3.0
-param set-default HNTR_LOCK_KP 0.8
 param set-default HNTR_ATT_KR_R 8.0
 param set-default HNTR_ATT_KR_P 8.0
-param set-default HNTR_ATT_KR_Y 1.5
+param set-default HNTR_ATT_KR_Y 3.2
 param set-default HNTR_ATT_D_R 2.0
 param set-default HNTR_ATT_D_P 2.0
-param set-default HNTR_ATT_D_Y 1.2
+param set-default HNTR_ATT_D_Y 2.2
+param set-default HNTR_ATT_I_R 0.0
 param set-default HNTR_ATT_I_P 0.0
+param set-default HNTR_ATT_I_Y 0.0
+param set-default HNTR_ATT_ILIM_R 0.0
 param set-default HNTR_ATT_ILIM_P 0.0
+param set-default HNTR_ATT_ILIM_Y 0.0
 param set-default HNTR_TAU_R 0.9
 param set-default HNTR_TAU_P 0.9
 param set-default HNTR_TAU_Y 1.8
 param set-default HNTR_PITCH_BIAS 0.0
+param set-default HNTR_RC_ATT_EN 1
+param set-default HNTR_RC_RATE_R 30.0
+param set-default HNTR_RC_RATE_P 30.0
+param set-default HNTR_RC_RATE_Y 25.0
+param set-default HNTR_RC_DB 0.08
+param set-default HNTR_RC_ANG_MAX 90.0
+param set-default HNTR_RC_LVL_R 20.0
 
 # Position Control
 param set-default MPC_XY_P 1.875
@@ -267,7 +303,7 @@ param set-default COM_ARM_CHK_ESCS 0
 param set-default FD_ESCS_EN 0
 param set COM_DISARM_PRFLT 10
 param set COM_DISARM_LAND 1
-param set LNDMC_TRIG_TIME 0.5
+param set LNDMC_TRIG_TIME 2.0
 param set LNDMC_ROT_MAX 35
 
 # =============================================================================
@@ -278,6 +314,7 @@ param set-default COM_RC_IN_MODE 1
 param set-default RC_MAP_FLTMODE 5
 param set-default RC_MAP_AUX1 6
 param set-default RC_MAP_AUX2 7
+param set-default RC_MAP_AUX3 8
 
 param set-default COM_FLTMODE1 0
 param set-default COM_FLTMODE2 2

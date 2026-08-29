@@ -1,0 +1,10 @@
+command_force_n,emax_j,result,push_max_filtered_force_n,push_max_raw_force_n,min_barrier_j,push_max_abs_yaw_deg,max_reference_error_m,breakaway_at_decision_m,post_release_peak_speed_mps,csv,ulog
+17.250000,18.0,COMPLETE,18.108,34.794,13.52089,1.690,0.7415,0.02193,1.065,hnuter_iebc_cube_contact_closed_loop_1786864525.csv,2026-08-16/07_15_23.ulg
+17.500000,18.0,COMPLETE,18.380,35.441,12.54576,1.642,0.7798,0.02436,1.121,hnuter_iebc_cube_contact_closed_loop_1786864631.csv,2026-08-16/07_17_09.ulg
+17.750000,18.0,COMPLETE,18.600,35.699,11.99183,1.488,0.7797,0.02128,1.116,hnuter_iebc_cube_contact_closed_loop_1786864738.csv,2026-08-16/07_18_56.ulg
+18.000000,18.0,COMPLETE,19.707,36.464,12.48508,1.915,0.8202,0.02246,1.145,hnuter_iebc_cube_contact_closed_loop_1786864849.csv,2026-08-16/07_20_47.ulg
+18.250000,18.0,FAILED,19.123,36.729,11.52739,1.413,0.8197,0.01316,0.000,hnuter_iebc_cube_contact_closed_loop_1786864970.csv,2026-08-16/07_22_48.ulg
+18.125000,18.0,FAILED,21.211,36.179,11.75500,1.721,0.8031,0.00523,0.000,hnuter_iebc_cube_contact_closed_loop_1786865077.csv,2026-08-16/07_24_35.ulg
+18.062500,18.0,COMPLETE,18.936,36.449,12.03649,1.375,0.8131,0.02157,1.118,hnuter_iebc_cube_contact_closed_loop_1786865182.csv,2026-08-16/07_26_20.ulg
+18.093750,18.0,COMPLETE,18.993,36.864,11.76886,1.732,0.8157,0.02236,1.112,hnuter_iebc_cube_contact_closed_loop_1786865293.csv,2026-08-16/07_28_11.ulg
+18.109375,18.0,FAILED,18.966,36.308,11.90700,1.113,0.8124,0.01138,0.000,hnuter_iebc_cube_contact_closed_loop_1786865406.csv,2026-08-16/07_30_04.ulg

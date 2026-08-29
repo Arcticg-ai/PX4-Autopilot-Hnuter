@@ -116,6 +116,8 @@ set(msg_files
 	HealthReport.msg
 	HeaterStatus.msg
 	HoverThrustEstimate.msg
+	HnuterAllocatorStatus.msg
+	HnuterControlStatus.msg
 	InputRc.msg
 	InternalCombustionEngineControl.msg
 	InternalCombustionEngineStatus.msg

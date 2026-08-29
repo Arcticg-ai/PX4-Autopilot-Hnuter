@@ -90,6 +90,7 @@ px4_add_romfs_files(
 	4021_gz_x500_flow
 	4050_custom_tiltrotor
 	4051_gz_hnuter
+	4054_gz_hnuter_contact
 
 	6011_gazebo-classic_typhoon_h480
 	6011_gazebo-classic_typhoon_h480.post
