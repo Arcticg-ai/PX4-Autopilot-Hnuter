@@ -44,12 +44,14 @@ public:
 	void parametersUpdated() { ModuleParams::updateParams(); }
 
 	bool update(const vehicle_angular_velocity_s &angular_velocity, const vehicle_control_mode_s &vehicle_control_mode,
-		    bool landed, bool maybe_landed, RateControl &rate_control, AlphaFilter<float> &yaw_torque_filter,
-		    float dt, const matrix::Vector3f &rates, Output &output);
+		    bool landed, bool maybe_landed, bool ground_contact, RateControl &rate_control,
+		    AlphaFilter<float> &yaw_torque_filter, float dt, const matrix::Vector3f &rates, Output &output);
 
 	void reset();
 
 private:
+	static constexpr float LANDING_OUTPUT_RAMP_TIME_S{0.3f};
+
 	static float forceToNormalizedThrust(float force, float max_force);
 	static void constrainXY(matrix::Vector3f &vector, float limit);
 	static float applyDeadband(float input, float deadband);
@@ -77,6 +79,7 @@ private:
 	bool _rc_level_switch_previous{false};
 	bool _prev_armed{false};
 	bool _pitch_residual_limited{false};
+	bool _airborne_since_arming{false};
 	hrt_abstime _armed_time{0};
 	hrt_abstime _takeoff_ramp_start{0};
 	hrt_abstime _takeoff_release_start{0};
@@ -84,6 +87,7 @@ private:
 	float _manual_altitude_sp{0.f};
 	float _rc_yaw_sp{0.f};
 	float _rc_governor_scale{1.f};
+	float _landing_output_scale{1.f};
 	matrix::Vector2f _rc_tilt_sp{};
 	matrix::Quatf _rc_attitude_q_sp{};
 

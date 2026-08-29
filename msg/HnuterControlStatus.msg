@@ -18,6 +18,9 @@ uint8 takeoff_state
 bool takeoff_status_valid
 float32 takeoff_output_scale
 float32 takeoff_release_progress
+bool ground_contact
+bool landing_suppression_active
+float32 landing_output_scale
 float32[3] rate_setpoint
 float32[3] torque_p
 float32[3] torque_d

@@ -117,6 +117,7 @@ void HnuterControl::reset()
 	_rc_level_switch_previous = false;
 	_prev_armed = false;
 	_pitch_residual_limited = false;
+	_airborne_since_arming = false;
 	_armed_time = 0;
 	_takeoff_ramp_start = 0;
 	_takeoff_release_start = 0;
@@ -124,14 +125,15 @@ void HnuterControl::reset()
 	_manual_altitude_sp = 0.f;
 	_rc_yaw_sp = 0.f;
 	_rc_governor_scale = 1.f;
+	_landing_output_scale = 1.f;
 	_rc_tilt_sp.setZero();
 	_rc_attitude_q_sp = Quatf{};
 }
 
 bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 			   const vehicle_control_mode_s &vehicle_control_mode, bool landed, bool maybe_landed,
-			   RateControl &rate_control, AlphaFilter<float> &yaw_torque_filter, float dt,
-			   const matrix::Vector3f &rates, Output &output)
+			   bool ground_contact, RateControl &rate_control, AlphaFilter<float> &yaw_torque_filter,
+			   float dt, const matrix::Vector3f &rates, Output &output)
 {
 	// Topic timestamps are publication times in the HRT clock domain. Use the
 	// current HRT time for freshness and elapsed-time checks: timestamp_sample
@@ -185,6 +187,8 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 		_velocity_integral.setZero();
 		_integral_e_R.setZero();
 		_pitch_residual_limited = false;
+		_airborne_since_arming = false;
+		_landing_output_scale = 1.f;
 	}
 
 	if (_armed_time == 0) {
@@ -192,6 +196,24 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 	}
 
 	_prev_armed = vehicle_control_mode.flag_armed;
+
+	// Do not suppress output merely because the land detector starts in its
+	// landed/ground-contact state after arming. Enable landing suppression only
+	// after this arming cycle has actually observed the vehicle airborne.
+	if (!landed) {
+		_airborne_since_arming = true;
+	}
+
+	const bool landing_suppression_active = _airborne_since_arming && (ground_contact || maybe_landed || landed);
+	const float landing_scale_step = dt / LANDING_OUTPUT_RAMP_TIME_S;
+
+	if (landing_suppression_active) {
+		_landing_output_scale = math::max(_landing_output_scale - landing_scale_step, 0.f);
+
+	} else {
+		// Recover smoothly if ground contact was transient and flight resumes.
+		_landing_output_scale = math::min(_landing_output_scale + landing_scale_step, 1.f);
+	}
 
 	const float mass = math::max(_param_hntr_mass.get(), 0.1f);
 	const float gravity = 9.81f;
@@ -501,7 +523,7 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 	const float max_acc_down = math::min(requested_max_acc_z, gravity);
 	acc_des(2) = math::constrain(acc_des(2), -max_acc_up, max_acc_down);
 
-	if (takeoff_output_scale < 1.f || landed || maybe_landed) {
+	if (takeoff_output_scale < 1.f || landed || maybe_landed || landing_suppression_active) {
 		_velocity_integral.setZero();
 
 	} else {
@@ -818,7 +840,7 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 	Vector3f trim_torque{};
 	trim_torque = gravity_torque + bias_torque;
 
-	if (takeoff_output_scale < 1.f || landed || maybe_landed) {
+	if (takeoff_output_scale < 1.f || landed || maybe_landed || landing_suppression_active) {
 		_integral_e_R.setZero();
 
 	} else {
@@ -887,7 +909,8 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 		};
 
 		const Vector3f angular_accel{angular_velocity.xyz_derivative};
-		Vector3f rate_torque = rate_control.update(rates, rates_sp, angular_accel, dt, maybe_landed || landed);
+		Vector3f rate_torque = rate_control.update(rates, rates_sp, angular_accel, dt,
+						      maybe_landed || landed || landing_suppression_active);
 		rate_torque(2) = yaw_torque_filter.update(rate_torque(2), dt);
 
 		torque_setpoint_normalized(0) = math::constrain(rate_torque(0), -1.f, 1.f);
@@ -905,9 +928,13 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 	// Before takeoff, zero means PWM_MAIN_MIN for the four one-way main ESCs and
 	// the reversible Motor5 midpoint. During RAMPUP, scale force and torque
 	// together so the controller cannot jump directly to hover thrust at arming.
-	f_body *= takeoff_output_scale;
-	tau_c *= takeoff_output_scale;
-	torque_setpoint_normalized *= takeoff_output_scale;
+	// Once ground contact is confirmed after flight, apply the same coupled scale
+	// over 0.3 s. This removes main thrust, tail thrust and attitude torque
+	// together instead of leaving the Hnuter loops fighting the ground.
+	const float combined_output_scale = takeoff_output_scale * _landing_output_scale;
+	f_body *= combined_output_scale;
+	tau_c *= combined_output_scale;
+	torque_setpoint_normalized *= combined_output_scale;
 
 	const float normalized_vertical_thrust = forceToNormalizedThrust(-f_body(2), max_front_vertical_thrust);
 
@@ -968,6 +995,9 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 	hnuter_status.takeoff_status_valid = px4_takeoff_managed;
 	hnuter_status.takeoff_output_scale = takeoff_output_scale;
 	hnuter_status.takeoff_release_progress = takeoff_release_progress;
+	hnuter_status.ground_contact = ground_contact;
+	hnuter_status.landing_suppression_active = landing_suppression_active;
+	hnuter_status.landing_output_scale = _landing_output_scale;
 	_hnuter_control_status_pub.publish(hnuter_status);
 
 	output.thrust_setpoint.timestamp_sample = angular_velocity.timestamp_sample;

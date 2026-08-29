@@ -150,6 +150,7 @@ MulticopterRateControl::Run()
 			if (_vehicle_land_detected_sub.copy(&vehicle_land_detected)) {
 				_landed = vehicle_land_detected.landed;
 				_maybe_landed = vehicle_land_detected.maybe_landed;
+				_ground_contact = vehicle_land_detected.ground_contact;
 			}
 		}
 
@@ -174,7 +175,7 @@ MulticopterRateControl::Run()
 			HnuterControl::Output hnuter_output{};
 
 			if (_hnuter_control.update(angular_velocity, _vehicle_control_mode, _landed, _maybe_landed,
-						   _rate_control, _output_lpf_yaw, dt, rates, hnuter_output)) {
+						   _ground_contact, _rate_control, _output_lpf_yaw, dt, rates, hnuter_output)) {
 				_vehicle_thrust_setpoint_pub.publish(hnuter_output.thrust_setpoint);
 				_vehicle_torque_setpoint_pub.publish(hnuter_output.torque_setpoint);
 
