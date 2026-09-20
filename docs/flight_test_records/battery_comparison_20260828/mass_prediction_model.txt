@@ -1,0 +1,12 @@
+Local Hnuter mass-performance model
+average_current_a = 3.015305099 * total_mass_kg^1.5
+current_fit_r_squared = 0.965733
+duration_i(m) = measured_duration_i * (measured_mass_i / m)^1.5
+capacity-scaling duration_i = measured_duration_i * (battery_mass / measured_battery_mass_i) * (measured_total_mass_i / total_mass)^1.5
+airframe mass without battery = 4.8 kg
+current uncertainty shown = +/-10% (engineering band)
+duration uncertainty shown = +/-15% (engineering band)
+calibration mass range = 5.7 to 6.2 kg
+fixed-capacity prediction range = 5.3 to 7.0 kg
+capacity-scaling battery-mass range = 0.5 to 2.2 kg
+valid only for the current Hnuter propulsion, hover-like flight profile, and 6S voltage range

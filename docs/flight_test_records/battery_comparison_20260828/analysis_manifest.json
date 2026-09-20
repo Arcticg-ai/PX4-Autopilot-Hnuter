@@ -1,0 +1,56 @@
+{
+  "method": "Airborne samples only; semi-solid profile concatenates log184 then log185; capacity and energy are integrated from current and voltage.",
+  "base_aircraft_mass_without_battery_kg": 4.8,
+  "source_logs": {
+    "semisolid_22000": [
+      {
+        "path": "/home/hnuter/文档/QGroundControl Daily/Logs/固态电池飞行/log_184_2026-8-28-17-13-36.ulg",
+        "sha256": "6fcb264b8c38520fc626eed9a84580dacfc3970c4895d3fc8fd266d81bb33594",
+        "firmware_git_hash": "cfba38c68e403dcc63ee3e5d90e3b238f8918afd",
+        "firmware_branch": "codex/hnuter-pitch-tail-safety-20260808",
+        "ulog_duration_s": 249.255,
+        "dropouts": 0,
+        "parameter_changes": 11,
+        "discharged_mah_start": 400.446,
+        "discharged_mah_end": 3225.962
+      },
+      {
+        "path": "/home/hnuter/文档/QGroundControl Daily/Logs/固态电池飞行/log_185_2026-8-28-17-26-10.ulg",
+        "sha256": "a932c7b6d8134f9b3916bf2bf3e6c2b4e006139682b2bc38c1c0d92c310953ae",
+        "firmware_git_hash": "cfba38c68e403dcc63ee3e5d90e3b238f8918afd",
+        "firmware_branch": "codex/hnuter-pitch-tail-safety-20260808",
+        "ulog_duration_s": 444.229,
+        "dropouts": 0,
+        "parameter_changes": 21,
+        "discharged_mah_start": 3307.471,
+        "discharged_mah_end": 9254.114
+      }
+    ],
+    "lipo_8000": [
+      {
+        "path": "/home/hnuter/文档/QGroundControl Daily/Logs/格式8000mAh电池，10分钟/log_186_2026-8-28-20-37-48.ulg",
+        "sha256": "28de1a71bdd7f52519ea59bed876f16d5c83d3a7e40aef86c09a92a9fb4b9dee",
+        "firmware_git_hash": "cfba38c68e403dcc63ee3e5d90e3b238f8918afd",
+        "firmware_branch": "codex/hnuter-pitch-tail-safety-20260808",
+        "ulog_duration_s": 609.79,
+        "dropouts": 0,
+        "parameter_changes": 10,
+        "discharged_mah_start": 105.364,
+        "discharged_mah_end": 7303.718
+      }
+    ],
+    "liion_21700_8400": [
+      {
+        "path": "/home/hnuter/文档/QGroundControl Daily/Logs/飞起来8400mAh电池，7分钟/log_187_2026-8-28-21-04-56.ulg",
+        "sha256": "92347737cd72c129241039e5301eb8749748fe6ea6571bb601b4d817b2ca535e",
+        "firmware_git_hash": "cfba38c68e403dcc63ee3e5d90e3b238f8918afd",
+        "firmware_branch": "codex/hnuter-pitch-tail-safety-20260808",
+        "ulog_duration_s": 468.889,
+        "dropouts": 0,
+        "parameter_changes": 6,
+        "discharged_mah_start": 44.565,
+        "discharged_mah_end": 5343.943
+      }
+    ]
+  }
+}

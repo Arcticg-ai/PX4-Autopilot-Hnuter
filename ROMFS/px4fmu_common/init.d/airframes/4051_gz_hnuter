@@ -314,7 +314,9 @@ param set-default HNTR_TAIL_EXP_N 0.68
 param set-default HNTR_L1 0.33
 # HNTR_L2 is measured directly from the CG to the Motor5 thrust line.
 param set-default HNTR_L2 0.720
-param set-default HNTR_CG_X 0.013
+# Measured primary-tilt-axis to CG offset with the current horizontal 8000 mAh
+# battery installation. Gazebo keeps an independent zero-offset model.
+param set-default HNTR_CG_X 0.055
 # The measured body-Z offset is negligible. The Fx moment term remains available
 # in the model if a later measurement identifies a nonzero value.
 param set-default HNTR_CG_Z 0.0

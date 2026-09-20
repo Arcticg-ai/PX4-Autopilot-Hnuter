@@ -1,0 +1,4 @@
+battery,label,battery_mass_kg,flight_time_min,voltage_start_v,voltage_median_v,voltage_min_v,current_mean_a,current_p95_a,current_max_a,power_mean_w,power_max_w,used_capacity_mah,used_energy_wh,nominal_capacity_used_fraction,usable_specific_energy_wh_per_kg,estimated_cell_resistance_mohm_median,estimated_pack_resistance_mohm_median
+semisolid_22000,"22 Ah semi-solid, 1.4 kg",1.4,11.39,23.397,21.067,18.916,46.127,51.93,58.021,967.1,1199.86,8756.5,183.59,0.398,131.13,10.46,62.757
+lipo_8000,"Gens Ace LiPo 8 Ah, 1.0 kg",1.0,10.113,23.611,21.253,19.615,42.658,45.923,50.718,912.02,1068.18,7190.3,153.73,0.8988,153.73,7.296,43.778
+liion_21700_8400,"21700 Li-ion 8.4 Ah, 0.9 kg",0.9,7.75,23.088,21.515,19.072,40.96,44.889,46.932,874.34,1030.83,5290.8,112.94,0.6299,125.49,8.964,53.783

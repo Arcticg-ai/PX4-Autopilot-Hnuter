@@ -1061,7 +1061,7 @@ PARAM_DEFINE_FLOAT(HNTR_FD_ERR, 45.0f);
  * @decimal 3
  * @group Hnuter Control
  */
-PARAM_DEFINE_FLOAT(HNTR_CG_X, 0.013f);
+PARAM_DEFINE_FLOAT(HNTR_CG_X, 0.055f);
 
 /**
  * Hnuter body-Z center-of-mass offset
