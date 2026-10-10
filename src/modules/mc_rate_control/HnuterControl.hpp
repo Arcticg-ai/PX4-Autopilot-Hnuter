@@ -21,6 +21,9 @@
 #include <uORB/topics/vehicle_attitude.h>
 #include <uORB/topics/vehicle_attitude_setpoint.h>
 #include <uORB/topics/vehicle_control_mode.h>
+#if defined(CONFIG_ARCH_BOARD_PX4_SITL)
+#include <uORB/topics/vehicle_command.h>
+#endif
 #include <uORB/topics/vehicle_local_position.h>
 #include <uORB/topics/vehicle_odometry.h>
 #include <uORB/topics/vehicle_rates_setpoint.h>
@@ -62,6 +65,13 @@ private:
 	uORB::Publication<debug_vect_s> _hnuter_attitude_setpoint_debug_pub{ORB_ID(debug_vect)};
 	uORB::Publication<hnuter_control_status_s> _hnuter_control_status_pub{ORB_ID(hnuter_control_status)};
 
+#if defined(CONFIG_ARCH_BOARD_PX4_SITL)
+	// JEPA_SITL_MASS: compiled out on physical flight-controller targets.
+	uORB::Subscription _jepa_mass_command_sub{ORB_ID(vehicle_command)};
+	float _jepa_mass_effective{0.f};
+	float _jepa_mass_target{0.f};
+	hrt_abstime _jepa_mass_request_time{0};
+#endif
 	matrix::Vector3f _velocity_integral{};
 	matrix::Vector3f _integral_e_R{};
 	matrix::Vector2f _xy_lock_position{};

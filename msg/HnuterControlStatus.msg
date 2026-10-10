@@ -14,3 +14,10 @@ float32[3] torque_bias
 float32[3] torque_trim
 float32[3] torque_command
 float32[3] force_body
+
+# JEPA SITL diagnostics; effective mass equals HNTR_MASS on hardware builds.
+float32 effective_mass
+float32 mass_target
+float32 mass_update_force_error
+bool mass_updated
+bool mass_update_rejected

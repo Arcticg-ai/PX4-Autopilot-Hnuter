@@ -66,6 +66,11 @@ float HnuterControl::applyDeadband(float input, float deadband)
 
 void HnuterControl::reset()
 {
+#if defined(CONFIG_ARCH_BOARD_PX4_SITL)
+	_jepa_mass_effective = 0.f;
+	_jepa_mass_target = 0.f;
+	_jepa_mass_request_time = 0;
+#endif
 	_velocity_integral.setZero();
 	_integral_e_R.setZero();
 	_xy_lock_initialized = false;
@@ -145,7 +150,39 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 
 	_prev_armed = vehicle_control_mode.flag_armed;
 
-	const float mass = math::max(_param_hntr_mass.get(), 0.1f);
+	float mass = math::max(_param_hntr_mass.get(), 0.1f);
+	float jepa_mass_force_error = 0.f;
+	bool jepa_mass_updated = false;
+	bool jepa_mass_rejected = false;
+#if defined(CONFIG_ARCH_BOARD_PX4_SITL)
+	if (_jepa_mass_effective < 0.1f) {
+		_jepa_mass_effective = mass;
+		_jepa_mass_target = mass;
+	}
+	mass = _jepa_mass_effective;
+	vehicle_command_s mass_request{};
+	if (_jepa_mass_command_sub.update(&mass_request)
+	    && mass_request.command == 31000 && mass_request.from_external
+	    && mass_request.target_system == 1 && mass_request.source_system == 73
+	    && fabsf(mass_request.param2 - 54123.f) < 0.1f
+	    && PX4_ISFINITE(mass_request.param1)
+	    && mass_request.param1 >= 3.5f && mass_request.param1 <= 7.f
+	    && mass_request.timestamp <= now && now - mass_request.timestamp < 500000) {
+		// SITL-only explicit cancellation: stop the ramp when recovery begins.
+		// Keep effective mass and integral unchanged, preserving current force.
+		if (PX4_ISFINITE(mass_request.param3) && fabsf(mass_request.param3 - 1.f) < 0.1f) {
+			_jepa_mass_target = mass;
+			_jepa_mass_request_time = 0;
+		} else if (PX4_ISFINITE(mass_request.param3) && fabsf(mass_request.param3) < 0.1f) {
+			_jepa_mass_target = mass_request.param1;
+			_jepa_mass_request_time = now;
+		}
+	}
+	// Loss of the acceptance heartbeat freezes the current mass, no parameter write.
+	if (now - _jepa_mass_request_time > 500000) {
+		_jepa_mass_target = mass;
+	}
+#endif
 	const float gravity = 9.81f;
 	const float max_thrust_per_arm = math::max(_param_hntr_max_arm_t.get(), 1.f);
 	const float max_tail_thrust = math::max(_param_hntr_max_tail_t.get(), 1.f);
@@ -316,7 +353,7 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 		manual_attitude_altitude_mode ? 0.f : _param_hntr_vel_d_xy.get(),
 		_param_hntr_vel_d_z.get()
 	};
-	const Vector3f acc_unsaturated = acc_ff + velocity_p * vel_error + _velocity_integral
+	Vector3f acc_unsaturated = acc_ff + velocity_p * vel_error + _velocity_integral
 					 - velocity_d.emult(measured_acceleration);
 	Vector3f acc_des = acc_unsaturated;
 
@@ -332,6 +369,45 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 	const float max_acc_up = math::min(requested_max_acc_z, physical_max_acc_up);
 	const float max_acc_down = math::min(requested_max_acc_z, gravity);
 	acc_des(2) = math::constrain(acc_des(2), -max_acc_up, max_acc_down);
+
+#if defined(CONFIG_ARCH_BOARD_PX4_SITL)
+	// Transform the PRE-integration state used by this cycle's force computation.
+	// Reject rather than clamp: both integral and acceleration limits must allow
+	// exactly the same desired force. Existing integration then proceeds normally.
+	const bool mass_gate = !landed && !maybe_landed && have_local_pos
+		&& local_pos.xy_valid && local_pos.z_valid && local_pos.v_xy_valid && local_pos.v_z_valid
+		&& local_pos.timestamp <= now && now - local_pos.timestamp < 200000
+		&& vehicle_control_mode.flag_control_offboard_enabled
+		&& Dcmf{Quatf(att.q)}(2, 2) > 0.93969f
+		&& (acc_unsaturated - acc_des).norm() < 0.00001f
+		&& !tilt_suppress_active && !xy_lock_active && !takeoff_release_ramp_active;
+	if (fabsf(_jepa_mass_target - mass) > 0.00001f && mass_gate) {
+		const float proposed = mass + math::constrain(_jepa_mass_target - mass, -0.3f * dt, 0.3f * dt);
+		const Vector3f grav{0.f, 0.f, gravity};
+		const Vector3f base_acc = acc_unsaturated - _velocity_integral;
+		const Vector3f integral_proposed = (mass / proposed) * (acc_des - grav) - base_acc + grav;
+		const Vector3f acc_proposed = base_acc + integral_proposed;
+		Vector3f bounded_acc = acc_proposed;
+		constrainXY(bounded_acc, max_acc_xy);
+		const float proposed_up_limit = math::min(requested_max_acc_z,
+			math::max(max_front_vertical_thrust / proposed - gravity, 0.1f));
+		bounded_acc(2) = math::constrain(bounded_acc(2), -proposed_up_limit, max_acc_down);
+		jepa_mass_force_error = Vector3f{proposed * (acc_proposed - grav) - mass * (acc_des - grav)}.norm();
+		if (Vector2f{integral_proposed(0), integral_proposed(1)}.norm() <= _param_hntr_vel_ilim_xy.get()
+		    && fabsf(integral_proposed(2)) <= _param_hntr_vel_ilim_z.get()
+		    && (bounded_acc - acc_proposed).norm() < 0.00001f && jepa_mass_force_error < 0.0001f) {
+			_velocity_integral = integral_proposed;
+			acc_des = acc_proposed;
+			acc_unsaturated = acc_proposed;
+			mass = proposed;
+			_jepa_mass_effective = proposed;
+			jepa_mass_updated = true;
+		} else {
+			jepa_mass_rejected = true;
+		}
+	}
+#endif
+
 
 	if (landed || maybe_landed) {
 		_velocity_integral.setZero();
@@ -748,6 +824,14 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 	hnuter_control_status_s hnuter_status{};
 	hnuter_status.timestamp = hnuter_attitude_setpoint_debug.timestamp;
 	hnuter_status.active = geometric_control_active;
+	hnuter_status.effective_mass = mass;
+	hnuter_status.mass_target = mass;
+#if defined(CONFIG_ARCH_BOARD_PX4_SITL)
+	hnuter_status.mass_target = _jepa_mass_target;
+#endif
+	hnuter_status.mass_update_force_error = jepa_mass_force_error;
+	hnuter_status.mass_updated = jepa_mass_updated;
+	hnuter_status.mass_update_rejected = jepa_mass_rejected;
 	const Quatf q_des{R_des};
 
 	for (int i = 0; i < 4; i++) {
