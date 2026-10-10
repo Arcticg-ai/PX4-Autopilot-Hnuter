@@ -70,6 +70,8 @@ void HnuterControl::reset()
 	_jepa_mass_effective = 0.f;
 	_jepa_mass_target = 0.f;
 	_jepa_mass_request_time = 0;
+	_jepa_dr.setZero(); _jepa_dj.setZero(); _jepa_dr_target.setZero(); _jepa_dj_target.setZero();
+	_jepa_tracking_bias.setZero(); _jepa_spatial_time = 0; _jepa_spatial_enabled = false;
 #endif
 	_velocity_integral.setZero();
 	_integral_e_R.setZero();
@@ -761,6 +763,75 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 	// allowing the real pitch command to exceed HNTR_TAU_P.
 	const Vector3f torque_i = -Ki.emult(_integral_e_R);
 	Vector3f tau_c = attitude_torque + trim_torque + torque_i;
+	Vector3f jepa_correction{};
+	float jepa_transition_error = 0.f;
+	bool jepa_spatial_rejected = false;
+#if defined(CONFIG_ARCH_BOARD_PX4_SITL)
+	// Fixed nominal SDF calibration at the COM. No parameters or gains changed.
+	const float j0_data[9] = {.245631035f,.012570152f,-.002045412f,
+		.012570152f,.127558303f,.000052572f,-.002045412f,.000052572f,.326444946f};
+	const matrix::Matrix3f j0{j0_data};
+	// Actual allocator -> physical nominal-COM moment, independently calibrated
+	// in a bounded hover neighborhood (allocation_contract.py). Not identity.
+	const float gain_data[9] = {1.24212546f,-.000126503f,0.f,
+		-.000280509f,.998578762f,-.000023648f,-.009441720f,-.031515954f,1.241330617f};
+	const matrix::Matrix3f gain{gain_data};
+	const matrix::Matrix3f inv_gain = gain.I();
+	const Vector3f alpha_base = j0.I() * (gain * attitude_torque);
+	auto correction = [&](const Vector3f &dr, const Vector3f &dj) {
+		return inv_gain * (dr.cross(f_body) + dj.emult(alpha_base) + rates.cross(dj.emult(rates)));
+	};
+	vehicle_command_s request{};
+	bool new_target = false;
+	if (_jepa_spatial_command_sub.update(&request) && request.command == 31001
+	    && request.from_external && request.target_system == 1 && request.source_system == 73
+	    && request.timestamp <= now && now - request.timestamp < 500000
+	    && PX4_ISFINITE(request.param6) && fabsf(static_cast<float>(request.param6)-54124.f)<.1f) {
+		if (PX4_ISFINITE(request.param7) && fabsf(request.param7-1.f)<.1f) {
+			_jepa_spatial_enabled = false; // freeze current model and tracking state
+		} else {
+			const Vector3f dr{request.param1,request.param2,0.f};
+			const Vector3f dj{request.param3,request.param4,static_cast<float>(request.param5)};
+			bool valid = PX4_ISFINITE(request.param7) && fabsf(request.param7)<.1f
+				&& dr.isAllFinite() && dj.isAllFinite() && dr.norm()<=.02f;
+			// Additive diagonal PSD increments preserve the nominal SPD tensor.
+			for (int i=0; i<3; ++i) { valid = valid && dj(i)>=0.f && dj(i)<=.03f; }
+			if (valid && vehicle_control_mode.flag_armed && !landed && !maybe_landed) {
+				new_target = (dr-_jepa_dr_target).norm()>1e-7f || (dj-_jepa_dj_target).norm()>1e-7f;
+				_jepa_dr_target=dr; _jepa_dj_target=dj; _jepa_spatial_time=now; _jepa_spatial_enabled=true;
+			} else { jepa_spatial_rejected=true; }
+		}
+	}
+	const Vector3f old_correction = correction(_jepa_dr,_jepa_dj);
+	// Outside the independently audited small-signal region, freeze adaptation.
+	const bool envelope = fabsf(f_body(0))<2.f && fabsf(f_body(1))<2.f
+		&& fabsf(f_body(2)+5.4f*9.81f)<3.f && rates.norm()<.6f
+		&& fabsf(attitude_torque(0))<.4f && fabsf(attitude_torque(1))<.3f
+		&& fabsf(attitude_torque(2))<.2f && dt>0.f && dt<=.02f;
+	if (_jepa_spatial_enabled && now-_jepa_spatial_time<500000 && !landed && !maybe_landed && envelope) {
+		Vector3f dr_step=_jepa_dr_target-_jepa_dr;
+		Vector3f dj_step=_jepa_dj_target-_jepa_dj;
+		if (dr_step.norm()>.002f*dt) { dr_step*=.002f*dt/dr_step.norm(); }
+		if (dj_step.norm()>.01f*dt) { dj_step*=.01f*dt/dj_step.norm(); }
+		const Vector3f dr_new=_jepa_dr+dr_step, dj_new=_jepa_dj+dj_step;
+		const Vector3f new_correction=correction(dr_new,dj_new);
+		Vector3f bias_new=_jepa_tracking_bias+old_correction-new_correction;
+		jepa_transition_error=(new_correction+bias_new-old_correction-_jepa_tracking_bias).norm();
+		// Ki is unchanged (zero in the tested airframe). Separate tracking state
+		// removes the parameter jump; only its subsequent decay changes torque.
+		if (!new_target) {
+			for (int i=0; i<3; ++i) { bias_new(i)-=math::constrain(bias_new(i),-.02f*dt,.02f*dt); }
+		}
+		const Vector3f proposed=tau_c+new_correction+bias_new;
+		bool margin = true;
+		for (int i=0; i<3; ++i) { margin=margin && fabsf(proposed(i))<tau_limit(i); }
+		if (margin) { _jepa_dr=dr_new; _jepa_dj=dj_new; _jepa_tracking_bias=bias_new; }
+		else { jepa_spatial_rejected=true; }
+	} else if (_jepa_spatial_enabled) { jepa_spatial_rejected=true; }
+	jepa_correction=correction(_jepa_dr,_jepa_dj)+_jepa_tracking_bias;
+	tau_c+=jepa_correction;
+#endif
+
 	tau_c(0) = math::constrain(tau_c(0), -tau_limit(0), tau_limit(0));
 	tau_c(1) = math::constrain(tau_c(1), -tau_limit(1), tau_limit(1));
 	tau_c(2) = math::constrain(tau_c(2), -tau_limit(2), tau_limit(2));
@@ -832,6 +903,16 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 	hnuter_status.mass_update_force_error = jepa_mass_force_error;
 	hnuter_status.mass_updated = jepa_mass_updated;
 	hnuter_status.mass_update_rejected = jepa_mass_rejected;
+	hnuter_status.spatial_transition_error = jepa_transition_error;
+	hnuter_status.spatial_update_rejected = jepa_spatial_rejected;
+	for (int i=0; i<3; ++i) {
+		hnuter_status.spatial_correction[i]=jepa_correction(i);
+#if defined(CONFIG_ARCH_BOARD_PX4_SITL)
+		hnuter_status.spatial_delta_com[i]=_jepa_dr(i);
+		hnuter_status.spatial_delta_inertia[i]=_jepa_dj(i);
+		hnuter_status.spatial_tracking_bias[i]=_jepa_tracking_bias(i);
+#endif
+	}
 	const Quatf q_des{R_des};
 
 	for (int i = 0; i < 4; i++) {

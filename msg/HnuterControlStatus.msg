@@ -21,3 +21,11 @@ float32 mass_target
 float32 mass_update_force_error
 bool mass_updated
 bool mass_update_rejected
+
+# Revision3 SITL-only model increments; never persistent parameter writes.
+float32[3] spatial_delta_com
+float32[3] spatial_delta_inertia
+float32[3] spatial_tracking_bias
+float32[3] spatial_correction
+float32 spatial_transition_error
+bool spatial_update_rejected

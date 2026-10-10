@@ -71,6 +71,11 @@ private:
 	float _jepa_mass_effective{0.f};
 	float _jepa_mass_target{0.f};
 	hrt_abstime _jepa_mass_request_time{0};
+	// Independent subscription: no change to the established mass command path.
+	uORB::Subscription _jepa_spatial_command_sub{ORB_ID(vehicle_command)};
+	matrix::Vector3f _jepa_dr{}, _jepa_dj{}, _jepa_dr_target{}, _jepa_dj_target{}, _jepa_tracking_bias{};
+	hrt_abstime _jepa_spatial_time{0};
+	bool _jepa_spatial_enabled{false};
 #endif
 	matrix::Vector3f _velocity_integral{};
 	matrix::Vector3f _integral_e_R{};
