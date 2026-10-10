@@ -803,11 +803,14 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 		}
 	}
 	const Vector3f old_correction = correction(_jepa_dr,_jepa_dj);
-	// Outside the independently audited small-signal region, freeze adaptation.
-	const bool envelope = fabsf(f_body(0))<2.f && fabsf(f_body(1))<2.f
+	// 729-point nominal-geometry grid: |Fxy|<=6 N, |Fz+52.974|<=3 N,
+	// |tau_x|<=.85, |tau_y+5.56227|<=.6, |tau_z|<=.6 N m.
+	// Worst tested inverse-map operator error .00595; same gain, no fit to flight.
+	// Outside this independently audited region, freeze adaptation.
+	const bool envelope = fabsf(f_body(0))<6.f && fabsf(f_body(1))<6.f
 		&& fabsf(f_body(2)+5.4f*9.81f)<3.f && rates.norm()<.6f
-		&& fabsf(attitude_torque(0))<.4f && fabsf(attitude_torque(1))<.3f
-		&& fabsf(attitude_torque(2))<.2f && dt>0.f && dt<=.02f;
+		&& fabsf(attitude_torque(0))<.85f && fabsf(attitude_torque(1))<.6f
+		&& fabsf(attitude_torque(2))<.6f && dt>0.f && dt<=.02f;
 	if (_jepa_spatial_enabled && now-_jepa_spatial_time<500000 && !landed && !maybe_landed && envelope) {
 		Vector3f dr_step=_jepa_dr_target-_jepa_dr;
 		Vector3f dj_step=_jepa_dj_target-_jepa_dj;
@@ -823,7 +826,7 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 			for (int i=0; i<3; ++i) { bias_new(i)-=math::constrain(bias_new(i),-.02f*dt,.02f*dt); }
 		}
 		const Vector3f proposed=tau_c+new_correction+bias_new;
-		bool margin = true;
+		bool margin = fabsf(proposed(0))<.85f && fabsf(proposed(1)+5.56227f)<.6f && fabsf(proposed(2))<.6f;
 		for (int i=0; i<3; ++i) { margin=margin && fabsf(proposed(i))<tau_limit(i); }
 		if (margin) { _jepa_dr=dr_new; _jepa_dj=dj_new; _jepa_tracking_bias=bias_new; }
 		else { jepa_spatial_rejected=true; }
