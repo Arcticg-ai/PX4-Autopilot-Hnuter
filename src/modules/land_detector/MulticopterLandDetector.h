@@ -123,6 +123,9 @@ private:
 	float _vehicle_thrust_setpoint_throttle{0.f};
 	float _hnuter_motor_throttle{0.f};
 	hrt_abstime _hnuter_motor_timestamp{0};
+	bool _hnuter_direct_offboard{false};
+	float _hnuter_direct_demand{0.f};
+	hrt_abstime _hnuter_direct_demand_timestamp{0};
 
 	uint8_t _takeoff_state{takeoff_status_s::TAKEOFF_STATE_DISARMED};
 

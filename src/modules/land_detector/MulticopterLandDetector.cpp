@@ -66,6 +66,7 @@
 #include <matrix/math.hpp>
 
 #include "MulticopterLandDetector.h"
+#include "HnuterDirectLandingGuard.hpp"
 
 using matrix::Vector2f;
 using matrix::Vector3f;
@@ -90,6 +91,8 @@ void MulticopterLandDetector::_update_topics()
 
 	if (_vehicle_thrust_setpoint_sub.update(&vehicle_thrust_setpoint)) {
 		_vehicle_thrust_setpoint_throttle = -vehicle_thrust_setpoint.xyz[2];
+		_hnuter_direct_demand = matrix::Vector3f(vehicle_thrust_setpoint.xyz).norm();
+		_hnuter_direct_demand_timestamp = vehicle_thrust_setpoint.timestamp;
 	}
 
 	if (_param_ca_airframe.get() == 16) {
@@ -123,6 +126,8 @@ void MulticopterLandDetector::_update_topics()
 
 	if (_vehicle_control_mode_sub.update(&vehicle_control_mode)) {
 		_flag_control_climb_rate_enabled = vehicle_control_mode.flag_control_climb_rate_enabled;
+		_hnuter_direct_offboard = vehicle_control_mode.flag_control_offboard_enabled
+					 && !vehicle_control_mode.flag_control_allocation_enabled;
 	}
 
 	if (_params.useHoverThrustEstimate) {
@@ -247,7 +252,10 @@ bool MulticopterLandDetector::_get_ground_contact_state()
 	const float sys_low_throttle = hnuter_airframe
 				     ? hnuter_hover_throttle * math::constrain(_param_hntr_lnd_gc_r.get(), 0.5f, 1.f)
 				     : _params.minThrottle + (_params.hoverThrottle - _params.minThrottle) * thr_pct_hover;
-	_has_low_throttle = (_vehicle_thrust_setpoint_throttle <= sys_low_throttle);
+	_has_low_throttle = (_vehicle_thrust_setpoint_throttle <= sys_low_throttle)
+			    && hnuter_direct_low_demand(hnuter_airframe && _hnuter_direct_offboard,
+						       time_now_us, _hnuter_direct_demand_timestamp,
+						       _hnuter_direct_demand, sys_low_throttle);
 	bool ground_contact = _has_low_throttle;
 
 	// if we have a valid velocity setpoint and the vehicle is demanded to go down but no vertical movement present,
@@ -303,7 +311,10 @@ bool MulticopterLandDetector::_get_maybe_landed_state()
 		minimum_thrust_threshold = (_params.minManThrottle + 0.01f);
 	}
 
-	const bool minimum_thrust_now = _vehicle_thrust_setpoint_throttle <= minimum_thrust_threshold;
+	const bool minimum_thrust_now = _vehicle_thrust_setpoint_throttle <= minimum_thrust_threshold
+		&& hnuter_direct_low_demand(_param_ca_airframe.get() == 16 && _hnuter_direct_offboard,
+					   now, _hnuter_direct_demand_timestamp,
+					   _hnuter_direct_demand, minimum_thrust_threshold);
 	_minimum_thrust_8s_hysteresis.set_state_and_update(minimum_thrust_now, now);
 
 	// Next look if vehicle is not rotating (do not consider yaw)

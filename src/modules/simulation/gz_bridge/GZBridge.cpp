@@ -396,12 +396,13 @@ void GZBridge::magnetometerCallback(const gz::msgs::Magnetometer &msg)
 	report.device_id = id.devid;
 	report.temperature = this->_temperature;
 
-	// FIMEX: once we're on jetty or later
-	// The magnetometer plugin publishes in units of gauss and in a weird left handed coordinate system
-	// https://github.com/gazebosim/gz-sim/pull/2460
-	report.x = -msg.field_tesla().y();
-	report.y = -msg.field_tesla().x();
-	report.z = msg.field_tesla().z();
+	// server.config explicitly generates an ENU earth field in gauss.
+	// The sensor has already rotated that field into its local FLU frame.
+	// Convert only FLU -> FRD here; swapping world axes after the sensor
+	// rotation creates a tilt-dependent magnetic heading error.
+	report.x = msg.field_tesla().x();
+	report.y = -msg.field_tesla().y();
+	report.z = -msg.field_tesla().z();
 
 	_sensor_mag_pub.publish(report);
 }
