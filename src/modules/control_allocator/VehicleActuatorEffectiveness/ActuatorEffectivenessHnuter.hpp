@@ -53,6 +53,9 @@
 
 #include <uORB/Subscription.hpp>
 #include <uORB/topics/vehicle_control_mode.h>
+#include <uORB/topics/actuator_motors.h>
+#include <uORB/topics/actuator_servos.h>
+#include <lib/hnuter/HnuterActuatorHandover.hpp>
 #include <uORB/topics/vehicle_land_detected.h>
 
 class ActuatorEffectivenessHnuter : public ModuleParams, public ActuatorEffectiveness
@@ -80,7 +83,22 @@ public:
 
 	const char *name() const override;
 
+	void updateControlMode(const vehicle_control_mode_s &mode);
+	bool directActuatorControl() const { return _handover.direct(); }
+	bool handoverPending() const { return _handover.pending(); }
+	hrt_abstime handoverExitTime() const { return _handover.exitTime(); }
+	void resumeActuatorState(hrt_abstime now, ActuatorVector &actuator_sp);
+
 private:
+	friend struct HnuterHandoverTest;
+	HnuterActuatorHandover _handover;
+	uORB::Subscription _handover_motors_sub{ORB_ID(actuator_motors)};
+	uORB::Subscription _handover_servos_sub{ORB_ID(actuator_servos)};
+	hrt_abstime _handover_tail_neutral_until{0};
+	hrt_abstime _handover_blend_start{0};
+	matrix::Vector<float, 4> _handover_front_motors{};
+	float _handover_tail_force{0.f};
+	float handoverProgress(hrt_abstime now) const;
 
 	void updateParams() override;
 	float applyTailReversalGuard(float desired_tail_force, hrt_abstime now);

@@ -164,13 +164,20 @@ MulticopterRateControl::Run()
 				&& !_vehicle_control_mode.flag_control_climb_rate_enabled
 				&& !_vehicle_control_mode.flag_control_offboard_enabled;
 
-			if (_ca_airframe == 16 && _vehicle_control_mode.flag_control_rates_enabled
+		const bool hnuter_control_active = _ca_airframe == 16 && _vehicle_control_mode.flag_control_rates_enabled
 			    && (_vehicle_control_mode.flag_control_position_enabled
 				|| _vehicle_control_mode.flag_control_velocity_enabled
 				|| _vehicle_control_mode.flag_control_altitude_enabled
 				|| _vehicle_control_mode.flag_control_climb_rate_enabled
 				|| _vehicle_control_mode.flag_control_offboard_enabled
-				|| hnuter_manual_attitude_altitude)) {
+				|| hnuter_manual_attitude_altitude);
+
+		if (_ca_airframe == 16) {
+			_hnuter_control.setControlActive(hnuter_control_active, _vehicle_control_mode.flag_armed,
+						_rate_control, _output_lpf_yaw);
+		}
+
+		if (hnuter_control_active) {
 			HnuterControl::Output hnuter_output{};
 
 			if (_hnuter_control.update(angular_velocity, _vehicle_control_mode, _landed, _maybe_landed,

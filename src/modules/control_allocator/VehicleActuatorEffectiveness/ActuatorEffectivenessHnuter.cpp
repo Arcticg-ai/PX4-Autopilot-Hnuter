@@ -342,6 +342,10 @@ void ActuatorEffectivenessHnuter::updateParams()
 
 float ActuatorEffectivenessHnuter::applyTailReversalGuard(float desired_tail_force, hrt_abstime now)
 {
+	if (now < _handover_tail_neutral_until) {
+		return 0.f;
+	}
+
 	// Ignore tiny force sign changes around the reversible ESC neutral point.
 	const float force_deadband = math::max(0.005f * _max_tail_thrust, 0.1f);
 	const int8_t desired_direction = desired_tail_force > force_deadband ? 1
@@ -430,6 +434,99 @@ void ActuatorEffectivenessHnuter::allocateAuxilaryControls(const float dt, int m
 {
 }
 
+void ActuatorEffectivenessHnuter::updateControlMode(const vehicle_control_mode_s &mode)
+{
+	_armed = mode.flag_armed;
+	_offboard_enabled = mode.flag_control_offboard_enabled;
+
+	if (_armed && !_prev_armed) {
+		_armed_time = hrt_absolute_time();
+	}
+
+	_prev_armed = _armed;
+	_handover.update(_armed, mode.flag_control_offboard_enabled && !mode.flag_control_allocation_enabled,
+			 mode.timestamp);
+}
+
+float ActuatorEffectivenessHnuter::handoverProgress(hrt_abstime now) const
+{
+	return _handover_blend_start > 0 && now >= _handover_blend_start
+	       ? math::constrain((now - _handover_blend_start) / 500000.f, 0.f, 1.f) : 1.f;
+}
+
+void ActuatorEffectivenessHnuter::resumeActuatorState(hrt_abstime now, ActuatorVector &actuator_sp)
+{
+	updateParams();
+	actuator_motors_s motors{};
+	actuator_servos_s servos{};
+	const bool motors_valid = _handover_motors_sub.copy(&motors)
+				  && _handover.validSnapshot(motors.timestamp, now, motors.control, 5)
+				  && motors.control[0] >= 0.f && motors.control[1] >= 0.f
+				  && motors.control[2] >= 0.f && motors.control[3] >= 0.f
+				  && (motors.reversible_flags & (1u << 4));
+	const bool servos_valid = _handover_servos_sub.copy(&servos)
+				  && _handover.validSnapshot(servos.timestamp, now, servos.control, 4);
+
+	// These are command-history seeds, not measurements of position or RPM.
+	if (servos_valid && _tilts.count() >= 4) {
+		for (int i = 0; i < 4; ++i) {
+			_last_servo_sp(i) = servos.control[i];
+			actuator_sp(_first_tilt_idx + i) = servos.control[i];
+		}
+	}
+
+	// Do not turn a long bypass interval into a large first-step slew allowance.
+	_last_servo_update = now > 4000 ? now - 4000 : now;
+	_handover_tail_neutral_until = 0;
+
+	if (motors_valid && _mc_rotors.geometry().num_rotors >= 5) {
+		for (int i = 0; i < 5; ++i) {
+			actuator_sp(i) = motors.control[i];
+		}
+
+		const float command = motors.control[4];
+		const float sign = command < 0.f ? -1.f : 1.f;
+
+		if (fabsf(command) <= FLT_EPSILON) {
+			_tail_force_command = 0.f;
+
+		} else if (_simulation_motor_model) {
+			const float velocity = _sim_min_velocity + fabsf(command) * (_sim_max_velocity - _sim_min_velocity);
+			_tail_force_command = sign * kSimTailMotorConstant * velocity * velocity;
+
+		} else {
+			_tail_force_command = sign * math::max(_max_tail_thrust, 1.f)
+					      * powf(fabsf(command), 1.f / math::constrain(_motor_thrust_exponent, 0.2f, 1.5f));
+		}
+	}
+
+	if (!motors_valid || fabsf(_tail_force_command) <= FLT_EPSILON) {
+		// A zero/missing sample contains no last-spin direction. Observe a full
+		// neutral dwell instead of claiming that reversal has already completed.
+		_tail_force_command = 0.f;
+		actuator_sp(4) = 0.f;
+		_handover_tail_neutral_until = now + static_cast<hrt_abstime>(_tail_reverse_delay_s * 1e6f);
+	}
+
+	_tail_last_nonzero_direction = _tail_force_command > 0.f ? 1 : (_tail_force_command < 0.f ? -1 : 0);
+	_handover_blend_start = motors_valid ? now : 0;
+	_handover_tail_force = _tail_force_command;
+
+	for (int i = 0; i < 4; ++i) {
+		_handover_front_motors(i) = actuator_sp(i);
+	}
+
+	_tail_zero_timestamp = fabsf(_tail_force_command) <= FLT_EPSILON ? now : 0;
+
+	_unallocated_control.setZero();
+	_handover.complete();
+
+	if (!motors_valid || !servos_valid) {
+		PX4_WARN("Hnuter handover: missing fresh actuator history (motors=%d servos=%d)",
+			 (int)motors_valid, (int)servos_valid);
+	}
+}
+
 void ActuatorEffectivenessHnuter::updateSetpoint(const matrix::Vector<float, NUM_AXES> &control_sp,
 			int matrix_index, ActuatorVector &actuator_sp, const ActuatorVector &actuator_min, const ActuatorVector &actuator_max)
 {
@@ -440,7 +537,7 @@ void ActuatorEffectivenessHnuter::updateSetpoint(const matrix::Vector<float, NUM
 	vehicle_control_mode_s vehicle_control_mode{};
 
 	if (_vehicle_control_mode_sub.update(&vehicle_control_mode)) {
-		_armed = vehicle_control_mode.flag_armed;
+		updateControlMode(vehicle_control_mode);
 		_offboard_enabled = vehicle_control_mode.flag_control_offboard_enabled;
 	}
 
@@ -459,6 +556,8 @@ void ActuatorEffectivenessHnuter::updateSetpoint(const matrix::Vector<float, NUM
 	}
 
 	if (!_armed) {
+		_handover_tail_neutral_until = 0;
+		_handover_blend_start = 0;
 		const int num_tilts = _tilts.count();
 
 		const int num_rotors = _mc_rotors.geometry().num_rotors;
@@ -528,7 +627,10 @@ void ActuatorEffectivenessHnuter::updateSetpoint(const matrix::Vector<float, NUM
 	// Motor5 is a dedicated Pitch torque actuator. Its command must not follow
 	// collective thrust; any attitude-dependent gravity trim is modelled
 	// separately once the primary-axis-to-CG geometry has been measured.
-	const float F3_desired = W[4] / (r_x + l2);
+	const float handover_progress = handoverProgress(now);
+	// Blend the demand, never the guarded output: reversal dwell remains authoritative.
+	const float F3_desired = (1.f - handover_progress) * _handover_tail_force
+				 + handover_progress * (W[4] / (r_x + l2));
 	const float tail_forward_limit = _simulation_motor_model
 				       ? math::min(max_tail_thrust, kSimTailMaxForwardThrust) : max_tail_thrust;
 	const float tail_reverse_limit = _simulation_motor_model
@@ -685,6 +787,11 @@ void ActuatorEffectivenessHnuter::updateSetpoint(const matrix::Vector<float, NUM
 		actuator_sp(2) = norm_left;
 		actuator_sp(3) = norm_left;
 
+		for (int i = 0; i < 4; ++i) {
+			actuator_sp(i) = (1.f - handover_progress) * _handover_front_motors(i)
+					 + handover_progress * actuator_sp(i);
+		}
+
 		if (num_rotors >= 5) {
 			actuator_sp(4) = norm_tail;
 		}
@@ -743,8 +850,27 @@ void ActuatorEffectivenessHnuter::updateSetpoint(const matrix::Vector<float, NUM
 		theta1_achieved = _last_servo_sp(3) * theta1_servo_angle_max / _secondary_servo_gear_ratio;
 	}
 
-	const float F1_achieved = math::constrain(F1, 0.f, max_thrust_per_arm);
-	const float F2_achieved = math::constrain(F2, 0.f, max_thrust_per_arm);
+	float F1_achieved = math::constrain(F1, 0.f, max_thrust_per_arm);
+	float F2_achieved = math::constrain(F2, 0.f, max_thrust_per_arm);
+
+	if (handover_progress < 1.f && num_rotors >= 4) {
+		auto front_force = [&](float command) {
+			if (command <= FLT_EPSILON) {
+				return 0.f;
+			}
+
+			if (_simulation_motor_model) {
+				const float velocity = _sim_min_velocity + command * (_sim_max_velocity - _sim_min_velocity);
+				return _motor_constant * velocity * velocity;
+			}
+
+			return mass * gravity * 0.25f
+			       * powf(command / math::constrain(_motor_hover_control, 0.05f, 0.95f),
+				      1.f / math::constrain(_motor_thrust_exponent, 0.2f, 1.5f));
+		};
+		F1_achieved = front_force(actuator_sp(2)) + front_force(actuator_sp(3));
+		F2_achieved = front_force(actuator_sp(0)) + front_force(actuator_sp(1));
+	}
 	const float u1_achieved = F1_achieved * cosf(theta1_achieved) * sinf(alpha1_achieved);
 	const float u2_achieved = F1_achieved * cosf(theta1_achieved) * cosf(alpha1_achieved);
 	const float u3_achieved = F1_achieved * sinf(theta1_achieved);
