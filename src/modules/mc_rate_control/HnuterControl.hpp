@@ -49,7 +49,18 @@ public:
 
 	void reset();
 
+	// Called on every gyro cycle, including cycles that bypass update().
+	void setControlActive(bool active, bool armed, RateControl &rate_control, AlphaFilter<float> &yaw_torque_filter);
+
 private:
+	friend struct HnuterHandoverTest;
+	bool _control_active{false};
+	bool _control_was_bypassed{false};
+	bool _resume_attitude_hold{false};
+	hrt_abstime _reference_resume_timestamp{0};
+	matrix::Vector3f _resume_position{};
+	bool _resume_position_initialized{false};
+	matrix::Quatf _resume_attitude{};
 	static constexpr float LANDING_OUTPUT_RAMP_TIME_S{0.3f};
 
 	static float forceToNormalizedThrust(float force, float max_force);

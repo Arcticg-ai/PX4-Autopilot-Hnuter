@@ -105,8 +105,55 @@ float HnuterControl::applyDeadband(float input, float deadband)
 	return math::signNoZero(input) * (magnitude - constrained_deadband) / (1.f - constrained_deadband);
 }
 
+void HnuterControl::setControlActive(bool active, bool armed, RateControl &rate_control,
+				   AlphaFilter<float> &yaw_torque_filter)
+{
+	if (!armed) {
+		reset();
+		_control_active = false;
+		_control_was_bypassed = false;
+		rate_control.resetIntegral();
+		yaw_torque_filter.reset(0.f);
+		return;
+	}
+
+	if (active != _control_active || (!active && !_control_was_bypassed)) {
+		_velocity_integral.setZero();
+		_integral_e_R.setZero();
+		_rc_attitude_initialized = false;
+		_rc_level_return_active = false;
+		_rc_level_switch_previous = false;
+		_rc_governor_scale = 1.f;
+		_manual_altitude_initialized = false;
+		_xy_lock_initialized = false;
+		rate_control.resetIntegral();
+		_pitch_residual_limited = false;
+		yaw_torque_filter.reset(0.f);
+	}
+
+	if (!active) {
+		_control_was_bypassed = true;
+
+		if (!_prev_armed) {
+			_armed_time = hrt_absolute_time();
+			_prev_armed = true;
+		}
+
+	} else if (_control_was_bypassed) {
+		_reference_resume_timestamp = hrt_absolute_time();
+		_resume_position_initialized = false;
+		_resume_attitude_hold = true;
+		_control_was_bypassed = false;
+	}
+
+	_control_active = active;
+}
+
 void HnuterControl::reset()
 {
+	_reference_resume_timestamp = 0;
+	_resume_position_initialized = false;
+	_resume_attitude_hold = false;
 	_velocity_integral.setZero();
 	_integral_e_R.setZero();
 	_xy_lock_initialized = false;
@@ -151,7 +198,10 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 
 	const bool have_odom = _vehicle_odometry_sub.copy(&odom);
 	const bool have_att = _vehicle_attitude_sub.copy(&att);
-	const bool have_traj = _trajectory_setpoint_sub.copy(&traj_sp);
+	const bool have_traj = _trajectory_setpoint_sub.copy(&traj_sp)
+			       && (_reference_resume_timestamp == 0
+				   || (traj_sp.timestamp >= _reference_resume_timestamp && traj_sp.timestamp <= now
+				       && now - traj_sp.timestamp < 500_ms));
 	const bool have_att_sp = _vehicle_attitude_setpoint_sub.copy(&att_sp);
 	const bool have_local_pos = _vehicle_local_position_sub.copy(&local_pos);
 	const bool have_manual_sp = _manual_control_setpoint_sub.copy(&manual_sp);
@@ -166,7 +216,8 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 			&& !vehicle_control_mode.flag_control_climb_rate_enabled
 			&& !vehicle_control_mode.flag_control_offboard_enabled;
 
-	if (!vehicle_control_mode.flag_armed || !have_odom || !have_att || (!have_traj && !manual_attitude_altitude_mode)) {
+	if (!vehicle_control_mode.flag_armed || !have_odom || !have_att
+	    || (!have_traj && !manual_attitude_altitude_mode && _reference_resume_timestamp == 0)) {
 		reset();
 
 		output.thrust_setpoint.timestamp_sample = angular_velocity.timestamp_sample;
@@ -229,6 +280,7 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 	control_allocator_status_s allocator_status{};
 	const bool allocator_status_valid = _control_allocator_status_sub.copy(&allocator_status)
 					    && allocator_status.timestamp > 0 && now >= allocator_status.timestamp
+					    && allocator_status.timestamp >= _reference_resume_timestamp
 					    && (now - allocator_status.timestamp) < 100_ms;
 	const float allocator_pitch_residual = allocator_status_valid ? allocator_status.unallocated_torque[1] : 0.f;
 	// HnuterControl maps physical body-y torque to the allocator with a minus
@@ -261,6 +313,12 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 
 	const Vector3f pos{odom.position};
 	const Vector3f vel{odom.velocity};
+
+	if (_reference_resume_timestamp != 0 && !_resume_position_initialized) {
+		_resume_position = pos;
+		_resume_attitude = normalizedQuaternion(Quatf{att.q});
+		_resume_position_initialized = true;
+	}
 	Vector3f measured_acceleration{};
 
 	if (have_local_pos && local_pos.timestamp > 0 && now >= local_pos.timestamp
@@ -275,7 +333,13 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 	bool position_sp_valid[3] {false, false, false};
 	bool velocity_sp_valid[3] {false, false, false};
 
-	if (!manual_attitude_altitude_mode) {
+	if (!have_traj && _reference_resume_timestamp != 0) {
+		// Do not reuse the external trajectory while FlightTask is switching owners.
+		pos_sp = _resume_position;
+		position_sp_valid[0] = position_sp_valid[1] = position_sp_valid[2] = true;
+	}
+
+	if (!manual_attitude_altitude_mode && have_traj) {
 		for (int i = 0; i < 3; i++) {
 			if (PX4_ISFINITE(traj_sp.position[i])) {
 				pos_sp(i) = traj_sp.position[i];
@@ -598,6 +662,7 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 	const bool use_attitude_sp = vehicle_control_mode.flag_control_attitude_enabled
 				     && have_att_sp
 				     && att_sp.timestamp > 0
+				     && att_sp.timestamp >= _reference_resume_timestamp
 				     && (now >= att_sp.timestamp)
 				     && (now - att_sp.timestamp) < 500_ms;
 
@@ -648,7 +713,8 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 				_rc_tilt_sp = tiltForFixedHeading(q_cur, _rc_yaw_sp);
 				_rc_attitude_q_sp = attitudeFromHeadingTilt(_rc_yaw_sp, _rc_tilt_sp);
 				_rc_attitude_initialized = true;
-				_rc_level_return_active = true;
+				_rc_level_return_active = !_resume_attitude_hold;
+				_resume_attitude_hold = false;
 				_rc_level_switch_previous = PX4_ISFINITE(manual_sp.aux3) && manual_sp.aux3 > 0.5f;
 			}
 
@@ -808,6 +874,17 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 		target_attitude_rate = R_des.transpose() * Vector3f{0.f, 0.f, yaw_rate_sp};
 	}
 
+	if (_resume_attitude_hold && !rc_attitude_control_active && (have_traj || use_attitude_sp)) {
+		// Auto/non-RC Position owns its new reference; the hold is only a gap bridge.
+		_resume_attitude_hold = false;
+	}
+
+	if (_resume_attitude_hold && !vehicle_control_mode.flag_control_offboard_enabled) {
+		// RC may arrive after the mode edge. Hold the captured attitude meanwhile.
+		R_des = Dcmf{_resume_attitude};
+		target_attitude_rate.setZero();
+	}
+
 	// Shortest-path SO(3) logarithm retains control authority through 90 degrees
 	// and up to 180 degrees. The previous skew/sine error went back to zero at
 	// 180 degrees and could command no recovery torque.
@@ -937,6 +1014,11 @@ bool HnuterControl::update(const vehicle_angular_velocity_s &angular_velocity,
 	torque_setpoint_normalized *= combined_output_scale;
 
 	const float normalized_vertical_thrust = forceToNormalizedThrust(-f_body(2), max_front_vertical_thrust);
+
+	if (have_traj) {
+		// A later reference timeout must hold the new position, not the exit position.
+		_resume_position_initialized = false;
+	}
 
 	output.thrust_setpoint.xyz[0] = math::constrain(f_body(0) / max_thrust_per_arm, -1.f, 1.f);
 	output.thrust_setpoint.xyz[1] = math::constrain(f_body(1) / max_thrust_per_arm, -1.f, 1.f);
